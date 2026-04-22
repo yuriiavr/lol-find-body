@@ -97,7 +97,7 @@ export default function Home() {
       <nav className="w-full border-b border-white/5 bg-slate-900/20 backdrop-blur-lg sticky top-0 z-50 px-6">
         <div className="max-w-[1600px] mx-auto h-20 flex justify-between items-center">
           <div className="flex items-center gap-10">
-            <h1 className="text-2xl font-black text-tech-gradient tracking-tighter italic">LoLMatch.UA</h1>
+            <h1 className="text-2xl font-black text-tech-gradient tracking-tighter italic">LoLMatch</h1>
             {user && (
               <div className="hidden md:flex gap-6 text-xs font-bold uppercase tracking-widest text-slate-400">
                 <Link href="/" className="text-white border-b-2 border-violet-500 pb-1">Discovery</Link>
