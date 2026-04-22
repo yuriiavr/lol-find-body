@@ -1,0 +1,63 @@
+'use server'
+
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { getAccountByRiotId, getSummonerByPuuid, getRanksByPuuid } from '@/src/lib/riot'
+
+export async function updateProfile(formData: FormData) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) { return cookieStore.get(name)?.value },
+        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
+        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  // Переконайтеся, що тут НЕМАЄ .replace(/\s/g, '')
+  const gameName = (formData.get('gameName') as string)?.trim() || ''
+  const tagLine = (formData.get('tagLine') as string)?.trim().replace('#', '') || ''
+  const region = formData.get('region') as string
+  const bio = formData.get('bio') as string
+  const role = formData.get('role') as string
+
+  // Крок 1: Пошук Акаунта (PUUID)
+  const account = await getAccountByRiotId(gameName, tagLine, region)
+  if (!account) {
+    return { error: `Riot ID ${gameName}#${tagLine} не знайдено в регіоні ${region}.` }
+  }
+
+  // Крок 2: Отримання рангу за PUUID
+  const ranks = await getRanksByPuuid(account.puuid, region) || { solo: 'UNRANKED', flex: 'UNRANKED' };
+
+  // Крок 3: Пошук Сумонера (нам все ще потрібен summoner_id для бази, якщо ви його зберігаєте)
+  // Використовуємо V4, щоб не було 403
+  const summoner = await getSummonerByPuuid(account.puuid, region)
+
+  // Крок 4: Оновлення в Supabase
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      game_name: account.gameName,
+      tag_line: account.tagLine,
+      puuid: account.puuid,
+      summoner_id: summoner?.id || null, // Це encryptedSummonerId
+      region: region,
+      solo_rank: ranks.solo,
+      flex_rank: ranks.flex,
+      main_role: role,
+      bio: bio,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', user.id)
+
+  if (error) return { error: error.message }
+  return { success: true }
+}

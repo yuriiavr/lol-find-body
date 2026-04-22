@@ -1,0 +1,57 @@
+enum Role {
+  TOP
+  JUNGLE
+  MID
+  ADC
+  SUPPORT
+  FILL
+}
+
+enum Rank {
+  UNRANKED
+  IRON
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  EMERALD
+  DIAMOND
+  MASTER
+  GRANDMASTER
+  CHALLENGER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  image         String?   // Аватар з Discord
+  
+  // Дані Riot
+  riotId        String?   // Game Name
+  riotTag       String?   // Tagline (напр. UA1)
+  puuid         String?   @unique // Унікальний ID від Riot
+  region        String    @default("EUNE")
+  rank          Rank      @default(UNRANKED)
+  mainRole      Role      @default(FILL)
+  secondaryRole Role      @default(FILL)
+  
+  bio           String?   @db.Text
+  
+  // Система свайпів
+  likesSent     Like[]    @relation("LikesSent")
+  likesReceived Like[]    @relation("LikesReceived")
+}
+
+model Like {
+  id          String   @id @default(cuid())
+  fromId      String
+  toId        String
+  isMatch     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  from        User     @relation("LikesSent", fields: [fromId], references: [id])
+  to          User     @relation("LikesReceived", fields: [toId], references: [id])
+
+  @@unique([fromId, toId]) // Запобігає дубльованим лайкам
+}
