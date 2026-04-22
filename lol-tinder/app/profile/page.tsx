@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
 import { updateProfile } from './actions'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Loader2, LogOut, Shield, Sword, Globe, User as UserIcon, Tag, Trophy } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, LogOut, Sword, Globe, User as UserIcon, Tag, Trophy, Settings, Star } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ProfilePage() {
@@ -36,7 +36,7 @@ export default function ProfilePage() {
     if (result?.error) {
       setMessage(result.error)
     } else {
-      setMessage('Профіль успішно оновлено!')
+      setMessage('Updated successfully!')
       router.refresh()
     }
   }
@@ -53,94 +53,125 @@ export default function ProfilePage() {
   )
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950 text-white p-6">
-      <div className="max-w-md mx-auto">
-        <Link href="/" className="inline-flex items-center gap-2 text-slate-400 mb-8 hover:text-blue-400 transition-colors group">
-          <ArrowLeft size={20} className="group-hover:-translate-x-1" /> Назад до пошуку
-        </Link>
-
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-          {/* Декоративний елемент */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-3xl -z-10" />
-          
-          <div className="flex flex-col items-center mb-8">
-            <div className="relative mb-4">
-              <img 
-                src={user?.user_metadata?.avatar_url} 
-                className="w-24 h-24 rounded-full border-4 border-blue-500/50 shadow-lg shadow-blue-500/20" 
-                alt="Avatar" 
-              />
-              <div className="absolute -bottom-2 -right-2 bg-blue-600 rounded-full p-2 border-4 border-slate-900">
-                <Trophy size={16} />
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold">{profile.game_name || user?.user_metadata?.full_name || 'Твій Профіль'}</h1>
-            <div className="flex flex-col items-center gap-1 mt-2">
-              <p className="text-blue-400 text-xs font-black tracking-widest uppercase">Solo: {profile.solo_rank || 'Unranked'}</p>
-              <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase">Flex: {profile.flex_rank || 'Unranked'}</p>
-            </div>
-          </div>
-
-          <form action={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Riot ID</label>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2 relative group">
-                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500" size={18} />
-                  <input name="gameName" defaultValue={profile.game_name || ''} placeholder="Name" required className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 focus:border-blue-500 outline-none transition-all" />
-                </div>
-                <div className="relative group">
-                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500" size={18} />
-                  <input name="tagLine" defaultValue={profile.tag_line || ''} placeholder="UA1" required className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 focus:border-blue-500 outline-none transition-all" />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-2"><Globe size={14} /> Регіон</label>
-                <select name="region" defaultValue={profile.region || 'EUNE'} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 focus:border-blue-500 outline-none appearance-none cursor-pointer">
-                  <option value="EUNE">EUNE</option>
-                  <option value="EUW">EUW</option>
-                  <option value="NA">NA</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-2"><Sword size={14} /> Роль</label>
-                <select name="role" defaultValue={profile.main_role || 'FILL'} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 focus:border-blue-500 outline-none appearance-none cursor-pointer">
-                  <option value="TOP">Top</option>
-                  <option value="JUNGLE">Jungle</option>
-                  <option value="MID">Mid</option>
-                  <option value="ADC">ADC</option>
-                  <option value="SUPPORT">Support</option>
-                  <option value="FILL">Fill</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Про себе</label>
-              <textarea name="bio" defaultValue={profile.bio || ''} placeholder="Твій стиль гри..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 h-28 focus:border-blue-500 outline-none resize-none transition-all" />
-            </div>
-
-            {message && (
-              <div className={`p-4 rounded-xl text-sm font-medium ${message.includes('успішно') ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                {message}
-              </div>
-            )}
-
-            <button disabled={loading} type="submit" className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-blue-500/20 group">
-              {loading ? <Loader2 className="animate-spin" /> : <Save size={20} className="group-hover:scale-110" />}
-              Зберегти зміни
-            </button>
-          </form>
+    <div className="min-h-screen bg-[#030712] text-slate-50 flex flex-col">
+      {/* Compact Navbar */}
+      <nav className="w-full border-b border-white/5 bg-slate-900/40 backdrop-blur-md px-8 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div className="flex items-center gap-6">
+          <Link href="/" className="hover:text-violet-400 transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+            <ArrowLeft size={18} /> Back
+          </Link>
+          <div className="h-6 w-[1px] bg-slate-700" />
+          <h2 className="text-sm font-black uppercase tracking-[0.3em] text-tech-gradient">Control Center</h2>
         </div>
-
-        <button onClick={handleSignOut} className="w-full mt-8 flex items-center justify-center gap-2 text-slate-500 hover:text-red-500 transition-colors text-sm font-medium">
-          <LogOut size={16} />
-          Вийти з акаунту
+        <button onClick={handleSignOut} className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-red-500 transition-all uppercase">
+          <LogOut size={16} /> Logout
         </button>
-      </div>
+      </nav>
+
+      <main className="flex-1 w-full max-w-[1400px] mx-auto p-8 lg:p-16">
+        <div className="flex flex-col lg:flex-row gap-16">
+          
+          {/* Profile Preview (Left) */}
+          <section className="w-full lg:w-96 flex flex-col items-center lg:items-start">
+            <div className="relative mb-10 group">
+              <div className="w-56 h-56 rounded-[2.5rem] bg-gradient-to-tr from-violet-600 to-cyan-500 p-1 shadow-2xl shadow-violet-500/20 group-hover:rotate-3 transition-transform duration-500">
+                <div className="w-full h-full rounded-[2.3rem] bg-slate-950 overflow-hidden">
+                  <img src={user?.user_metadata?.avatar_url} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt="Avatar" />
+                </div>
+              </div>
+              <div className="absolute -bottom-4 -right-4 bg-slate-900 p-4 rounded-2xl border border-white/10 shadow-xl">
+                <Trophy size={24} className="text-violet-400" />
+              </div>
+            </div>
+
+            <div className="text-center lg:text-left space-y-2">
+              <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
+                {profile.game_name || 'Summoner'}
+                <span className="text-slate-600 block text-2xl mt-1">#{profile.tag_line || 'UA1'}</span>
+              </h1>
+            </div>
+
+            <div className="mt-10 w-full space-y-4">
+              <div className="modern-panel p-5 bg-violet-500/5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black uppercase text-slate-500">Solo Queue</span>
+                  <Star size={12} className="text-violet-400" />
+                </div>
+                <p className="text-2xl font-bold text-white uppercase italic">{profile.solo_rank || 'Unranked'}</p>
+              </div>
+              <div className="modern-panel p-5 bg-cyan-500/5">
+                <span className="text-[10px] font-black uppercase text-slate-500 block mb-1">Flex Queue</span>
+                <p className="text-xl font-bold text-slate-300 uppercase italic">{profile.flex_rank || 'Unranked'}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Configuration Form (Right) */}
+          <section className="flex-1">
+            <div className="flex items-center gap-3 mb-10">
+              <Settings size={24} className="text-cyan-400" />
+              <h3 className="text-2xl font-black uppercase tracking-widest">General Configuration</h3>
+            </div>
+
+            <form action={handleSubmit} className="space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <UserIcon size={14} /> Game Name
+                  </label>
+                  <input name="gameName" defaultValue={profile.game_name || ''} placeholder="e.g. Faker" required className="modern-input" />
+                </div>
+                <div className="space-y-4">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <Tag size={14} /> Tagline
+                  </label>
+                  <input name="tagLine" defaultValue={profile.tag_line || ''} placeholder="e.g. EUW" required className="modern-input" />
+                </div>
+                <div className="space-y-4">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <Globe size={14} /> Region
+                  </label>
+                  <select name="region" defaultValue={profile.region || 'EUNE'} className="modern-input appearance-none">
+                    <option value="EUNE">Europe Nordic & East</option>
+                    <option value="EUW">Europe West</option>
+                    <option value="NA">North America</option>
+                  </select>
+                </div>
+                <div className="space-y-4">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <Sword size={14} /> Primary Position
+                  </label>
+                  <select name="role" defaultValue={profile.main_role || 'FILL'} className="modern-input appearance-none">
+                    <option value="TOP">TOP</option>
+                    <option value="JUNGLE">JUNGLE</option>
+                    <option value="MID">MID</option>
+                    <option value="ADC">ADC</option>
+                    <option value="SUPPORT">SUPPORT</option>
+                    <option value="FILL">FILL</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Player Biography</label>
+                <textarea name="bio" defaultValue={profile.bio || ''} placeholder="Looking for competitive duo..." className="modern-input h-32 resize-none" />
+              </div>
+
+              <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
+                {message && (
+                  <p className={`text-sm font-bold uppercase tracking-wide ${message.includes('successfully') ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {message}
+                  </p>
+                )}
+                <button disabled={loading} type="submit" className="btn-modern w-full md:w-auto px-12 py-4">
+                  {loading ? <Loader2 className="animate-spin" /> : <Save size={20} />}
+                  Apply Changes
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </main>
     </div>
   )
 }

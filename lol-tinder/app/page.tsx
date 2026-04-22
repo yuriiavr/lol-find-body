@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Heart, X, Shield, Sword, Zap, User, LogIn, Filter, Activity } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion"
+import { Heart, Sword, Zap, User, LogIn, Filter, Activity, Search, Globe, Trophy, ExternalLink } from "lucide-react"
 import { createClient } from "@/src/utils/supabase/client";
 import Link from "next/link";
 
@@ -44,6 +44,11 @@ export default function Home() {
         query = query.eq('main_role', filterRole);
       }
 
+      if (filterRank !== "ALL") {
+        // Пошук за підстрокою в ранзі (наприклад 'PLATINUM')
+        query = query.ilike('solo_rank', `%${filterRank}%`);
+      }
+
       if (onlyOnline) {
         // Вважаємо онлайн, якщо активність була в останні 10 хвилин
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
@@ -68,189 +73,189 @@ export default function Home() {
   }, [user, filterRole, filterRank, onlyOnline, supabase]);
 
   const handleLogin = async () => {
+    const redirectTo = typeof window !== 'undefined' 
+      ? `${window.location.origin}/auth/callback`
+      : undefined;
+
     await supabase.auth.signInWithOAuth({
       provider: "discord",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo },
     });
-  };
-
-  const activePlayer = players[currentIndex];
-
-  const handleSwipe = (direction: "left" | "right") => {
-    setLastDirection(direction);
-    setTimeout(() => {
-      setCurrentIndex((prev) => prev + 1);
-      setLastDirection(null);
-    }, 200);
   };
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <Zap className="animate-pulse text-blue-500" size={48} />
+      <div className="flex min-h-screen items-center justify-center bg-gray-950">
+        <Zap className="animate-bounce text-violet-500" size={48} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white overflow-hidden p-4">
-      {/* Header */}
-      <header className="fixed top-0 w-full p-6 flex justify-between items-center max-w-md">
-        <h1 className="text-2xl font-black italic tracking-tighter text-blue-500">LoLMatch.UA</h1>
-        <div className="bg-slate-800 p-2 rounded-full">
-          {user ? (
-            <Link href="/profile">
-              <img src={user.user_metadata.avatar_url} className="w-6 h-6 rounded-full hover:ring-2 hover:ring-blue-500 transition-all cursor-pointer" alt="avatar" />
-            </Link>
-          ) : (
-            <User size={20} onClick={handleLogin} className="cursor-pointer" />
-          )}
-        </div>
-      </header>
-
-      {!user ? (
-        <main className="flex flex-col items-center gap-6 text-center">
-          <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-xl shadow-blue-500/20">
-            <Zap size={48} fill="white" />
-          </div>
-          <h2 className="text-4xl font-extrabold tracking-tight">Знайди свою команду в LoL</h2>
-          <p className="text-slate-400 max-w-[280px]">Авторизуйся через Discord, щоб почати пошук гравців з України.</p>
-          <button 
-            onClick={handleLogin}
-            className="flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-4 px-8 rounded-2xl transition-all scale-105 active:scale-95"
-          >
-            <LogIn size={20} />
-            Увійти через Discord
-          </button>
-        </main>
-      ) : (
-        <>
-          {/* Filter Bar */}
-          <div className="w-full max-w-md mb-4 flex flex-col gap-2">
-            <button 
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-all"
-            >
-              <Filter size={16} /> {showFilters ? "Приховати фільтри" : "Показати фільтри"}
-            </button>
-            
-            {showFilters && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-wrap gap-4"
-              >
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold text-blue-500 uppercase">Роль</label>
-                  <select 
-                    value={filterRole} 
-                    onChange={(e) => setFilterRole(e.target.value)}
-                    className="bg-slate-800 border-none rounded-lg text-sm p-2 outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="ALL">Всі ролі</option>
-                    <option value="TOP">TOP</option>
-                    <option value="JUNGLE">JUNGLE</option>
-                    <option value="MID">MID</option>
-                    <option value="ADC">ADC</option>
-                    <option value="SUPPORT">SUPPORT</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold text-blue-500 uppercase">Ранг (Solo)</label>
-                  <select 
-                    value={filterRank} 
-                    onChange={(e) => setFilterRank(e.target.value)}
-                    className="bg-slate-800 border-none rounded-lg text-sm p-2 outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="ALL">Всі ранги</option>
-                    <option value="IRON">Iron</option>
-                    <option value="BRONZE">Bronze</option>
-                    <option value="SILVER">Silver</option>
-                    <option value="GOLD">Gold</option>
-                    <option value="PLATINUM">Platinum</option>
-                    <option value="EMERALD">Emerald</option>
-                    <option value="DIAMOND">Diamond</option>
-                    <option value="MASTER">Master+</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold text-blue-500 uppercase">Статус</label>
-                  <button 
-                    onClick={() => setOnlyOnline(!onlyOnline)}
-                    className={`flex items-center gap-2 text-sm p-2 rounded-lg transition-all ${onlyOnline ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                  >
-                    <Activity size={14} /> Тільки онлайн
-                  </button>
-                </div>
-              </motion.div>
+    <div className="min-h-screen bg-[#030712] text-slate-50 flex flex-col">
+      {/* Desktop Navbar */}
+      <nav className="w-full border-b border-white/5 bg-slate-900/20 backdrop-blur-lg sticky top-0 z-50 px-6">
+        <div className="max-w-[1600px] mx-auto h-20 flex justify-between items-center">
+          <div className="flex items-center gap-10">
+            <h1 className="text-2xl font-black text-tech-gradient tracking-tighter italic">LoLMatch.UA</h1>
+            {user && (
+              <div className="hidden md:flex gap-6 text-xs font-bold uppercase tracking-widest text-slate-400">
+                <Link href="/" className="text-white border-b-2 border-violet-500 pb-1">Discovery</Link>
+                <Link href="/matches" className="hover:text-white transition-colors">Matches</Link>
+              </div>
             )}
           </div>
+          
+          <div>
+            {user ? (
+              <Link href="/profile" className="flex items-center gap-3 p-1.5 pr-5 bg-slate-800/40 rounded-full hover:bg-slate-700/50 border border-white/5 transition-all">
+                <img src={user.user_metadata.avatar_url} className="w-8 h-8 rounded-full border border-violet-500/50" alt="avatar" />
+                <span className="text-sm font-bold">{user.user_metadata.full_name}</span>
+              </Link>
+            ) : (
+              <button onClick={handleLogin} className="btn-modern py-2.5">
+                <LogIn size={18} /> Login
+              </button>
+            )}
+          </div>
+        </div>
+      </nav>
 
-      <main className="relative w-full max-w-sm aspect-[3/4] mt-10">
-        <AnimatePresence>
-          {activePlayer ? (
-            <motion.div
-              key={activePlayer.id}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ 
-                x: lastDirection === "right" ? 500 : lastDirection === "left" ? -500 : 0,
-                opacity: 0,
-                rotate: lastDirection === "right" ? 25 : -25
-              }}
-              className="absolute inset-0 bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col"
-            >
-              {/* Card Image/Header */}
-              <div className="h-2/3 bg-gradient-to-b from-blue-600/20 to-slate-900 flex items-center justify-center relative">
-                <div className="absolute top-4 right-4 bg-black/50 px-3 py-1 rounded-full text-xs font-bold border border-blue-500/50">
-                  <div className="flex flex-col items-end">
-                    <span className="text-[10px] text-slate-400">Solo: {activePlayer.solo_rank}</span>
-                    <span className="text-[10px] text-slate-400">Flex: {activePlayer.flex_rank}</span>
-                  </div>
+      {!user ? (
+        <main className="flex-1 flex flex-col items-center justify-center text-center px-4 relative overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-violet-600/10 blur-[150px] rounded-full -z-10" />
+          <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+            <h2 className="text-6xl md:text-8xl font-black tracking-tighter mb-8 leading-none uppercase">
+              Find Your <br/> <span className="text-tech-gradient">Perfect Duo</span>
+            </h2>
+            <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+              Професійна платформа для пошуку тіммейтів в League of Legends. <br className="hidden md:block" />
+              Об'єднуйся з гравцями твого рівня та перемагай разом.
+            </p>
+            <button onClick={handleLogin} className="btn-modern px-14 py-5 text-lg scale-110 shadow-violet-600/30">
+              <LogIn size={24} /> Get Started
+            </button>
+          </motion.div>
+        </main>
+      ) : (
+        <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-10">
+          <div className="flex flex-col lg:flex-row gap-8">
+            {/* Left Filter Sidebar */}
+            <aside className="w-full lg:w-80 space-y-6">
+              <div className="modern-panel p-6">
+                <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-4">
+                  <Filter size={18} className="text-violet-400" />
+                  <h3 className="font-bold uppercase tracking-[0.2em] text-[10px] text-slate-500">Filter Rift</h3>
                 </div>
-                {new Date(activePlayer.last_seen).getTime() > Date.now() - 10 * 60 * 1000 && (
-                  <div className="absolute top-4 left-4 flex items-center gap-1 bg-emerald-500/20 px-2 py-1 rounded-full border border-emerald-500/50">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                    <span className="text-[10px] font-bold text-emerald-500 uppercase">Online</span>
+
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Main Role</label>
+                    <select 
+                      value={filterRole} 
+                      onChange={(e) => setFilterRole(e.target.value)}
+                      className="modern-input text-sm"
+                    >
+                      <option value="ALL">All Positions</option>
+                      <option value="TOP">TOP LANE</option>
+                      <option value="JUNGLE">JUNGLE</option>
+                      <option value="MID">MID LANE</option>
+                      <option value="ADC">ADC / BOTTOM</option>
+                      <option value="SUPPORT">SUPPORT</option>
+                    </select>
                   </div>
-                )}
-                <div className="flex flex-col items-center">
-                  <div className="w-32 h-32 rounded-full bg-slate-800 border-4 border-blue-500 flex items-center justify-center mb-4">
-                    <Zap size={60} className="text-blue-400" />
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tier Rank</label>
+                    <select 
+                      value={filterRank} 
+                      onChange={(e) => setFilterRank(e.target.value)}
+                      className="modern-input text-sm"
+                    >
+                      <option value="ALL">All Ranks</option>
+                      <option value="IRON">Iron</option>
+                      <option value="BRONZE">Bronze</option>
+                      <option value="SILVER">Silver</option>
+                      <option value="GOLD">Gold</option>
+                      <option value="PLATINUM">Platinum</option>
+                      <option value="EMERALD">Emerald</option>
+                      <option value="DIAMOND">Diamond</option>
+                      <option value="MASTER">Master+</option>
+                    </select>
                   </div>
-                  <h2 className="text-3xl font-bold">{activePlayer.game_name}</h2>
-                  <p className="text-blue-400 font-medium flex items-center gap-2">
-                    {activePlayer.main_role}
-                  </p>
+
+                  <button 
+                    onClick={() => setOnlyOnline(!onlyOnline)}
+                    className={`flex items-center justify-between w-full p-4 rounded-xl border-2 transition-all ${onlyOnline ? 'border-violet-500 bg-violet-500/10 text-violet-400' : 'border-white/5 bg-slate-800/30 text-slate-500'}`}
+                  >
+                    <span className="text-xs font-black uppercase">Live Online</span>
+                    <Activity size={16} />
+                  </button>
                 </div>
               </div>
+            </aside>
 
-              {/* Card Body */}
-              <div className="p-6 flex-1 flex flex-col">
-                <p className="text-slate-300 text-sm italic mb-4">"{activePlayer.bio}"</p>
+            {/* Discovery Grid */}
+            <div className="flex-1">
+              <div className="main-grid">
+                <AnimatePresence mode="popLayout">
+                  {players.length > 0 ? (
+                    players.map((player) => (
+                      <motion.div
+                        key={player.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="modern-panel p-6 group flex flex-col h-full"
+                      >
+                        <div className="flex justify-between items-start mb-6">
+                          <div className="flex gap-4">
+                            <div className="relative">
+                              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-600 to-cyan-500 p-[2px]">
+                                <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center overflow-hidden">
+                                  <User size={28} className="text-slate-700" />
+                                </div>
+                              </div>
+                              {new Date(player.last_seen).getTime() > Date.now() - 10 * 60 * 1000 && (
+                                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-lg shadow-emerald-500/50" />
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-bold text-white group-hover:text-violet-400 transition-colors">{player.game_name}</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Trophy size={12} className="text-violet-400" />
+                                <span className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">{player.solo_rank}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="bg-white/5 px-2 py-1 rounded text-[10px] font-bold text-cyan-400 border border-white/5">
+                            {player.main_role}
+                          </div>
+                        </div>
+
+                        <div className="flex-1 bg-slate-950/30 rounded-xl p-4 mb-6 border border-white/5">
+                          <p className="text-sm text-slate-400 italic leading-relaxed">
+                            "{player.bio || "Жодної інформації не додано."}"
+                          </p>
+                        </div>
+
+                        <button className="btn-modern w-full text-xs py-3">
+                          Connect Profile
+                        </button>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="col-span-full py-40 flex flex-col items-center gap-4 text-slate-600">
+                      <Search size={64} className="opacity-10" />
+                      <p className="font-bold uppercase tracking-widest text-sm">No players found in this sector</p>
+                    </div>
+                  )}
+                </AnimatePresence>
               </div>
-            </motion.div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-6">
-              <h2 className="text-2xl font-bold mb-2">Гравці закінчилися!</h2>
-              <p className="text-slate-400">Спробуйте змінити фільтри або повернутися пізніше.</p>
             </div>
-          )}
-        </AnimatePresence>
-      </main>
-
-      {/* Controls */}
-      <div className="flex gap-6 mt-8">
-        <button onClick={() => handleSwipe("left")} className="p-5 bg-slate-800 rounded-full text-red-500 hover:bg-slate-700 transition shadow-lg border border-red-500/20">
-          <X size={32} />
-        </button>
-        <button onClick={() => handleSwipe("right")} className="p-5 bg-slate-800 rounded-full text-emerald-500 hover:bg-slate-700 transition shadow-lg border border-emerald-500/20">
-          <Heart size={32} />
-        </button>
-      </div>
-        </>
+          </div>
+        </main>
       )}
     </div>
   );
