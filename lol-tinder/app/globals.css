@@ -6,14 +6,14 @@
 
 
 :root {
-  /* Modern Tech Palette (RGB for Tailwind opacity support) */
-  --bg-primary: 3 7 18;        /* slate-950 */
-  --bg-secondary: 15 23 42;    /* slate-900 */
-  --accent-purple: 139 92 246; /* violet-500 */
-  --accent-cyan: 6 182 212;   /* cyan-500 */
-  --text-primary: 248 250 252; /* slate-50 */
-  --text-secondary: 148 163 184; /* slate-400 */
-  --border-color: 51 65 85;    /* slate-700 */
+  /* Obsidian & Ember Palette */
+  --bg-primary: 10 10 10;      /* Near black */
+  --bg-secondary: 24 24 24;    /* Dark charcoal */
+  --accent-orange: 251 146 60; /* orange-400 */
+  --accent-blue: 37 99 235;    /* blue-600 */
+  --text-primary: 250 250 250;
+  --text-secondary: 161 161 170;
+  --border-color: 39 39 42;    /* zinc-800 */
 }
 
 body {
@@ -31,22 +31,22 @@ body {
 
 /* Glassmorphism Panel */
 .modern-panel {
-  @apply rounded-2xl border border-white/5 transition-all duration-300;
-  background: linear-gradient(to bottom right, rgba(var(--bg-secondary), 0.6), rgba(var(--bg-secondary), 0.4));
-  backdrop-filter: blur(12px);
+  @apply rounded-xl border border-white/[0.03] transition-all duration-300;
+  background: rgba(var(--bg-secondary), 0.7);
+  backdrop-filter: blur(8px);
 }
 
 .modern-panel:hover {
-  @apply border-white/10;
+  @apply border-white/[0.08];
   background: rgba(var(--bg-secondary), 0.8);
   box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.5);
 }
 
 /* Modern Action Button */
 .btn-modern {
-  @apply px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-sm transition-all active:scale-95 flex items-center justify-center gap-2;
-  background: linear-gradient(135deg, rgb(var(--accent-purple)), rgb(var(--accent-cyan)));
-  @apply text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/40;
+  @apply px-6 py-3 rounded-lg font-bold uppercase tracking-wider text-sm transition-all active:scale-95 flex items-center justify-center gap-2;
+  background: linear-gradient(135deg, rgb(var(--accent-orange)), #ea580c);
+  @apply text-black shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20;
 }
 
 /* Tech Input */
@@ -56,7 +56,7 @@ body {
 
 /* Gradient Heading Text */
 .text-tech-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-cyan-400;
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-blue-400;
 }
 
 * {
@@ -70,9 +70,9 @@ body {
   background: rgb(var(--bg-primary));
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-800 rounded-full border-2;
+  @apply bg-zinc-800 rounded-full border-2;
   border-color: rgb(var(--bg-primary));
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-violet-600;
+  @apply bg-orange-500;
 }

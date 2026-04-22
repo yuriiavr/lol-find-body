@@ -27,11 +27,13 @@ export async function updateProfile(formData: FormData) {
   const region = formData.get('region') as string
   const bio = formData.get('bio') as string
   const role = formData.get('role') as string
+  const languages = formData.getAll('languages') as string[]
+  const preferredQueue = formData.get('preferredQueue') as string || 'SOLO'
 
   // Крок 1: Пошук Акаунта (PUUID)
   const account = await getAccountByRiotId(gameName, tagLine, region)
   if (!account) {
-    return { error: `Riot ID ${gameName}#${tagLine} не знайдено в регіоні ${region}.` }
+    return { error: `Riot ID ${gameName}#${tagLine} not found in ${region}.` }
   }
 
   // Крок 2: Отримання рангу за PUUID
@@ -53,6 +55,9 @@ export async function updateProfile(formData: FormData) {
       solo_rank: ranks.solo,
       flex_rank: ranks.flex,
       main_role: role,
+      preferred_queue: preferredQueue,
+      avatar_url: user.user_metadata.avatar_url,
+      language: languages.join(','), // Зберігаємо як "Ukrainian,English"
       bio: bio,
       updated_at: new Date().toISOString(),
     })
