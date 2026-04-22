@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion"
-import { Heart, Sword, Zap, User, LogIn, Filter, Activity, Search, Globe, Trophy, ExternalLink, Languages, LayoutGrid } from "lucide-react"
+import { Heart, Sword, Zap, User, LogIn, Filter, Activity, Search, Globe, Trophy, ExternalLink, Languages, LayoutGrid, Loader2 } from "lucide-react"
 import { createClient } from "@/src/utils/supabase/client";
 import Link from "next/link";
 
@@ -102,8 +102,8 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <Zap className="animate-bounce text-violet-500" size={48} />
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
+        <Loader2 className="animate-spin text-orange-500" size={48} />
       </div>
     );
   }
@@ -173,7 +173,7 @@ export default function Home() {
                     <select 
                       value={filterRole} 
                       onChange={(e) => setFilterRole(e.target.value)}
-                      className="modern-input text-sm"
+                      className="w-full bg-zinc-950/50 border border-white/5 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all cursor-pointer appearance-none hover:border-white/10"
                     >
                       <option value="ALL">All Positions</option>
                       <option value="TOP">TOP LANE</option>
@@ -189,7 +189,7 @@ export default function Home() {
                     <select 
                       value={filterRank} 
                       onChange={(e) => setFilterRank(e.target.value)}
-                      className="modern-input text-sm"
+                      className="w-full bg-zinc-950/50 border border-white/5 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all cursor-pointer appearance-none hover:border-white/10"
                     >
                       <option value="ALL">All Ranks</option>
                       <option value="IRON">Iron</option>
@@ -208,7 +208,7 @@ export default function Home() {
                     <select 
                       value={filterQueue} 
                       onChange={(e) => setFilterQueue(e.target.value)}
-                      className="modern-input text-sm"
+                      className="w-full bg-zinc-950/50 border border-white/5 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all cursor-pointer appearance-none hover:border-white/10"
                     >
                       <option value="ALL">All Queues</option>
                       <option value="SOLO">SOLO / DUO</option>

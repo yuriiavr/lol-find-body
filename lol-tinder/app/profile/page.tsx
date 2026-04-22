@@ -146,19 +146,19 @@ export default function ProfilePage() {
                   <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                     <UserIcon size={14} /> Game Name
                   </label>
-                  <input name="gameName" defaultValue={profile.game_name || ''} placeholder="e.g. Faker" required className="modern-input" />
+                  <input name="gameName" defaultValue={profile.game_name || ''} placeholder="e.g. Faker" required className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all placeholder:text-zinc-600" />
                 </div>
                 <div className="space-y-4">
                   <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                     <Tag size={14} /> Tagline
                   </label>
-                  <input name="tagLine" defaultValue={profile.tag_line || ''} placeholder="e.g. EUW" required className="modern-input" />
+                  <input name="tagLine" defaultValue={profile.tag_line || ''} placeholder="e.g. EUW" required className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all placeholder:text-zinc-600" />
                 </div>
                 <div className="space-y-4">
                   <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                     <Globe size={14} /> Region
                   </label>
-                  <select name="region" defaultValue={profile.region || 'EUNE'} className="modern-input appearance-none">
+                  <select name="region" defaultValue={profile.region || 'EUNE'} className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all appearance-none cursor-pointer">
                     <option value="EUNE">Europe Nordic & East</option>
                     <option value="EUW">Europe West</option>
                     <option value="NA">North America</option>
@@ -168,7 +168,7 @@ export default function ProfilePage() {
                   <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                     <Sword size={14} /> Primary Position
                   </label>
-                  <select name="role" defaultValue={profile.main_role || 'FILL'} className="modern-input appearance-none">
+                  <select name="role" defaultValue={profile.main_role || 'FILL'} className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all appearance-none cursor-pointer">
                     <option value="TOP">TOP</option>
                     <option value="JUNGLE">JUNGLE</option>
                     <option value="MID">MID</option>
@@ -181,7 +181,7 @@ export default function ProfilePage() {
                   <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                     <LayoutGrid size={14} /> Preferred Queue
                   </label>
-                  <select name="preferredQueue" defaultValue={profile.preferred_queue || 'SOLO'} className="modern-input appearance-none">
+                  <select name="preferredQueue" defaultValue={profile.preferred_queue || 'SOLO'} className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all appearance-none cursor-pointer">
                     <option value="SOLO">SOLO / DUO</option>
                     <option value="FLEX">FLEX QUEUE</option>
                   </select>
@@ -211,7 +211,7 @@ export default function ProfilePage() {
 
               <div className="space-y-4">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-500">Player Biography</label>
-                <textarea name="bio" defaultValue={profile.bio || ''} placeholder="Looking for competitive duo..." className="modern-input h-32 resize-none" />
+                <textarea name="bio" defaultValue={profile.bio || ''} placeholder="Looking for competitive duo..." className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all placeholder:text-zinc-600 h-32 resize-none" />
               </div>
 
               <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
