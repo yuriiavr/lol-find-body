@@ -62,7 +62,9 @@ export async function updateProfile(formData: FormData) {
   let tftRank = 'UNRANKED';
   try {
     const tftStats = await getRiotTFTStats(account.puuid, region);
+    console.log("[updateProfile] Raw TFT Stats received:", tftStats);
     tftRank = tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : 'UNRANKED';
+    console.log("[updateProfile] Calculated tftRank:", tftRank);
   } catch (e) {
     console.error("Failed to fetch TFT stats, skipping:", e);
   }

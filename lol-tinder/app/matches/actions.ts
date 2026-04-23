@@ -19,37 +19,44 @@ export async function getRiotLeagueStats(puuid: string, region: string) {
   const platform = regionToPlatform(region);
   
   // Спочатку отримуємо summonerId, бо league-v4 вимагає його, а не PUUID
-  const sumRes = await fetch(
-    `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`,
-    { next: { revalidate: 300 } } // Кешуємо на 5 хв
-  );
-  if (!sumRes.ok) return null;
-  const summoner = await sumRes.json();
+  const sumUrl = `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
+  console.log(`[League Stats] Summoner URL: ${sumUrl}`);
 
-  const leagueRes = await fetch(
-    `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`,
-    { next: { revalidate: 300 } }
-  );
-  if (!leagueRes.ok) return null;
-  return await leagueRes.json();
+  const sumRes = await fetch(sumUrl, { next: { revalidate: 300 } });
+  if (!sumRes.ok) {
+    console.error(`[League Stats] Summoner fetch failed: ${sumRes.status}`);
+    return null;
+  }
+  const summoner = await sumRes.json();
+  console.log(`[League Stats] Summoner ID: ${summoner.id}`);
+
+  const leagueUrl = `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`;
+  console.log(`[League Stats] League Entries URL: ${leagueUrl}`);
+
+  const leagueRes = await fetch(leagueUrl, { next: { revalidate: 300 } });
+  if (!leagueRes.ok) {
+    console.error(`[League Stats] League entries fetch failed: ${leagueRes.status}`);
+    return null;
+  }
+  const data = await leagueRes.json();
+  console.log(`[League Stats] Data:`, data);
+  return data;
 }
 
 export async function getRiotTFTStats(puuid: string, region: string) {
   const platform = regionToPlatform(region);
   
-  const sumRes = await fetch(
-    `https://${platform}.api.riotgames.com/tft/summoner/v1/summoners/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`,
-    { next: { revalidate: 300 } }
-  );
-  if (!sumRes.ok) return null;
-  const summoner = await sumRes.json();
+  const leagueUrl = `https://${platform}.api.riotgames.com/tft/league/v1/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
+  console.log(`[TFT Stats] League Entries URL: ${leagueUrl}`);
 
-  const leagueRes = await fetch(
-    `https://${platform}.api.riotgames.com/tft/league/v1/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`,
-    { next: { revalidate: 300 } }
-  );
-  if (!leagueRes.ok) return null;
-  return await leagueRes.json();
+  const leagueRes = await fetch(leagueUrl, { next: { revalidate: 300 } });
+  if (!leagueRes.ok) {
+    console.error(`[TFT Stats] League entries fetch failed: ${leagueRes.status}`);
+    return null;
+  }
+  const data = await leagueRes.json();
+  console.log(`[TFT Stats] Data:`, data);
+  return data;
 }
 
 export async function getTopChampions(puuid: string, region: string) {
