@@ -36,16 +36,36 @@ export async function updateProfile(formData: FormData) {
 
   // Крок 1: Пошук Акаунта (PUUID)
   const account = await getAccountByRiotId(gameName, tagLine, region)
-  if (!account) {
-    return { error: `Riot ID ${gameName}#${tagLine} not found in ${region}.` }
+  if (!account || (account as any).error) {
+    const status = (account as any)?.status;
+    if (status === 401) return { error: "Riot API Key expired or not yet activated. Please wait 2 minutes." };
+    if (status === 403) return { error: "API Key forbidden. Check your Riot Dashboard." };
+    return { error: `Riot ID ${gameName}#${tagLine} not found in ${region}.` };
+  }
+
+  // Перевірка, чи цей PUUID вже прив'язаний до ІНШОГО користувача
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('puuid', account.puuid)
+    .neq('id', user.id) // перевіряємо всіх, крім поточного юзера
+    .maybeSingle()
+
+  if (existingProfile) {
+    return { error: "This Riot account is already linked to another user's profile." };
   }
 
   // Крок 2: Отримання рангу за PUUID
   const ranks = await getRanksByPuuid(account.puuid, region) || { solo: 'UNRANKED', flex: 'UNRANKED' };
 
   // TFT Rank
-  const tftStats = await getRiotTFTStats(account.puuid, region);
-  const tftRank = tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : 'UNRANKED';
+  let tftRank = 'UNRANKED';
+  try {
+    const tftStats = await getRiotTFTStats(account.puuid, region);
+    tftRank = tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : 'UNRANKED';
+  } catch (e) {
+    console.error("Failed to fetch TFT stats, skipping:", e);
+  }
 
   // Крок 3: Пошук Сумонера (нам все ще потрібен summoner_id для бази, якщо ви його зберігаєте)
   // Використовуємо V4, щоб не було 403
