@@ -21,6 +21,8 @@ import {
   Mic,
   MicOff,
   EyeOff,
+  Gamepad2,
+  Gamepad,
 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/src/components/ToastProvider";
@@ -61,6 +63,7 @@ export default function ProfilePage() {
   // Стан для обраних мов (розбиваємо рядок з бази назад у масив)
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
   const [selectedQueues, setSelectedQueues] = useState<string[]>([]);
+  const [enabledGames, setEnabledGames] = useState<string[]>([]);
 
   const toggleLang = (lang: string) => {
     setSelectedLangs((prev) =>
@@ -71,6 +74,12 @@ export default function ProfilePage() {
   const toggleQueue = (queue: string) => {
     setSelectedQueues((prev) =>
       prev.includes(queue) ? prev.filter((q) => q !== queue) : [...prev, queue],
+    );
+  };
+
+  const toggleGame = (game: string) => {
+    setEnabledGames((prev) =>
+      prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game],
     );
   };
 
@@ -92,6 +101,7 @@ export default function ProfilePage() {
       setUser(authUser);
       if (data?.language) setSelectedLangs(data.language.split(","));
       if (data?.preferred_queue) setSelectedQueues(data.preferred_queue.split(","));
+      if (data?.enabled_games) setEnabledGames(data.enabled_games.split(","));
     };
     getProfile();
   }, [router]); // supabase прибрано з залежностей
@@ -102,6 +112,8 @@ export default function ProfilePage() {
     selectedLangs.forEach((lang) => formData.append("languages", lang));
     // Додаємо обрані черги у FormData
     selectedQueues.forEach((q) => formData.append("queues", q));
+    // Додаємо обрані ігри
+    enabledGames.forEach((g) => formData.append("enabledGames", g));
 
     const result = await updateProfile(formData);
 
@@ -110,7 +122,7 @@ export default function ProfilePage() {
       setLoading(false);
     } else {
       // Миттєво оновлюємо локальний стан профілю
-      const updatedProfile = {
+      const updatedProfile: any = {
         ...profile,
         game_name: formData.get("gameName"),
         tag_line: formData.get("tagLine"),
@@ -120,6 +132,7 @@ export default function ProfilePage() {
         has_mic: formData.get("hasMic") === "on",
         is_paused: formData.get("isPaused") === "on",
         language: selectedLangs.join(","),
+        enabled_games: enabledGames.join(","),
         bio: formData.get("bio"),
       };
       setProfile(updatedProfile);
@@ -242,6 +255,38 @@ export default function ProfilePage() {
 
             <form action={handleSubmit} className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="md:col-span-2 space-y-4">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <Gamepad2 size={14} /> Discovery Games (Where to show your card)
+                  </label>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleGame('LOL')}
+                      className={`flex-1 p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 ${
+                        enabledGames.includes('LOL') 
+                        ? 'bg-orange-500/10 border-orange-500 text-white' 
+                        : 'bg-zinc-900/50 border-white/5 text-zinc-500'
+                      }`}
+                    >
+                      <Trophy size={32} />
+                      <span className="font-black uppercase tracking-widest text-xs">League of Legends</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleGame('TFT')}
+                      className={`flex-1 p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 ${
+                        enabledGames.includes('TFT') 
+                        ? 'bg-blue-500/10 border-blue-500 text-white' 
+                        : 'bg-zinc-900/50 border-white/5 text-zinc-500'
+                      }`}
+                    >
+                      <Gamepad size={32} />
+                      <span className="font-black uppercase tracking-widest text-xs">Teamfight Tactics</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                     <UserIcon size={14} /> Game Name

@@ -34,6 +34,24 @@ export async function getRiotLeagueStats(puuid: string, region: string) {
   return await leagueRes.json();
 }
 
+export async function getRiotTFTStats(puuid: string, region: string) {
+  const platform = regionToPlatform(region);
+  
+  const sumRes = await fetch(
+    `https://${platform}.api.riotgames.com/tft/summoner/v1/summoners/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`,
+    { next: { revalidate: 300 } }
+  );
+  if (!sumRes.ok) return null;
+  const summoner = await sumRes.json();
+
+  const leagueRes = await fetch(
+    `https://${platform}.api.riotgames.com/tft/league/v1/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`,
+    { next: { revalidate: 300 } }
+  );
+  if (!leagueRes.ok) return null;
+  return await leagueRes.json();
+}
+
 export async function getTopChampions(puuid: string, region: string) {
   const platform = regionToPlatform(region);
   
@@ -170,7 +188,7 @@ export async function updateMatchStatus(matchId: string, status: 'ACCEPTED' | 'D
   return { success: true }
 }
 
-export async function upsertReview(targetId: string, comment: string, behaviorRating: number, skillRating: number) {
+export async function upsertReview(targetId: string, comment: string, behaviorRating: number, skillRating: number, gameType: 'LOL' | 'TFT' = 'LOL') {
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -205,14 +223,15 @@ export async function upsertReview(targetId: string, comment: string, behaviorRa
       comment,
       behavior_rating: behaviorRating,
       skill_rating: skillRating,
+      game_type: gameType,
       updated_at: new Date().toISOString()
-    }, { onConflict: 'reviewer_id,target_id' })
+    }, { onConflict: 'reviewer_id,target_id,game_type' })
 
   if (error) return { error: error.message }
   return { success: true }
 }
 
-export async function getReviewsForUser(targetId: string) {
+export async function getReviewsForUser(targetId: string, gameType: 'LOL' | 'TFT' = 'LOL') {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -223,6 +242,7 @@ export async function getReviewsForUser(targetId: string) {
     .from('reviews')
     .select('*, reviewer:profiles!reviewer_id(game_name, avatar_url)')
     .eq('target_id', targetId)
+    .eq('game_type', gameType)
 
   return { data, error }
 }

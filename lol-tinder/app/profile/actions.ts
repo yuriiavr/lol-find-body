@@ -3,6 +3,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getAccountByRiotId, getSummonerByPuuid, getRanksByPuuid } from '@/src/lib/riot'
+import { getRiotTFTStats } from '@/app/matches/actions'
 
 export async function updateProfile(formData: FormData) {
   const cookieStore = await cookies()
@@ -29,6 +30,7 @@ export async function updateProfile(formData: FormData) {
   const role = formData.get('role') as string
   const languages = formData.getAll('languages') as string[]
   const queues = formData.getAll('queues') as string[]
+  const enabledGames = formData.getAll('enabledGames') as string[]
   const hasMic = formData.get('hasMic') === 'on'
   const isPaused = formData.get('isPaused') === 'on'
 
@@ -40,6 +42,10 @@ export async function updateProfile(formData: FormData) {
 
   // Крок 2: Отримання рангу за PUUID
   const ranks = await getRanksByPuuid(account.puuid, region) || { solo: 'UNRANKED', flex: 'UNRANKED' };
+
+  // TFT Rank
+  const tftStats = await getRiotTFTStats(account.puuid, region);
+  const tftRank = tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : 'UNRANKED';
 
   // Крок 3: Пошук Сумонера (нам все ще потрібен summoner_id для бази, якщо ви його зберігаєте)
   // Використовуємо V4, щоб не було 403
@@ -56,12 +62,14 @@ export async function updateProfile(formData: FormData) {
       region: region,
       solo_rank: ranks.solo,
       flex_rank: ranks.flex,
+      tft_rank: tftRank,
       has_mic: hasMic,
       is_paused: isPaused,
       main_role: role,
       preferred_queue: queues.join(','),
+      enabled_games: enabledGames.join(','), // Напр: "LOL,TFT"
       avatar_url: user.user_metadata.avatar_url,
-      language: languages.join(','), // Зберігаємо як "Ukrainian,English"
+      language: languages.join(','),
       bio: bio,
       discord_id: user.user_metadata.provider_id || user.identities?.[0]?.id || user.id, // Справжній Discord Snowflake ID
       discord_username: user.user_metadata.full_name || user.user_metadata.name,

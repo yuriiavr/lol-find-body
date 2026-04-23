@@ -166,13 +166,10 @@ export default function Home() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#0a0a0a] text-slate-50 flex flex-col">
-
-        <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-10">
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Left Filter Sidebar */}
-            <aside className="w-full lg:w-80 space-y-6">
+  return ( // The main div and main tag are now provided by the (discovery) layout
+    <div className="flex flex-col lg:flex-row gap-8">
+      {/* Left Filter Sidebar */}
+      <aside className="w-full lg:w-80 space-y-6">
               <div className="modern-panel p-6">
                 <div className="flex items-center gap-3 mb-8 border-b border-zinc-800 pb-4">
                   <Filter size={18} className="text-orange-400" />
@@ -273,9 +270,9 @@ export default function Home() {
                 </div>
               </div>
             </aside>
-
-            {/* Discovery Grid */}
-            <div className="flex-1">
+      
+      {/* Discovery Grid */}
+      <div className="flex-1">
               {isFetching ? (
                 <div className="w-full h-96 flex items-center justify-center">
                   <Loader2 className="animate-spin text-orange-500/50" size={32} />
@@ -357,10 +354,7 @@ export default function Home() {
                 </AnimatePresence>
               </div>
               )}
-            </div>
-          </div>
-        </main>
-
+      </div>
     </div>
   );
 }

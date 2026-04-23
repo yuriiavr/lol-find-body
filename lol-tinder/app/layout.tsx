@@ -4,6 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/src/components/ToastProvider";
 import { GlobalChatIndicator } from "@/src/components/GlobalChatIndicator";
 import { Navbar } from "@/src/components/Navbar";
+import DiscoveryLayout from "./(discovery)/layout"; // Import the new layout
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +34,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ToastProvider>
           <Navbar />
-          {children}
+          {/* Conditionally render DiscoveryLayout */}
+          {/* This logic needs to be handled by Next.js routing, not directly here */}
+          {/* The (discovery) group will automatically apply the layout */}
+          {/* So, we just render children here, and Next.js handles the rest */}
+          {children} 
           <GlobalChatIndicator />
         </ToastProvider>
       </body>

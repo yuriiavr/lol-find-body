@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
-import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Trophy, Star, Languages, User, Sword, Check, MessageSquare, Send, ShieldCheck, MicOff, ExternalLink } from 'lucide-react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Loader2, Trophy, Star, Languages, User, Sword, Check, MessageSquare, Send, ShieldCheck, MicOff, ExternalLink, Gamepad } from 'lucide-react'
 import Link from 'next/link'
-import { sendMatchRequest, upsertReview, getReviewsForUser, getRiotLeagueStats, getTopChampions } from '@/app/matches/actions'
+import { sendMatchRequest, upsertReview, getReviewsForUser, getRiotLeagueStats, getTopChampions, getRiotTFTStats } from '@/app/matches/actions'
 import { useToast } from '@/src/components/ToastProvider'
 import { StarRating } from '@/src/components/StarRating'
 
@@ -14,8 +14,15 @@ const supabase = createClient()
 
 export default function PublicProfilePage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const id = params.id as string
   const router = useRouter()
+  const [activeGame, setActiveGame] = useState<'LOL' | 'TFT'>(() => {
+    if (typeof window !== 'undefined') {
+      return (searchParams.get('game') as 'LOL' | 'TFT') || (localStorage.getItem('lastProfileGame') as 'LOL' | 'TFT') || 'LOL';
+    }
+    return 'LOL';
+  });
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRequesting, setIsRequesting] = useState(false)
@@ -23,6 +30,7 @@ export default function PublicProfilePage() {
   const [isMatched, setIsMatched] = useState(false)
   const [reviews, setReviews] = useState<any[]>([])
   const [riotStats, setRiotStats] = useState<any>(null)
+  const [tftStats, setTftStats] = useState<any>(null)
   const [topChamps, setTopChamps] = useState<any[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
   
@@ -51,9 +59,8 @@ export default function PublicProfilePage() {
 
       setCurrentUser(authUser)
 
-      const [profileRes, reviewsRes, matchRes] = await Promise.all([
+      const [profileRes, matchRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
-        getReviewsForUser(id),
         supabase.from('matches')
           .select('status')
           .or(`and(user_id.eq.${authUser.id},target_id.eq.${id}),and(user_id.eq.${id},target_id.eq.${authUser.id})`)
@@ -64,23 +71,18 @@ export default function PublicProfilePage() {
         setProfile(profileRes.data)
         
         // Отримуємо живі дані від Riot паралельно
-        const [stats, champs] = await Promise.all([
+        const [stats, tft, champs] = await Promise.all([
           getRiotLeagueStats(profileRes.data.puuid, profileRes.data.region),
+          getRiotTFTStats(profileRes.data.puuid, profileRes.data.region),
           getTopChampions(profileRes.data.puuid, profileRes.data.region)
         ])
         setRiotStats(stats)
+        setTftStats(tft)
         setTopChamps(champs)
       }
 
-      if (reviewsRes.data) {
-        setReviews(reviewsRes.data)
-        const myReview = reviewsRes.data.find((r: any) => r.reviewer_id === authUser.id)
-        if (myReview) {
-          setReviewComment(myReview.comment || '')
-          setBehaviorRating(myReview.behavior_rating)
-          setSkillRating(myReview.skill_rating)
-        }
-      }
+      // Завантажуємо відгуки для активної гри
+      await refreshReviews(id, activeGame, authUser.id)
 
       if (matchRes.data) {
         if (matchRes.data.status === 'ACCEPTED') {
@@ -93,7 +95,22 @@ export default function PublicProfilePage() {
       setIsLoading(false)
     }
     fetchProfile()
-  }, [id]) // supabase тепер стабільний, id - єдина важлива залежність
+  }, [id, activeGame])
+
+  const refreshReviews = async (targetId: string, gameType: 'LOL' | 'TFT', authUserId: string) => {
+    const { data } = await getReviewsForUser(targetId, gameType)
+    if (data) {
+      setReviews(data)
+      const myReview = data.find((r: any) => r.reviewer_id === authUserId)
+      if (myReview) {
+        setReviewComment(myReview.comment || '')
+        setBehaviorRating(myReview.behavior_rating)
+        setSkillRating(myReview.skill_rating)
+      } else {
+        setReviewComment('')
+      }
+    }
+  }
 
   const handleMatch = async () => {
     setIsRequesting(true)
@@ -110,13 +127,13 @@ export default function PublicProfilePage() {
 
   const handleSubmitReview = async () => {
     setIsSubmittingReview(true)
-    const result = await upsertReview(id, reviewComment, behaviorRating, skillRating)
+    const result = await upsertReview(id, reviewComment, behaviorRating, skillRating, activeGame)
     setIsSubmittingReview(false)
 
     if (result.success) {
       showToast('Review saved!', 'success')
-      const { data: revs } = await getReviewsForUser(id)
-      if (revs) setReviews(revs)
+      await refreshReviews(id, activeGame, currentUser.id)
+      localStorage.setItem('lastProfileGame', activeGame); // Save active game to localStorage
     } else {
       showToast(result.error || 'Error saving review', 'error')
     }
@@ -130,6 +147,21 @@ export default function PublicProfilePage() {
     ? reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length 
     : 0, [reviews])
   const totalAvg = useMemo(() => (avgBehavior + avgSkill) / 2, [avgBehavior, avgSkill])
+
+  // Визначаємо список ігор, які гравець активував у себе в профілі
+  const enabledGamesList = useMemo((): ("LOL" | "TFT")[] => {
+    if (!profile?.enabled_games) return ['LOL'];
+    return profile.enabled_games.split(',') as ('LOL' | 'TFT')[];
+  }, [profile?.enabled_games]);
+
+  // Якщо поточна activeGame не в списку активованих ігор (наприклад, через localStorage),
+  // перемикаємось на першу доступну гру
+  useEffect(() => {
+    const firstGame = enabledGamesList[0];
+    if (profile && firstGame && !enabledGamesList.includes(activeGame)) {
+      setActiveGame(firstGame);
+    }
+  }, [enabledGamesList, activeGame, profile]);
 
   // Хелпер для пошуку статсів конкретної черги
   // Немає потреби в useCallback, оскільки вона не передається мемоізованим дочірнім компонентам
@@ -146,8 +178,11 @@ export default function PublicProfilePage() {
   if (!profile) return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-white p-4">
       <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-orange-500 to-zinc-700 bg-clip-text text-transparent uppercase tracking-tighter">Player not found</h1>
-      <Link href="/" className="text-orange-400 hover:underline flex items-center gap-2 font-bold">
-        <ArrowLeft size={18} /> BACK TO RIFT
+      <Link 
+        href={activeGame === 'TFT' ? '/tft' : '/league'} 
+        className={`hover:underline flex items-center gap-2 font-bold ${activeGame === 'TFT' ? 'text-blue-400' : 'text-orange-400'}`}
+      >
+        <ArrowLeft size={18} /> BACK TO {activeGame === 'TFT' ? 'STRATEGISTS' : 'RIFT'}
       </Link>
     </div>
   )
@@ -160,6 +195,13 @@ export default function PublicProfilePage() {
           
           {/* Summary Side (Left) */}
           <section className="w-full lg:w-96 flex flex-col items-center lg:items-start text-center lg:text-left">
+            <Link 
+              href={activeGame === 'TFT' ? '/tft' : '/league'} 
+              className={`hover:underline flex items-center gap-2 font-bold mb-8 ${activeGame === 'TFT' ? 'text-blue-400' : 'text-orange-400'}`}
+            >
+              <ArrowLeft size={18} /> BACK TO {activeGame === 'TFT' ? 'STRATEGISTS' : 'RIFT'}
+            </Link>
+
             <div className="relative mb-10 group">
               <div className="w-56 h-56 rounded-[2.5rem] bg-gradient-to-tr from-orange-600 to-amber-500 p-1 shadow-2xl shadow-orange-500/20">
                 <div className="w-full h-full rounded-[2.3rem] bg-zinc-950 flex items-center justify-center overflow-hidden">
@@ -232,38 +274,72 @@ export default function PublicProfilePage() {
               </div>
             )}
 
-            <div className="mt-10 w-full space-y-4">
-              <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Solo/Duo') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Solo Queue</span>
-                  <Star size={12} className="text-orange-400" />
+            {enabledGamesList.length > 1 && (
+              <div className="mt-10 w-full flex bg-zinc-950 rounded-2xl p-1 border border-white/5">
+                {enabledGamesList.includes('LOL') && (
+                  <button 
+                    onClick={() => {
+                      setActiveGame('LOL');
+                      localStorage.setItem('lastProfileGame', 'LOL');
+                    }}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'LOL' ? 'bg-orange-500 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                    League
+                  </button>
+                )}
+                {enabledGamesList.includes('TFT') && (
+                  <button 
+                    onClick={() => {
+                      setActiveGame('TFT');
+                      localStorage.setItem('lastProfileGame', 'TFT');
+                    }}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'TFT' ? 'bg-blue-600 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                    TFT
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="mt-6 w-full space-y-4">
+              {activeGame === 'LOL' ? (
+                <>
+                  <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Solo/Duo') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Solo Queue</span>
+                      <Star size={12} className="text-orange-400" />
+                    </div>
+                    <p className="text-3xl font-bold text-white uppercase italic">
+                      {getQueueData('RANKED_SOLO_5x5')?.tier ? `${getQueueData('RANKED_SOLO_5x5').tier} ${getQueueData('RANKED_SOLO_5x5').rank}` : profile.solo_rank || 'Unranked'}
+                    </p>
+                  </div>
+                  <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Flex') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
+                    <span className="text-[10px] font-black uppercase text-zinc-500 block mb-1 tracking-widest">Flex Queue</span>
+                    <p className="text-2xl font-bold text-slate-300 uppercase italic">
+                      {getQueueData('RANKED_FLEX_SR')?.tier ? `${getQueueData('RANKED_FLEX_SR').tier} ${getQueueData('RANKED_FLEX_SR').rank}` : profile.flex_rank || 'Unranked'}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="modern-panel p-5 bg-blue-500/10 border-blue-500/40">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">TFT Ranked</span>
+                    <Gamepad size={12} className="text-blue-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-white uppercase italic">
+                    {tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : profile.tft_rank || 'Unranked'}
+                  </p>
+                  {tftStats && tftStats[0] && (
+                    <div className="flex gap-2 mt-1 text-[10px] font-bold text-slate-400">
+                      <span className="text-emerald-500">
+                        {Math.round((tftStats[0].wins / (tftStats[0].wins + tftStats[0].losses)) * 100)}% WR
+                      </span>
+                      <span className="text-slate-600">({tftStats[0].wins + tftStats[0].losses} games)</span>
+                    </div>
+                  )}
                 </div>
-                <p className="text-3xl font-bold text-white uppercase italic">
-                  {getQueueData('RANKED_SOLO_5x5')?.tier ? `${getQueueData('RANKED_SOLO_5x5').tier} ${getQueueData('RANKED_SOLO_5x5').rank}` : profile.solo_rank || 'Unranked'}
-                </p>
-                {getQueueData('RANKED_SOLO_5x5') && (
-                  <div className="flex gap-2 mt-1 text-[10px] font-bold text-slate-400">
-                    <span className="text-emerald-500">
-                      {Math.round((getQueueData('RANKED_SOLO_5x5').wins / (getQueueData('RANKED_SOLO_5x5').wins + getQueueData('RANKED_SOLO_5x5').losses)) * 100)}% WR
-                    </span>
-                    <span className="text-slate-600">({getQueueData('RANKED_SOLO_5x5').wins + getQueueData('RANKED_SOLO_5x5').losses} games)</span>
-                  </div>
-                )}
-              </div>
-              <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Flex') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
-                <span className="text-[10px] font-black uppercase text-slate-500 block mb-1 tracking-widest">Flex Queue</span>
-                <p className="text-2xl font-bold text-slate-300 uppercase italic">
-                  {getQueueData('RANKED_FLEX_SR')?.tier ? `${getQueueData('RANKED_FLEX_SR').tier} ${getQueueData('RANKED_FLEX_SR').rank}` : profile.flex_rank || 'Unranked'}
-                </p>
-                {getQueueData('RANKED_FLEX_SR') && (
-                  <div className="flex gap-2 mt-1 text-[10px] font-bold text-slate-400">
-                    <span className="text-emerald-500">
-                      {Math.round((getQueueData('RANKED_FLEX_SR').wins / (getQueueData('RANKED_FLEX_SR').wins + getQueueData('RANKED_FLEX_SR').losses)) * 100)}% WR
-                    </span>
-                    <span className="text-slate-600">({getQueueData('RANKED_FLEX_SR').wins + getQueueData('RANKED_FLEX_SR').losses} games)</span>
-                  </div>
-                )}
-              </div>
+              )}
+
               {profile.preferred_queue?.split(',').some((q: string) => !['Solo/Duo', 'Flex'].includes(q)) && (
                 <div className="flex flex-wrap gap-2 pt-2 justify-center lg:justify-start">
                   {profile.preferred_queue.split(',').filter((q: string) => !['Solo/Duo', 'Flex'].includes(q)).map((q: string) => (

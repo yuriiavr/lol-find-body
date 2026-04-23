@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, LogIn, LogOut, User as UserIcon, Trophy, MessageSquare, Compass } from "lucide-react";
+import { Menu, X, LogIn, LogOut, User as UserIcon, MessageSquare, Compass } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/client";
@@ -47,7 +47,7 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { name: "Discovery", href: "/league", icon: Compass },
+    { name: "Discovery", href: "/league", icon: Compass }, // Default to League discovery
     { name: "Matches", href: "/matches", icon: MessageSquare },
   ];
 
@@ -68,7 +68,11 @@ export function Navbar() {
                 <Link 
                   key={link.href} 
                   href={link.href} 
-                  className={`transition-colors hover:text-white ${pathname === link.href ? "text-white border-b-2 border-orange-500 pb-1" : ""}`}
+                  className={`transition-colors hover:text-white ${ // Highlight "Discovery" if on /league or /tft
+                    (link.href === '/league' && (pathname.startsWith('/league') || pathname.startsWith('/tft'))) || pathname === link.href
+                      ? `text-white border-b-2 ${pathname.startsWith('/tft') ? 'border-blue-500' : 'border-orange-500'} pb-1` 
+                      : ""
+                  }`}
                 >
                   {link.name}
                 </Link>
@@ -115,8 +119,11 @@ export function Navbar() {
                 <Link 
                   key={link.href} 
                   href={link.href} 
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest ${pathname === link.href ? "bg-orange-500/10 text-orange-500" : "text-slate-400"}`}
+                  onClick={() => setIsMenuOpen(false)} // Highlight "Discovery" if on /league or /tft
+                  className={`flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest ${
+                    (link.href === '/league' && (pathname.startsWith('/league') || pathname.startsWith('/tft'))) || pathname === link.href
+                      ? "bg-orange-500/10 text-orange-500" : "text-slate-400"
+                  }`}
                 >
                   <link.icon size={20} />
                   {link.name}

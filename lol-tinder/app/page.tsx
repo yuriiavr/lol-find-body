@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { LogIn, Zap, Users, Globe, ChevronRight } from 'lucide-react'
+import { LogIn, Zap, Users, Globe, ChevronRight, Gamepad } from 'lucide-react'
 import { createClient } from '@/src/utils/supabase/client'
 import Link from 'next/link'
 
@@ -83,11 +83,18 @@ export default function LandingPage() {
             <div className="flex flex-col md:flex-row justify-center items-center gap-8">
                {!loading && (
                  user ? (
-                   <Link href="/league">
-                     <button className="btn-modern px-14 py-6 text-xl scale-110 shadow-orange-600/20">
-                        <Zap size={24} /> Enter Discovery
-                     </button>
-                   </Link>
+                   <div className="flex flex-col sm:flex-row gap-6">
+                     <Link href="/league">
+                       <button className="btn-modern px-10 py-5 text-lg shadow-orange-600/20">
+                          <Zap size={20} /> League Discovery
+                       </button>
+                     </Link>
+                     <Link href="/tft">
+                       <button className="btn-modern px-10 py-5 text-lg border-blue-500/20 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 shadow-blue-600/20">
+                          <Gamepad size={20} /> TFT Discovery
+                       </button>
+                     </Link>
+                   </div>
                  ) : (
                    <button onClick={handleLogin} className="btn-modern px-14 py-6 text-xl scale-110 shadow-orange-600/20">
                       <LogIn size={24} /> Connect via Discord
