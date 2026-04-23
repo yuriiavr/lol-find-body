@@ -95,7 +95,7 @@ export async function updateProfile(formData: FormData) {
       discord_id: user.user_metadata.provider_id || user.identities?.[0]?.id || user.id, // Справжній Discord Snowflake ID
       discord_username: user.user_metadata.full_name || user.user_metadata.name,
       updated_at: new Date().toISOString(),
-    })
+    }, { onConflict: 'id' })
 
   if (error) return { error: error.message }
   return { success: true }
