@@ -30,12 +30,6 @@ export default function MatchesPage() {
 
     const fetchMatches = async () => {
         const { data, error } = await getMatches();
-        const { data: rawData, error: rawError } = await supabase.from('matches').select(`
-            id, user_id, target_id, status,
-            sender:profiles!user_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, discord_id, discord_username),
-            receiver:profiles!target_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, discord_id, discord_username)
-        `).or(`user_id.eq.${user?.id},target_id.eq.${user?.id}`);
-
         if (!error && data) {
             setMatches(data);
         }
@@ -137,14 +131,6 @@ export default function MatchesPage() {
                                       <div className="bg-blue-500/10 px-2 py-1 rounded text-[10px] font-bold text-blue-400 border border-blue-500/20 uppercase">
                                         {m.profile.main_role}
                                       </div>
-                                      <a 
-                                          href={`https://discord.com/users/${m.profile.discord_id}`} 
-                                          target="_blank" 
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="text-[#5865F2] hover:text-white transition-colors"
-                                      >
-                                          <MessageSquare size={14} />
-                                      </a>
                                     </div>
                                 </div>
 

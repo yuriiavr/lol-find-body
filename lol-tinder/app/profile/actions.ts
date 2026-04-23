@@ -28,7 +28,7 @@ export async function updateProfile(formData: FormData) {
   const bio = formData.get('bio') as string
   const role = formData.get('role') as string
   const languages = formData.getAll('languages') as string[]
-  const preferredQueue = formData.get('preferredQueue') as string || 'SOLO'
+  const queues = formData.getAll('queues') as string[]
   const hasMic = formData.get('hasMic') === 'on'
   const isPaused = formData.get('isPaused') === 'on'
 
@@ -59,11 +59,11 @@ export async function updateProfile(formData: FormData) {
       has_mic: hasMic,
       is_paused: isPaused,
       main_role: role,
-      preferred_queue: preferredQueue,
+      preferred_queue: queues.join(','),
       avatar_url: user.user_metadata.avatar_url,
       language: languages.join(','), // Зберігаємо як "Ukrainian,English"
       bio: bio,
-      discord_id: user.id, // ID від провайдера (Discord)
+      discord_id: user.user_metadata.provider_id || user.identities?.[0]?.id || user.id, // Справжній Discord Snowflake ID
       discord_username: user.user_metadata.full_name || user.user_metadata.name,
       updated_at: new Date().toISOString(),
     })

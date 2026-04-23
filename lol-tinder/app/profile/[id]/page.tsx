@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Trophy, Star, Languages, User, Sword, Check, MessageSquare, Send, ShieldCheck, MicOff } from 'lucide-react'
+import { ArrowLeft, Loader2, Trophy, Star, Languages, User, Sword, Check, MessageSquare, Send, ShieldCheck, MicOff, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
-import { sendMatchRequest, upsertReview, getReviewsForUser } from '@/app/matches/actions'
+import { sendMatchRequest, upsertReview, getReviewsForUser, getRiotLeagueStats, getTopChampions } from '@/app/matches/actions'
 import { useToast } from '@/src/components/ToastProvider'
 import { StarRating } from '@/src/components/StarRating'
 
@@ -20,6 +20,8 @@ export default function PublicProfilePage() {
   const [requestSent, setRequestStatus] = useState(false)
   const [isMatched, setIsMatched] = useState(false)
   const [reviews, setReviews] = useState<any[]>([])
+  const [riotStats, setRiotStats] = useState<any>(null)
+  const [topChamps, setTopChamps] = useState<any[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
   
   // Поля для нового відгуку
@@ -41,43 +43,45 @@ export default function PublicProfilePage() {
 
       setCurrentUser(authUser)
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', id)
-        .single()
-      
-      if (!error && data) {
-        setProfile(data)
-        
-        // Отримуємо відгуки
-        const { data: revs } = await getReviewsForUser(id)
-        if (revs) {
-          setReviews(revs)
-          // Якщо юзер вже лишав відгук, заповнюємо форму
-          const myReview = revs.find((r: any) => r.reviewer_id === authUser?.id)
-          if (myReview) {
-            setReviewComment(myReview.comment || '')
-            setBehaviorRating(myReview.behavior_rating)
-            setSkillRating(myReview.skill_rating)
-          }
-        }
+      const [profileRes, reviewsRes, matchRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', id).single(),
+        getReviewsForUser(id),
+        supabase.from('matches')
+          .select('status')
+          .or(`and(user_id.eq.${authUser.id},target_id.eq.${id}),and(user_id.eq.${id},target_id.eq.${authUser.id})`)
+          .maybeSingle()
+      ])
 
-        // Перевіряємо статус метчу
-        if (authUser) {
-          const { data: match } = await supabase
-            .from('matches')
-            .select('status')
-            .or(`and(user_id.eq.${authUser.id},target_id.eq.${id}),and(user_id.eq.${id},target_id.eq.${authUser.id})`)
-            .single()
-          
-          if (match?.status === 'ACCEPTED') {
-            setIsMatched(true)
-          } else if (match?.status === 'PENDING') {
-            setRequestStatus(true)
-          }
+      if (profileRes.data) {
+        setProfile(profileRes.data)
+        
+        // Отримуємо живі дані від Riot паралельно
+        const [stats, champs] = await Promise.all([
+          getRiotLeagueStats(profileRes.data.puuid, profileRes.data.region),
+          getTopChampions(profileRes.data.puuid, profileRes.data.region)
+        ])
+        setRiotStats(stats)
+        setTopChamps(champs)
+      }
+
+      if (reviewsRes.data) {
+        setReviews(reviewsRes.data)
+        const myReview = reviewsRes.data.find((r: any) => r.reviewer_id === authUser.id)
+        if (myReview) {
+          setReviewComment(myReview.comment || '')
+          setBehaviorRating(myReview.behavior_rating)
+          setSkillRating(myReview.skill_rating)
         }
       }
+
+      if (matchRes.data) {
+        if (matchRes.data.status === 'ACCEPTED') {
+          setIsMatched(true)
+        } else if (matchRes.data.status === 'PENDING') {
+          setRequestStatus(true)
+        }
+      }
+
       setIsLoading(false)
     }
     fetchProfile()
@@ -117,6 +121,11 @@ export default function PublicProfilePage() {
     ? reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length 
     : 0
   const totalAvg = (avgBehavior + avgSkill) / 2
+
+  // Хелпер для пошуку статсів конкретної черги
+  const getQueueData = (type: string) => {
+    return riotStats?.find((s: any) => s.queueType === type)
+  }
 
   if (isLoading) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -170,6 +179,17 @@ export default function PublicProfilePage() {
                 {profile.game_name}
                 <span className="text-slate-600 block text-2xl mt-1">#{profile.tag_line}</span>
               </h1>
+              
+              {isMatched && (
+                <a 
+                  href={`https://discord.com/channels/@me/${profile.discord_id}`} 
+                  target="_blank"
+                  className="mt-6 flex items-center gap-2 px-6 py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all w-fit mx-auto lg:mx-0 shadow-lg shadow-indigo-500/20"
+                >
+                  <MessageSquare size={16} /> Chat on Discord
+                </a>
+              )}
+
               {totalAvg > 4.5 && reviews.length >= 1 && (
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full w-fit mx-auto lg:mx-0 mt-4">
                   <ShieldCheck size={14} className="text-orange-400" />
@@ -190,17 +210,46 @@ export default function PublicProfilePage() {
             </div>
 
             <div className="mt-10 w-full space-y-4">
-              <div className={`modern-panel p-5 ${profile.preferred_queue === 'FLEX' ? 'bg-orange-500/5 opacity-60' : 'bg-orange-500/10 border-orange-500/40'}`}>
+              <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Solo/Duo') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Solo Queue</span>
                   <Star size={12} className="text-orange-400" />
                 </div>
-                <p className="text-3xl font-bold text-white uppercase italic">{profile.solo_rank || 'Unranked'}</p>
+                <p className="text-3xl font-bold text-white uppercase italic">
+                  {getQueueData('RANKED_SOLO_5x5')?.tier ? `${getQueueData('RANKED_SOLO_5x5').tier} ${getQueueData('RANKED_SOLO_5x5').rank}` : profile.solo_rank || 'Unranked'}
+                </p>
+                {getQueueData('RANKED_SOLO_5x5') && (
+                  <div className="flex gap-2 mt-1 text-[10px] font-bold text-slate-400">
+                    <span className="text-emerald-500">
+                      {Math.round((getQueueData('RANKED_SOLO_5x5').wins / (getQueueData('RANKED_SOLO_5x5').wins + getQueueData('RANKED_SOLO_5x5').losses)) * 100)}% WR
+                    </span>
+                    <span className="text-slate-600">({getQueueData('RANKED_SOLO_5x5').wins + getQueueData('RANKED_SOLO_5x5').losses} games)</span>
+                  </div>
+                )}
               </div>
-              <div className={`modern-panel p-5 ${profile.preferred_queue === 'SOLO' ? 'bg-orange-500/5 opacity-60' : 'bg-orange-500/10 border-orange-500/40'}`}>
+              <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Flex') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
                 <span className="text-[10px] font-black uppercase text-slate-500 block mb-1 tracking-widest">Flex Queue</span>
-                <p className="text-2xl font-bold text-slate-300 uppercase italic">{profile.flex_rank || 'Unranked'}</p>
+                <p className="text-2xl font-bold text-slate-300 uppercase italic">
+                  {getQueueData('RANKED_FLEX_SR')?.tier ? `${getQueueData('RANKED_FLEX_SR').tier} ${getQueueData('RANKED_FLEX_SR').rank}` : profile.flex_rank || 'Unranked'}
+                </p>
+                {getQueueData('RANKED_FLEX_SR') && (
+                  <div className="flex gap-2 mt-1 text-[10px] font-bold text-slate-400">
+                    <span className="text-emerald-500">
+                      {Math.round((getQueueData('RANKED_FLEX_SR').wins / (getQueueData('RANKED_FLEX_SR').wins + getQueueData('RANKED_FLEX_SR').losses)) * 100)}% WR
+                    </span>
+                    <span className="text-slate-600">({getQueueData('RANKED_FLEX_SR').wins + getQueueData('RANKED_FLEX_SR').losses} games)</span>
+                  </div>
+                )}
               </div>
+              {profile.preferred_queue?.split(',').some((q: string) => !['Solo/Duo', 'Flex'].includes(q)) && (
+                <div className="flex flex-wrap gap-2 pt-2 justify-center lg:justify-start">
+                  {profile.preferred_queue.split(',').filter((q: string) => !['Solo/Duo', 'Flex'].includes(q)).map((q: string) => (
+                    <span key={q} className="text-[9px] bg-orange-500/10 px-3 py-1.5 rounded-full text-orange-400 border border-orange-500/20 font-black uppercase tracking-widest shadow-lg shadow-orange-500/5">
+                      {q}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
@@ -216,19 +265,46 @@ export default function PublicProfilePage() {
                   </p>
                 </div>
 
-                {!isMatched && (
-                  <div className="pt-10">
-                     <button 
+                {topChamps.length > 0 && (
+                  <div className="mt-10 border-t border-white/5 pt-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Top Champions Mastery</p>
+                      <a 
+                        href={`https://www.op.gg/summoners/${profile.region.toLowerCase()}/${encodeURIComponent(profile.game_name)}-${encodeURIComponent(profile.tag_line)}`}
+                        target="_blank"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#5383e8] hover:bg-[#4066b8] text-white rounded-lg text-[10px] font-black uppercase transition-all shadow-lg shadow-blue-500/10"
+                      >
+                        <ExternalLink size={12} /> View on OP.GG
+                      </a>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {topChamps.map((champ) => (
+                        <div key={champ.id} className="group relative flex flex-col items-center">
+                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 group-hover:border-orange-500/50 transition-all shadow-lg">
+                          <img src={champ.icon} alt={champ.name} title={`${champ.name} - ${champ.points.toLocaleString()} pts`} />
+                          </div>
+                        <div className="absolute -bottom-2 bg-zinc-950 text-orange-400 text-[7px] font-black px-1.5 py-0.5 rounded border border-white/10 shadow-sm">
+                          {champ.points >= 1000 ? `${(champ.points / 1000).toFixed(0)}k` : champ.points}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-10 flex flex-wrap gap-4">
+                  {!isMatched && (
+                    <button 
                       onClick={handleMatch}
                       disabled={isRequesting || requestSent}
                       className={`btn-modern px-12 py-5 text-base transition-all ${requestSent ? 'opacity-50 border-emerald-500 text-emerald-400' : ''}`}
-                     >
-                        {isRequesting ? <Loader2 className="animate-spin" /> : 
-                         requestSent ? <span className="flex items-center gap-2"><Check size={20} /> Request Sent</span> : 
-                         "Send Team Request"}
-                     </button>
-                  </div>
-                )}
+                    >
+                      {isRequesting ? <Loader2 className="animate-spin" /> : 
+                       requestSent ? <span className="flex items-center gap-2"><Check size={20} /> Request Sent</span> : 
+                       "Send Team Request"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Review Section */}

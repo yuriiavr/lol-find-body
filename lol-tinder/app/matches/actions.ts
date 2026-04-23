@@ -3,6 +3,60 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+const RIOT_API_KEY = process.env.RIOT_API_KEY;
+
+const regionToPlatform = (region: string) => {
+  const mapping: Record<string, string> = {
+    'EUW': 'euw1',
+    'EUNE': 'eun1',
+    'NA': 'na1',
+    'KR': 'kr'
+  };
+  return mapping[region] || 'euw1';
+};
+
+export async function getRiotLeagueStats(puuid: string, region: string) {
+  const platform = regionToPlatform(region);
+  
+  // Спочатку отримуємо summonerId, бо league-v4 вимагає його, а не PUUID
+  const sumRes = await fetch(`https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`);
+  if (!sumRes.ok) return null;
+  const summoner = await sumRes.json();
+
+  const leagueRes = await fetch(`https://${platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`);
+  if (!leagueRes.ok) return null;
+  return await leagueRes.json();
+}
+
+export async function getTopChampions(puuid: string, region: string) {
+  const platform = regionToPlatform(region);
+  
+  // Отримуємо майстерність чемпіонів
+  const masteryRes = await fetch(`https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=10&api_key=${RIOT_API_KEY}`);
+  if (!masteryRes.ok) return [];
+  const masteries = await masteryRes.json();
+
+  // Отримуємо дані про імена чемпіонів з DataDragon
+  const versionRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+  const versions = await versionRes.json();
+  const latest = versions[0];
+
+  const champDataRes = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latest}/data/en_US/champion.json`);
+  const { data: champs } = await champDataRes.json();
+
+  // Мапимо ID на імена та іконки
+  return masteries.map((m: any) => {
+    const champ = Object.values(champs).find((c: any) => parseInt(c.key) === m.championId) as any;
+    return {
+      name: champ?.name || 'Unknown',
+      id: m.championId,
+      level: m.championLevel,
+      points: m.championPoints,
+      icon: `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${champ?.image?.full}`
+    };
+  });
+}
+
 export async function sendMatchRequest(targetId: string) {
   const cookieStore = await cookies()
   const supabase = createServerClient(
