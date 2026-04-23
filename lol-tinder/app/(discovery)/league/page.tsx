@@ -84,7 +84,8 @@ export default function Home() {
         .from('profiles')
         .select('*')
         .eq('is_paused', false)
-        .eq('region', filterRegion);
+        .eq('region', filterRegion)
+        .ilike('enabled_games', '%LOL%');
 
       if (user) {
         // Отримуємо всі ID користувачів, з якими вже є запис у таблиці matches

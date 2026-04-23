@@ -149,7 +149,7 @@ export default function PublicProfilePage() {
   const totalAvg = useMemo(() => (avgBehavior + avgSkill) / 2, [avgBehavior, avgSkill])
 
   // Визначаємо список ігор, які гравець активував у себе в профілі
-  const enabledGamesList = useMemo((): ("LOL" | "TFT")[] => { 
+  const enabledGamesList = useMemo((): ("LOL" | "TFT")[] => {
     if (!profile?.enabled_games) return ['LOL'];
     return profile.enabled_games.split(',') as ('LOL' | 'TFT')[];
   }, [profile?.enabled_games]);

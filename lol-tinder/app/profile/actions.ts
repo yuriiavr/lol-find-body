@@ -74,7 +74,8 @@ export async function updateProfile(formData: FormData) {
   // Крок 4: Оновлення в Supabase
   const { error } = await supabase
     .from('profiles')
-    .update({
+    .upsert({
+      id: user.id, // Обов'язково для upsert
       game_name: account.gameName,
       tag_line: account.tagLine,
       puuid: account.puuid,
@@ -95,7 +96,6 @@ export async function updateProfile(formData: FormData) {
       discord_username: user.user_metadata.full_name || user.user_metadata.name,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', user.id)
 
   if (error) return { error: error.message }
   return { success: true }

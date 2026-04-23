@@ -57,6 +57,7 @@ const supabase = createClient();
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false); // Keep this for button loading state
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
 
@@ -92,16 +93,39 @@ export default function ProfilePage() {
       } = await supabase.auth.getUser();
       if (!authUser) return router.push("/");
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", authUser.id)
         .single();
-      setProfile(data);
+
       setUser(authUser);
-      if (data?.language) setSelectedLangs(data.language.split(","));
-      if (data?.preferred_queue) setSelectedQueues(data.preferred_queue.split(","));
-      if (data?.enabled_games) setEnabledGames(data.enabled_games.split(","));
+
+      if (data) {
+        setProfile(data);
+        if (data.language) setSelectedLangs(data.language.split(","));
+        if (data.preferred_queue) setSelectedQueues(data.preferred_queue.split(","));
+        if (data.enabled_games) setEnabledGames(data.enabled_games.split(","));
+      } else {
+        // Новий користувач: ініціалізуємо порожній профіль для форми
+        setProfile({
+          id: authUser.id,
+          game_name: "",
+          tag_line: "",
+          region: "EUW",
+          main_role: "FILL",
+          has_mic: true,
+          is_paused: false,
+          bio: "",
+          solo_rank: "Unranked",
+          flex_rank: "Unranked",
+          tft_rank: "Unranked",
+          enabled_games: "LOL",
+          language: "",
+        });
+        setEnabledGames(["LOL"]);
+      }
+      setIsInitialLoading(false);
     };
     getProfile();
   }, [router]); // supabase прибрано з залежностей
@@ -146,7 +170,7 @@ export default function ProfilePage() {
     router.push("/");
   }
 
-  if (!profile)
+  if (isInitialLoading)
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <Loader2 className="animate-spin text-orange-500 w-12 h-12" />
