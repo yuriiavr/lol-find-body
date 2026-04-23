@@ -142,27 +142,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-slate-50 flex flex-col">
-      {/* Compact Navbar */}
-      <nav className="w-full border-b border-white/5 bg-[#121212]/80 backdrop-blur-lg px-8 py-4 flex justify-between items-center sticky top-0 z-50">
-        <div className="flex items-center gap-6">
-          <Link
-            href="/league"
-            className="hover:text-orange-400 transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest"
-          >
-            <ArrowLeft size={18} /> Back
-          </Link>
-          <div className="h-6 w-[1px] bg-slate-700" />
-          <h2 className="text-sm font-black uppercase tracking-[0.3em] bg-gradient-to-r from-orange-500 to-zinc-600 bg-clip-text text-transparent">
-            Control Center
-          </h2>
-        </div>
-        <button
-          onClick={handleSignOut}
-          className="flex items-center gap-2 text-xs font-bold text-zinc-500 hover:text-red-500 transition-all uppercase"
-        >
-          <LogOut size={16} /> Logout
-        </button>
-      </nav>
 
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-8 lg:p-16">
         <div className="flex flex-col lg:flex-row gap-16">

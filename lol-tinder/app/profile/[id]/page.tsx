@@ -154,12 +154,6 @@ export default function PublicProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-slate-50 flex flex-col">
-      {/* Compact Navbar */}
-      <nav className="w-full border-b border-white/5 bg-[#121212]/80 backdrop-blur-lg px-8 py-4 flex items-center sticky top-0 z-50">
-        <Link href="/league" className="hover:text-orange-400 transition-all flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
-          <ArrowLeft size={18} /> Back to Discovery
-        </Link>
-      </nav>
 
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-8 lg:p-16">
         <div className="flex flex-col lg:flex-row gap-16">

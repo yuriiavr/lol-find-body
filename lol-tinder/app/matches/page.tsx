@@ -60,23 +60,6 @@ export default function MatchesPage() {
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-slate-50 flex flex-col">
-            <nav className="w-full border-b border-white/5 bg-[#121212]/80 backdrop-blur-lg sticky top-0 z-50 px-6">
-                <div className="max-w-[1600px] mx-auto h-20 flex justify-between items-center">
-                    <Link href="/">
-                        <h1 className="text-2xl font-black bg-gradient-to-r from-orange-500 to-zinc-800 bg-clip-text text-transparent tracking-tighter italic hover:opacity-80 transition-opacity cursor-pointer">LoLMatch</h1>
-                    </Link>
-                    <div className="flex gap-6 text-xs font-bold uppercase tracking-widest text-slate-400">
-                        <Link href="/league" className="hover:text-white transition-colors">Discovery</Link>
-                        <Link href="/matches" className="text-white border-b-2 border-orange-500 pb-1">Matches</Link>
-                    </div>
-                    {user && (
-                         <Link href="/profile" className="flex items-center gap-3 p-1.5 pr-5 bg-zinc-900 rounded-full border border-white/5 transition-all hover:bg-zinc-800">
-                            <img src={user.user_metadata.avatar_url} className="w-8 h-8 rounded-full border border-orange-500/30" alt="avatar" />
-                            <span className="text-sm font-bold">{user.user_metadata.full_name}</span>
-                        </Link>
-                    )}
-                </div>
-            </nav>
 
             <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-10">
                 <div className="mb-12">
@@ -105,11 +88,10 @@ export default function MatchesPage() {
                             <motion.div
                                 key={m.id}
                                 layout
-                                onClick={() => activeTab === 'TEAM' && openGlobalChat(m)}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className="modern-panel p-6 group cursor-pointer"
+                                className="modern-panel p-6 group"
                             >
                                 {/* Card Content (same as before) */}
                                 <div className="flex items-start justify-between mb-6">
@@ -140,7 +122,7 @@ export default function MatchesPage() {
                                             <button className="btn-modern w-full py-3 text-[10px]">View Profile</button>
                                         </Link>
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); openGlobalChat(m); }}
+                                          onClick={() => openGlobalChat(m)}
                                           className="px-4 bg-orange-500/10 rounded-xl border border-orange-500/20 hover:bg-orange-500/20 transition-colors"
                                         >
                                             <MessageCircle size={18} className="text-orange-500" />

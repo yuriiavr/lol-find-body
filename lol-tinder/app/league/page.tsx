@@ -168,35 +168,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-slate-50 flex flex-col">
-      {/* Desktop Navbar */}
-      <nav className="w-full border-b border-white/5 bg-[#121212]/80 backdrop-blur-lg sticky top-0 z-50 px-6">
-        <div className="max-w-[1600px] mx-auto h-20 flex justify-between items-center">
-          <div className="flex items-center gap-10">
-            <Link href="/">
-              <h1 className="text-2xl font-black bg-gradient-to-r from-orange-500 to-zinc-800 bg-clip-text text-transparent tracking-tighter italic hover:opacity-80 transition-opacity cursor-pointer">LoLMatch</h1>
-            </Link>
-            {user && (
-              <div className="hidden md:flex gap-6 text-xs font-bold uppercase tracking-widest text-slate-400">
-                <Link href="/league" className="text-white border-b-2 border-orange-500 pb-1">Discovery</Link>
-                <Link href="/matches" className="hover:text-white transition-colors">Matches</Link>
-              </div>
-            )}
-          </div>
-          
-          <div>
-            {user ? (
-              <Link href="/profile" className="flex items-center gap-3 p-1.5 pr-5 bg-zinc-900 rounded-full hover:bg-zinc-800 border border-white/5 transition-all">
-                <img src={user.user_metadata.avatar_url} className="w-8 h-8 rounded-full border border-orange-500/30" alt="avatar" />
-                <span className="text-sm font-bold">{user.user_metadata.full_name}</span>
-              </Link>
-            ) : (
-              <button onClick={handleLogin} className="btn-modern py-2.5">
-                <LogIn size={18} /> Login
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
 
         <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-10">
           <div className="flex flex-col lg:flex-row gap-8">
