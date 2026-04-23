@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
-import { Send, Loader2, User } from 'lucide-react'
-import { sendMessage, getMessages } from '@/app/matches/actions'
+import { Send, Loader2, User, X } from 'lucide-react'
+import { sendMessage, getMessages, markMessagesAsRead } from '@/app/matches/actions'
 
-export function Chat({ matchId, currentUser, targetProfile }: { matchId: string, currentUser: any, targetProfile: any }) {
+export function Chat({ matchId, currentUser, targetProfile, onClose }: { matchId: string, currentUser: any, targetProfile: any, onClose?: () => void }) {
   const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -18,6 +18,7 @@ export function Chat({ matchId, currentUser, targetProfile }: { matchId: string,
       const { data } = await getMessages(matchId)
       if (data) setMessages(data)
       setLoading(false)
+      markMessagesAsRead(matchId)
       scrollToBottom()
     }
 
@@ -34,7 +35,6 @@ export function Chat({ matchId, currentUser, targetProfile }: { matchId: string,
       }, (payload) => {
         const msg = payload.new
         setMessages((prev) => [...prev, msg])
-        // Якщо повідомлення прийшло від іншої людини, позначаємо як прочитане
         if (msg.sender_id !== currentUser.id) markMessagesAsRead(matchId)
       })
       .subscribe()
@@ -63,14 +63,21 @@ export function Chat({ matchId, currentUser, targetProfile }: { matchId: string,
   }
 
   return (
-    <div className="flex flex-col h-[500px] bg-zinc-950/50 border border-white/5 rounded-2xl overflow-hidden">
+    <div className="flex flex-col h-[500px] w-full bg-zinc-900 shadow-2xl border border-white/10 rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="p-4 bg-white/5 border-b border-white/5 flex items-center gap-3">
-        <img src={targetProfile.avatar_url} className="w-8 h-8 rounded-full border border-orange-500/30" alt="" />
-        <div>
-          <h4 className="text-sm font-bold text-white leading-none">{targetProfile.game_name}</h4>
-          <span className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">In-App Secure Chat</span>
+      <div className="p-4 bg-white/5 border-b border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img src={targetProfile.avatar_url} className="w-8 h-8 rounded-full border border-orange-500/30" alt="" />
+          <div>
+            <h4 className="text-sm font-bold text-white leading-none">{targetProfile.game_name}</h4>
+            <span className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">Secure Chat</span>
+          </div>
         </div>
+        {onClose && (
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       {/* Messages */}
