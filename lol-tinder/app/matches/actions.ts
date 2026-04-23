@@ -19,11 +19,17 @@ export async function getRiotLeagueStats(puuid: string, region: string) {
   const platform = regionToPlatform(region);
   
   // Спочатку отримуємо summonerId, бо league-v4 вимагає його, а не PUUID
-  const sumRes = await fetch(`https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`);
+  const sumRes = await fetch(
+    `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`,
+    { next: { revalidate: 300 } } // Кешуємо на 5 хв
+  );
   if (!sumRes.ok) return null;
   const summoner = await sumRes.json();
 
-  const leagueRes = await fetch(`https://${platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`);
+  const leagueRes = await fetch(
+    `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`,
+    { next: { revalidate: 300 } }
+  );
   if (!leagueRes.ok) return null;
   return await leagueRes.json();
 }
@@ -32,16 +38,19 @@ export async function getTopChampions(puuid: string, region: string) {
   const platform = regionToPlatform(region);
   
   // Отримуємо майстерність чемпіонів
-  const masteryRes = await fetch(`https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=10&api_key=${RIOT_API_KEY}`);
+  const masteryRes = await fetch(
+    `https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=10&api_key=${RIOT_API_KEY}`,
+    { next: { revalidate: 300 } }
+  );
   if (!masteryRes.ok) return [];
   const masteries = await masteryRes.json();
 
   // Отримуємо дані про імена чемпіонів з DataDragon
-  const versionRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+  const versionRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json', { next: { revalidate: 86400 } }); // DataDragon кешуємо на добу
   const versions = await versionRes.json();
   const latest = versions[0];
 
-  const champDataRes = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latest}/data/en_US/champion.json`);
+  const champDataRes = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latest}/data/en_US/champion.json`, { next: { revalidate: 86400 } });
   const { data: champs } = await champDataRes.json();
 
   // Мапимо ID на імена та іконки

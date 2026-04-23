@@ -11,8 +11,11 @@ const POPULAR_LANGUAGES = [
   "Spanish", "Italian", "Romanian", "Dutch", "Hungarian", "Czech"
 ];
 
+// Виносимо створення клієнта Supabase за межі компонента
+// Це гарантує, що він створюється лише один раз і є стабільним
+const supabase = createClient();
+
 export default function Home() {
-  const supabase = createClient();
   const [user, setUser] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +38,7 @@ export default function Home() {
       setUser(data.user);
       setIsLoading(false);
     };
-    getUser();
+    getUser(); // supabase більше не є залежністю, оскільки він стабільний
   }, [supabase]);
 
   // Load filters from localStorage on mount
@@ -84,7 +87,22 @@ export default function Home() {
         .eq('region', filterRegion);
 
       if (user) {
-        query = query.neq('id', user.id); // Не показувати самого себе
+        // Отримуємо всі ID користувачів, з якими вже є запис у таблиці matches
+        const { data: existingMatches } = await supabase
+          .from('matches')
+          .select('user_id, target_id')
+          .or(`user_id.eq.${user.id},target_id.eq.${user.id}`);
+
+        const excludedIds = [user.id]; // Починаємо з себе
+
+        if (existingMatches) {
+          existingMatches.forEach(m => {
+            excludedIds.push(m.user_id === user.id ? m.target_id : m.user_id);
+          });
+        }
+
+        // Виключаємо всіх знайдених користувачів одним фільтром
+        query = query.not('id', 'in', `(${excludedIds.join(',')})`);
       }
 
       if (filterRole !== "ALL") {

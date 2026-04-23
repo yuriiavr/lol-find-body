@@ -48,8 +48,11 @@ const AVAILABLE_QUEUES = [
   "Seasonal",
 ];
 
+// Виносимо створення клієнта Supabase за межі компонента
+// Це гарантує, що він створюється лише один раз і є стабільним
+const supabase = createClient();
+
 export default function ProfilePage() {
-  const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(false); // Keep this for button loading state
   const [profile, setProfile] = useState<any>(null);
@@ -88,11 +91,10 @@ export default function ProfilePage() {
       setProfile(data);
       setUser(authUser);
       if (data?.language) setSelectedLangs(data.language.split(","));
-      if (data?.preferred_queue)
-        setSelectedQueues(data.preferred_queue.split(","));
+      if (data?.preferred_queue) setSelectedQueues(data.preferred_queue.split(","));
     };
     getProfile();
-  }, [supabase, router]);
+  }, [router]); // supabase прибрано з залежностей
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);

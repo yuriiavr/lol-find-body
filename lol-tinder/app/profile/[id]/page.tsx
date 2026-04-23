@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, Trophy, Star, Languages, User, Sword, Check, MessageSquare, Send, ShieldCheck, MicOff, ExternalLink } from 'lucide-react'
@@ -9,11 +9,13 @@ import { sendMatchRequest, upsertReview, getReviewsForUser, getRiotLeagueStats, 
 import { useToast } from '@/src/components/ToastProvider'
 import { StarRating } from '@/src/components/StarRating'
 
+// Створюємо клієнт один раз поза компонентом
+const supabase = createClient()
+
 export default function PublicProfilePage() {
   const params = useParams()
   const id = params.id as string
   const router = useRouter()
-  const supabase = createClient()
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRequesting, setIsRequesting] = useState(false)
@@ -30,10 +32,16 @@ export default function PublicProfilePage() {
   const [skillRating, setSkillRating] = useState(5)
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
+  // Ref для запобігання подвійним запитам
+  const fetchedRef = useRef(false)
+
   const { showToast } = useToast()
 
   useEffect(() => {
     const fetchProfile = async () => {
+      if (fetchedRef.current) return
+      fetchedRef.current = true
+
       const { data: { user: authUser } } = await supabase.auth.getUser()
       
       if (!authUser) {
@@ -85,7 +93,7 @@ export default function PublicProfilePage() {
       setIsLoading(false)
     }
     fetchProfile()
-  }, [id, supabase])
+  }, [id]) // supabase тепер стабільний, id - єдина важлива залежність
 
   const handleMatch = async () => {
     setIsRequesting(true)
@@ -114,15 +122,17 @@ export default function PublicProfilePage() {
     }
   }
 
-  const avgBehavior = reviews.length > 0 
+  // Мемоізуємо обчислення середніх рейтингів, оскільки вони залежать від масиву reviews
+  const avgBehavior = useMemo(() => reviews.length > 0 
     ? reviews.reduce((acc, r) => acc + r.behavior_rating, 0) / reviews.length 
-    : 0
-  const avgSkill = reviews.length > 0 
+    : 0, [reviews])
+  const avgSkill = useMemo(() => reviews.length > 0 
     ? reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length 
-    : 0
-  const totalAvg = (avgBehavior + avgSkill) / 2
+    : 0, [reviews])
+  const totalAvg = useMemo(() => (avgBehavior + avgSkill) / 2, [avgBehavior, avgSkill])
 
   // Хелпер для пошуку статсів конкретної черги
+  // Немає потреби в useCallback, оскільки вона не передається мемоізованим дочірнім компонентам
   const getQueueData = (type: string) => {
     return riotStats?.find((s: any) => s.queueType === type)
   }
@@ -208,6 +218,25 @@ export default function PublicProfilePage() {
                  </div>
                )}
             </div>
+
+            {reviews.length > 0 && (
+              <div className="mt-10 w-full flex flex-col gap-2">
+                <div className="flex items-center justify-between bg-zinc-900/40 px-5 py-4 rounded-2xl border border-white/5">
+                  <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Behavior</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-orange-400 leading-none">{avgBehavior.toFixed(1)}</span>
+                    <StarRating rating={avgBehavior} size={12} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between bg-zinc-900/40 px-5 py-4 rounded-2xl border border-white/5">
+                  <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Skill</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-orange-400 leading-none">{avgSkill.toFixed(1)}</span>
+                    <StarRating rating={avgSkill} size={12} />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-10 w-full space-y-4">
               <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Solo/Duo') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
@@ -311,16 +340,6 @@ export default function PublicProfilePage() {
               <div className="modern-panel p-8 bg-zinc-950/40">
                 <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Player Reviews</h3>
-                  <div className="flex gap-4">
-                     <div className="text-right">
-                        <span className="text-[10px] block text-zinc-600 font-bold uppercase">Avg. Behavior</span>
-                        <StarRating rating={avgBehavior} size={10} className="mt-1 justify-end" />
-                     </div>
-                     <div className="text-right">
-                        <span className="text-[10px] block text-zinc-600 font-bold uppercase">Avg. Skill</span>
-                        <StarRating rating={avgSkill} size={10} className="mt-1 justify-end" />
-                     </div>
-                  </div>
                 </div>
 
                 {isMatched && (
@@ -398,11 +417,13 @@ export default function PublicProfilePage() {
   )
 }
 
-function RatingItem({ label, rating }: { label: string, rating: number }) {
+// Обертаємо RatingItem в React.memo, щоб запобігти зайвим ре-рендерам,
+// якщо його пропси (label, rating) не змінилися.
+const RatingItem = memo(function RatingItem({ label, rating }: { label: string, rating: number }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-[9px] font-bold text-zinc-600 uppercase">{label}</span>
       <StarRating rating={rating} size={8} className="opacity-80" />
     </div>
   )
-}
+})
