@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
-import { useParams } from 'next/navigation'
-import { ArrowLeft, Loader2, Trophy, Star, Languages, User, Sword, Check, MessageSquare, Send } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { ArrowLeft, Loader2, Trophy, Star, Languages, User, Sword, Check, MessageSquare, Send, ShieldCheck, MicOff } from 'lucide-react'
 import Link from 'next/link'
 import { sendMatchRequest, upsertReview, getReviewsForUser } from '@/app/matches/actions'
 import { useToast } from '@/src/components/ToastProvider'
+import { StarRating } from '@/src/components/StarRating'
 
 export default function PublicProfilePage() {
   const params = useParams()
   const id = params.id as string
+  const router = useRouter()
   const supabase = createClient()
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -31,6 +33,12 @@ export default function PublicProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser()
+      
+      if (!authUser) {
+        router.push('/login-required')
+        return
+      }
+
       setCurrentUser(authUser)
 
       const { data, error } = await supabase
@@ -102,6 +110,14 @@ export default function PublicProfilePage() {
     }
   }
 
+  const avgBehavior = reviews.length > 0 
+    ? reviews.reduce((acc, r) => acc + r.behavior_rating, 0) / reviews.length 
+    : 0
+  const avgSkill = reviews.length > 0 
+    ? reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length 
+    : 0
+  const totalAvg = (avgBehavior + avgSkill) / 2
+
   if (isLoading) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
       <Loader2 className="animate-spin text-orange-500 w-12 h-12" />
@@ -144,6 +160,9 @@ export default function PublicProfilePage() {
               <div className="absolute -bottom-4 -right-4 bg-slate-900 p-4 rounded-2xl border border-white/10 shadow-xl">
                 <Trophy size={24} className="text-orange-400" />
               </div>
+              {profile.has_mic === false && (
+                <div className="absolute -top-4 -left-4 bg-red-500/10 p-3 rounded-full border border-red-500/30 text-red-500 backdrop-blur-sm shadow-xl shadow-red-900/20"><MicOff size={24} /></div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -151,6 +170,12 @@ export default function PublicProfilePage() {
                 {profile.game_name}
                 <span className="text-slate-600 block text-2xl mt-1">#{profile.tag_line}</span>
               </h1>
+              {totalAvg > 4.5 && reviews.length >= 1 && (
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full w-fit mx-auto lg:mx-0 mt-4">
+                  <ShieldCheck size={14} className="text-orange-400" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Verified Teammate</span>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-4 mt-6 justify-center lg:justify-start">
@@ -213,15 +238,11 @@ export default function PublicProfilePage() {
                   <div className="flex gap-4">
                      <div className="text-right">
                         <span className="text-[10px] block text-zinc-600 font-bold uppercase">Avg. Behavior</span>
-                        <div className="flex text-orange-400 gap-0.5 mt-1">
-                           {[...Array(5)].map((_, i) => <Star key={i} size={10} fill={i < Math.round(reviews.reduce((acc, r) => acc + r.behavior_rating, 0) / reviews.length || 0) ? "currentColor" : "none"} />)}
-                        </div>
+                        <StarRating rating={avgBehavior} size={10} className="mt-1 justify-end" />
                      </div>
                      <div className="text-right">
                         <span className="text-[10px] block text-zinc-600 font-bold uppercase">Avg. Skill</span>
-                        <div className="flex text-orange-400 gap-0.5 mt-1">
-                           {[...Array(5)].map((_, i) => <Star key={i} size={10} fill={i < Math.round(reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length || 0) ? "currentColor" : "none"} />)}
-                        </div>
+                        <StarRating rating={avgSkill} size={10} className="mt-1 justify-end" />
                      </div>
                   </div>
                 </div>
@@ -230,8 +251,24 @@ export default function PublicProfilePage() {
                   <div className="mb-12 p-6 bg-orange-500/5 rounded-2xl border border-orange-500/10">
                     <h4 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-6">Leave your feedback</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-                      <RatingInput label="Communication & Attitude" value={behaviorRating} onChange={setBehaviorRating} />
-                      <RatingInput label="Mechanical Skill" value={skillRating} onChange={setSkillRating} />
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Communication & Attitude</span>
+                        <StarRating 
+                          rating={behaviorRating} 
+                          interactive 
+                          onChange={setBehaviorRating} 
+                          size={18} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Mechanical Skill</span>
+                        <StarRating 
+                          rating={skillRating} 
+                          interactive 
+                          onChange={setSkillRating} 
+                          size={18} 
+                        />
+                      </div>
                     </div>
                     <div className="relative">
                       <textarea 
@@ -262,8 +299,8 @@ export default function PublicProfilePage() {
                             <span className="text-sm font-bold text-zinc-300">{rev.reviewer.game_name}</span>
                           </div>
                           <div className="flex gap-4">
-                            <RatingDisplay label="Attitude" score={rev.behavior_rating} />
-                            <RatingDisplay label="Skill" score={rev.skill_rating} />
+                            <RatingItem label="Attitude" rating={rev.behavior_rating} />
+                            <RatingItem label="Skill" rating={rev.skill_rating} />
                           </div>
                         </div>
                         <p className="text-sm text-zinc-400 italic">"{rev.comment || "No comment left."}"</p>
@@ -285,28 +322,11 @@ export default function PublicProfilePage() {
   )
 }
 
-function RatingInput({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) {
-  return (
-    <div className="space-y-2">
-      <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">{label}</span>
-      <div className="flex gap-2">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button key={star} onClick={() => onChange(star)} className={`transition-all ${star <= value ? 'text-orange-400' : 'text-zinc-800'}`}>
-            <Star size={18} fill={star <= value ? "currentColor" : "none"} />
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function RatingDisplay({ label, score }: { label: string, score: number }) {
+function RatingItem({ label, rating }: { label: string, rating: number }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-[9px] font-bold text-zinc-600 uppercase">{label}</span>
-      <div className="flex text-orange-400/80">
-        {[...Array(5)].map((_, i) => <Star key={i} size={8} fill={i < score ? "currentColor" : "none"} />)}
-      </div>
+      <StarRating rating={rating} size={8} className="opacity-80" />
     </div>
   )
 }

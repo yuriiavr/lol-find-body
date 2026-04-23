@@ -29,6 +29,8 @@ export async function updateProfile(formData: FormData) {
   const role = formData.get('role') as string
   const languages = formData.getAll('languages') as string[]
   const preferredQueue = formData.get('preferredQueue') as string || 'SOLO'
+  const hasMic = formData.get('hasMic') === 'on'
+  const isPaused = formData.get('isPaused') === 'on'
 
   // Крок 1: Пошук Акаунта (PUUID)
   const account = await getAccountByRiotId(gameName, tagLine, region)
@@ -54,11 +56,15 @@ export async function updateProfile(formData: FormData) {
       region: region,
       solo_rank: ranks.solo,
       flex_rank: ranks.flex,
+      has_mic: hasMic,
+      is_paused: isPaused,
       main_role: role,
       preferred_queue: preferredQueue,
       avatar_url: user.user_metadata.avatar_url,
       language: languages.join(','), // Зберігаємо як "Ukrainian,English"
       bio: bio,
+      discord_id: user.id, // ID від провайдера (Discord)
+      discord_username: user.user_metadata.full_name || user.user_metadata.name,
       updated_at: new Date().toISOString(),
     })
     .eq('id', user.id)

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion"
-import { Heart, Sword, Zap, User, LogIn, Filter, Activity, Search, Globe, Trophy, ExternalLink, Languages, LayoutGrid, Loader2 } from "lucide-react"
+import { Heart, Sword, Zap, User, LogIn, Filter, Activity, Search, Globe, Trophy, ExternalLink, Languages, LayoutGrid, Loader2, MicOff } from "lucide-react"
 import { createClient } from "@/src/utils/supabase/client";
 import Link from "next/link";
 
@@ -16,10 +16,12 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastDirection, setLastDirection] = useState<string | null>(null);
 
   // Фільтри
+  const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRole, setFilterRole] = useState<string>("ALL");
   const [filterRank, setFilterRank] = useState<string>("ALL");
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
@@ -36,16 +38,54 @@ export default function Home() {
     getUser();
   }, [supabase]);
 
+  // Load filters from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('lol-match-filters');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.region) setFilterRegion(parsed.region);
+        if (parsed.role) setFilterRole(parsed.role);
+        if (parsed.rank) setFilterRank(parsed.rank);
+        if (parsed.langs) setFilterLangs(parsed.langs);
+        if (parsed.queue) setFilterQueue(parsed.queue);
+        if (parsed.online !== undefined) setOnlyOnline(parsed.online);
+      } catch (e) {
+        console.error("Failed to parse filters from localStorage", e);
+      }
+    }
+  }, []);
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    const filters = {
+      region: filterRegion,
+      role: filterRole,
+      rank: filterRank,
+      langs: filterLangs,
+      queue: filterQueue,
+      online: onlyOnline
+    };
+    localStorage.setItem('lol-match-filters', JSON.stringify(filters));
+  }, [filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline]);
+
   // Завантаження гравців з бази
   useEffect(() => {
     const fetchPlayers = async () => {
-      if (!user) return;
-      setIsLoading(true);
+      // Чекаємо, поки завантажиться інформація про юзера, щоб уникнути показу власної картки
+      if (isLoading) return;
+
+      setIsFetching(true);
       
       let query = supabase
         .from('profiles')
         .select('*')
-        .neq('id', user.id); // Не показувати самого себе
+        .eq('is_paused', false)
+        .eq('region', filterRegion);
+
+      if (user) {
+        query = query.neq('id', user.id); // Не показувати самого себе
+      }
 
       if (filterRole !== "ALL") {
         query = query.eq('main_role', filterRole);
@@ -78,7 +118,7 @@ export default function Home() {
         setPlayers(data);
         setCurrentIndex(0);
       }
-      setIsLoading(false);
+      setIsFetching(false);
     };
 
     fetchPlayers();
@@ -87,7 +127,7 @@ export default function Home() {
     if (user) {
       supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id).then();
     }
-  }, [user, filterRole, filterRank, filterLangs, filterQueue, onlyOnline, supabase]);
+  }, [user, isLoading, filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline, supabase]);
 
   const handleLogin = async () => {
     const redirectTo = typeof window !== 'undefined' 
@@ -140,23 +180,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {!user ? (
-        <main className="flex-1 flex flex-col items-center justify-center text-center px-4 relative">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-orange-600/[0.02] blur-[150px] rounded-full -z-10" />
-          <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-            <h2 className="text-6xl md:text-8xl font-black tracking-tighter mb-8 leading-none uppercase">
-              Find Your <br/> <span className="bg-gradient-to-r from-orange-500 to-zinc-900 bg-clip-text text-transparent">Perfect Duo</span>
-            </h2>
-            <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-              Професійна платформа для пошуку тіммейтів в League of Legends. <br className="hidden md:block" />
-              Об'єднуйся з гравцями твого рівня та перемагай разом.
-            </p>
-            <button onClick={handleLogin} className="btn-modern px-14 py-5 text-lg scale-110 shadow-orange-600/30">
-              <LogIn size={24} /> Get Started
-            </button>
-          </motion.div>
-        </main>
-      ) : (
         <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-10">
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Left Filter Sidebar */}
@@ -168,6 +191,20 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Region / Server</label>
+                    <select 
+                      value={filterRegion} 
+                      onChange={(e) => setFilterRegion(e.target.value)}
+                      className="w-full bg-zinc-950/50 border border-white/5 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all cursor-pointer appearance-none hover:border-white/10"
+                    >
+                      <option value="EUW">Europe West</option>
+                      <option value="EUNE">Europe Nordic & East</option>
+                      <option value="NA">North America</option>
+                      <option value="KR">Korea</option>
+                    </select>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Main Role</label>
                     <select 
@@ -250,7 +287,12 @@ export default function Home() {
 
             {/* Discovery Grid */}
             <div className="flex-1">
-              <div className="main-grid">
+              {isFetching ? (
+                <div className="w-full h-96 flex items-center justify-center">
+                  <Loader2 className="animate-spin text-orange-500/50" size={32} />
+                </div>
+              ) : (
+                <div className="main-grid">
                 <AnimatePresence mode="popLayout">
                   {players.length > 0 ? (
                     players.map((player) => (
@@ -276,6 +318,9 @@ export default function Home() {
                               </div>
                               {new Date(player.last_seen).getTime() > Date.now() - 10 * 60 * 1000 && (
                                 <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-lg shadow-emerald-500/50" />
+                              )}
+                              {player.has_mic === false && (
+                                <div className="absolute -bottom-1 -left-1 text-red-500 bg-[#0a0a0a] rounded-full p-0.5"><MicOff size={14} /></div>
                               )}
                             </div>
                             <div>
@@ -322,10 +367,11 @@ export default function Home() {
                   )}
                 </AnimatePresence>
               </div>
+              )}
             </div>
           </div>
         </main>
-      )}
+
     </div>
   );
 }

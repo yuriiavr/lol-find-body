@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { createClient } from "@/src/utils/supabase/client";
-import { Loader2, Users, Check, X, Trophy, Sword, MessageCircle } from "lucide-react";
+import { Loader2, Users, Check, X, Trophy, Sword, MessageCircle, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { getMatches, updateMatchStatus } from "./actions";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,6 +30,12 @@ export default function MatchesPage() {
 
     const fetchMatches = async () => {
         const { data, error } = await getMatches();
+        const { data: rawData, error: rawError } = await supabase.from('matches').select(`
+            id, user_id, target_id, status,
+            sender:profiles!user_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, discord_id, discord_username),
+            receiver:profiles!target_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, discord_id, discord_username)
+        `).or(`user_id.eq.${user?.id},target_id.eq.${user?.id}`);
+
         if (!error && data) {
             setMatches(data);
         }
@@ -43,6 +49,10 @@ export default function MatchesPage() {
         } else {
             showToast(result.error || 'Failed to update status', 'error');
         }
+    };
+
+    const openGlobalChat = (m: any) => {
+      window.dispatchEvent(new CustomEvent('open-global-chat', { detail: m }));
     };
 
     if (loading) return (
@@ -94,32 +104,47 @@ export default function MatchesPage() {
                     </div>
                 </div>
 
-                <div className="main-grid">
+                <div className="w-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     <AnimatePresence mode="popLayout">
                         {(activeTab === 'TEAM' ? teamMatches : pendingMatches).map((m) => (
                             <motion.div
                                 key={m.id}
                                 layout
+                                onClick={() => activeTab === 'TEAM' && openGlobalChat(m)}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className="modern-panel p-6 group"
+                                className="modern-panel p-6 group cursor-pointer"
                             >
+                                {/* Card Content (same as before) */}
                                 <div className="flex items-start justify-between mb-6">
                                     <div className="flex gap-4">
                                         <div className="w-16 h-16 rounded-2xl bg-zinc-800 p-[1px] overflow-hidden">
                                              <img src={m.profile.avatar_url} className="w-full h-full object-cover rounded-[15px]" alt="" />
                                         </div>
                                         <div>
-                                            <h4 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">{m.profile.game_name}</h4>
+                                            <h4 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">
+                                              {m.profile.game_name}
+                                            </h4>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <Trophy size={12} className="text-orange-400" />
                                                 <span className="text-[10px] font-black uppercase text-zinc-500">{m.profile.solo_rank || 'Unranked'}</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="bg-blue-500/10 px-2 py-1 rounded text-[10px] font-bold text-blue-400 border border-blue-500/20 uppercase">
+                                    <div className="flex flex-col gap-2 items-end">
+                                      <div className="bg-blue-500/10 px-2 py-1 rounded text-[10px] font-bold text-blue-400 border border-blue-500/20 uppercase">
                                         {m.profile.main_role}
+                                      </div>
+                                      <a 
+                                          href={`https://discord.com/users/${m.profile.discord_id}`} 
+                                          target="_blank" 
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="text-[#5865F2] hover:text-white transition-colors"
+                                      >
+                                          <MessageSquare size={14} />
+                                      </a>
                                     </div>
                                 </div>
 
@@ -128,8 +153,11 @@ export default function MatchesPage() {
                                         <Link href={`/profile/${m.profile.id}`} className="flex-1">
                                             <button className="btn-modern w-full py-3 text-[10px]">View Profile</button>
                                         </Link>
-                                        <button className="px-4 bg-zinc-800 rounded-xl border border-white/5 hover:bg-zinc-700 transition-colors">
-                                            <MessageCircle size={18} className="text-orange-400" />
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); openGlobalChat(m); }}
+                                          className="px-4 bg-orange-500/10 rounded-xl border border-orange-500/20 hover:bg-orange-500/20 transition-colors"
+                                        >
+                                            <MessageCircle size={18} className="text-orange-500" />
                                         </button>
                                     </div>
                                 ) : (
@@ -152,6 +180,7 @@ export default function MatchesPage() {
                         ))}
                     </AnimatePresence>
                 </div>
+            </div>
             </main>
         </div>
     );

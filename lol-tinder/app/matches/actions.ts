@@ -163,3 +163,82 @@ export async function getReviewsForUser(targetId: string) {
 
   return { data, error }
 }
+
+export async function sendMessage(matchId: string, content: string) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) { return cookieStore.get(name)?.value },
+        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
+        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('messages')
+    .insert({
+      match_id: matchId,
+      sender_id: user.id,
+      content: content.trim()
+    })
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function getMessages(matchId: string) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) { return cookieStore.get(name)?.value },
+        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
+        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
+      },
+    }
+  )
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('match_id', matchId)
+    .order('created_at', { ascending: true })
+
+  return { data, error }
+}
+
+export async function markMessagesAsRead(matchId: string) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) { return cookieStore.get(name)?.value },
+        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
+        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase
+    .from('messages')
+    .update({ is_read: true })
+    .eq('match_id', matchId)
+    .neq('sender_id', user.id)
+
+  if (error) return { error: error.message }
+  return { success: true }
+}

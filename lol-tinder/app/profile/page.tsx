@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
 import { updateProfile } from './actions'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Loader2, LogOut, Sword, Globe, User as UserIcon, Tag, Trophy, Settings, Star, Languages, LayoutGrid } from 'lucide-react'
+import { useRouter } from 'next/navigation' // Keep this for redirection
+import { ArrowLeft, Save, Loader2, LogOut, Sword, Globe, User as UserIcon, Tag, Trophy, Settings, Star, Languages, LayoutGrid, Mic, MicOff, EyeOff } from 'lucide-react'
 import Link from 'next/link'
+import { useToast } from '@/src/components/ToastProvider'
 
 const POPULAR_LANGUAGES = [
   "Ukrainian", "English", "Polish", "German", "French", 
@@ -15,8 +16,7 @@ const POPULAR_LANGUAGES = [
 export default function ProfilePage() {
   const supabase = createClient()
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false) // Keep this for button loading state
   const [profile, setProfile] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
 
@@ -28,6 +28,7 @@ export default function ProfilePage() {
       prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
     )
   }
+  const { showToast } = useToast()
 
   useEffect(() => {
     const getProfile = async () => {
@@ -44,18 +45,31 @@ export default function ProfilePage() {
 
   async function handleSubmit(formData: FormData) {
     setLoading(true)
-    setMessage('')
     // Додаємо обрані мови у FormData перед відправкою
     selectedLangs.forEach(lang => formData.append('languages', lang))
     
     const result = await updateProfile(formData)
-    setLoading(false)
 
     if (result?.error) {
-      setMessage(result.error)
+      showToast(result.error, 'error')
+      setLoading(false)
     } else {
-      setMessage('Updated successfully!')
-      router.refresh()
+      // Миттєво оновлюємо локальний стан профілю
+      const updatedProfile = {
+        ...profile,
+        game_name: formData.get('gameName'),
+        tag_line: formData.get('tagLine'),
+        region: formData.get('region'),
+        main_role: formData.get('role'),
+        preferred_queue: formData.get('preferredQueue'),
+        has_mic: formData.get('hasMic') === 'on',
+        is_paused: formData.get('isPaused') === 'on',
+        language: selectedLangs.join(','),
+        bio: formData.get('bio'),
+      }
+      setProfile(updatedProfile)
+      showToast('Profile updated successfully!', 'success')
+      setLoading(false)
     }
   }
 
@@ -100,6 +114,9 @@ export default function ProfilePage() {
               <div className="absolute -bottom-4 -right-4 bg-slate-900 p-4 rounded-2xl border border-white/10 shadow-xl">
                 <Trophy size={24} className="text-orange-400" />
               </div>
+              {profile.has_mic === false && (
+                <div className="absolute -top-2 -left-2 bg-red-500/20 p-2 rounded-full border border-red-500/50 backdrop-blur-md text-red-500 shadow-lg"><MicOff size={16} /></div>
+              )}
             </div>
 
             <div className="text-center lg:text-left space-y-2">
@@ -187,6 +204,40 @@ export default function ProfilePage() {
                   </select>
                 </div>
                 <div className="space-y-4">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-4">
+                      <Mic size={14} /> Voice Comms
+                    </label>
+                    <label className="relative inline-flex items-center cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        name="hasMic" 
+                        defaultChecked={profile.has_mic !== false} 
+                        className="sr-only peer" 
+                      />
+                      <div className="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-7 rtl:peer-checked:after:-translate-x-7 peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:bg-orange-600 peer-checked:after:bg-white border border-white/5 group-hover:border-white/10"></div>
+                      <span className="ms-3 text-sm font-bold text-slate-400 group-hover:text-slate-200 transition-colors">
+                        I have a microphone
+                      </span>
+                    </label>
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-4">
+                      <EyeOff size={14} /> Discovery Status
+                    </label>
+                    <label className="relative inline-flex items-center cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        name="isPaused" 
+                        defaultChecked={profile.is_paused === true} 
+                        className="sr-only peer" 
+                      />
+                      <div className="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-7 rtl:peer-checked:after:-translate-x-7 peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:bg-red-600 peer-checked:after:bg-white border border-white/5 group-hover:border-white/10"></div>
+                      <span className="ms-3 text-sm font-bold text-slate-400 group-hover:text-slate-200 transition-colors">
+                        Pause showing my card
+                      </span>
+                    </label>
+                  </div>
+                  <div className="space-y-4">
                   <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                     <Languages size={14} /> Languages you speak
                   </label>
@@ -215,11 +266,6 @@ export default function ProfilePage() {
               </div>
 
               <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-                {message && (
-                  <p className={`text-sm font-bold uppercase tracking-wide ${message.includes('successfully') ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {message}
-                  </p>
-                )}
                 <button disabled={loading} type="submit" className="btn-modern w-full md:w-auto px-12 py-4">
                   {loading ? <Loader2 className="animate-spin" /> : <Save size={20} />}
                   Apply Changes
