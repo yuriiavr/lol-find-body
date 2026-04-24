@@ -22,10 +22,11 @@ export async function updateProfile(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  // Переконайтеся, що тут НЕМАЄ .replace(/\s/g, '')
-  const gameName = (formData.get('gameName') as string)?.trim() || ''
-  const tagLine = (formData.get('tagLine') as string)?.trim().replace('#', '') || ''
-  const region = formData.get('region') as string
+  const activeGame = formData.get('activeGame') as string
+  const gameName = (formData.get(`${activeGame.toLowerCase()}_gameName`) as string)?.trim() || ''
+  const tagLine = (formData.get(`${activeGame.toLowerCase()}_tagLine`) as string)?.trim().replace('#', '') || ''
+  const region = formData.get(`${activeGame.toLowerCase()}_region`) as string
+  
   const bio = formData.get('bio') as string
   const role = formData.get('role') as string
   const languages = formData.getAll('languages') as string[]
@@ -33,6 +34,7 @@ export async function updateProfile(formData: FormData) {
   const enabledGames = formData.getAll('enabledGames') as string[]
   const hasMic = formData.get('hasMic') === 'on'
   const isPaused = formData.get('isPaused') === 'on'
+  const isGameEnabled = formData.get('isGameEnabled') === 'on'
 
   // Крок 1: Пошук Акаунта (PUUID)
   const account = await getAccountByRiotId(gameName, tagLine, region)
@@ -43,61 +45,79 @@ export async function updateProfile(formData: FormData) {
     return { error: `Riot ID ${gameName}#${tagLine} not found in ${region}.` };
   }
 
-  // Перевірка, чи цей PUUID вже прив'язаний до ІНШОГО користувача
+  // Перевірка унікальності PUUID для конкретної гри
+  const puuidColumn = activeGame === 'LOL' ? 'puuid' : `${activeGame.toLowerCase()}_puuid`;
   const { data: existingProfile } = await supabase
     .from('profiles')
     .select('id')
-    .eq('puuid', account.puuid)
-    .neq('id', user.id) // перевіряємо всіх, крім поточного юзера
+    .eq(puuidColumn, account.puuid)
+    .neq('id', user.id)
     .maybeSingle()
 
   if (existingProfile) {
     return { error: "This Riot account is already linked to another user's profile." };
   }
 
-  // Крок 2: Отримання рангу за PUUID
-  const ranks = await getRanksByPuuid(account.puuid, region) || { solo: 'UNRANKED', flex: 'UNRANKED' };
-
-  // TFT Rank
-  let tftRank = 'UNRANKED';
-  try {
-    const tftStats = await getRiotTFTStats(account.puuid, region);
-    console.log("[updateProfile] Raw TFT Stats received:", tftStats);
-    tftRank = tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : 'UNRANKED';
-    console.log("[updateProfile] Calculated tftRank:", tftRank);
-  } catch (e) {
-    console.error("Failed to fetch TFT stats, skipping:", e);
+  // Крок 2: Отримання статсів залежно від гри
+  let stats: any = {};
+  if (activeGame === 'LOL') {
+    const ranks = await getRanksByPuuid(account.puuid, region) || { solo: 'UNRANKED', flex: 'UNRANKED' };
+    stats = { solo_rank: ranks.solo, flex_rank: ranks.flex };
+  } else if (activeGame === 'TFT') {
+    try {
+      const tftStats = await getRiotTFTStats(account.puuid, region);
+      stats.tft_rank = tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : 'UNRANKED';
+    } catch (e) {
+      console.error("Failed to fetch TFT stats:", e);
+    }
+  } else if (activeGame === 'VALORANT') {
+    // Placeholder для Valorant Rank (потрібен VAL-RANKED-V1)
+    stats.val_rank = 'UNRANKED';
   }
 
-  // Крок 3: Пошук Сумонера (нам все ще потрібен summoner_id для бази, якщо ви його зберігаєте)
-  // Використовуємо V4, щоб не було 403
-  const summoner = await getSummonerByPuuid(account.puuid, region)
+  // Формуємо список увімкнених ігор
+  let finalEnabledGames = [...enabledGames];
+  if (isGameEnabled && !finalEnabledGames.includes(activeGame)) {
+    finalEnabledGames.push(activeGame);
+  } else if (!isGameEnabled) {
+    finalEnabledGames = finalEnabledGames.filter(g => g !== activeGame);
+  }
 
   // Крок 4: Оновлення в Supabase
+  const updateData: any = {
+    id: user.id,
+    has_mic: hasMic,
+    is_paused: isPaused,
+    enabled_games: finalEnabledGames.join(','),
+    language: languages.join(','),
+    updated_at: new Date().toISOString(),
+    discord_id: user.user_metadata.provider_id || user.identities?.[0]?.id || user.id,
+    discord_username: user.user_metadata.full_name || user.user_metadata.name,
+    avatar_url: user.user_metadata.avatar_url,
+  };
+
+  // Динамічно додаємо поля для конкретної гри
+  const prefix = activeGame === 'LOL' ? '' : `${activeGame.toLowerCase()}_`;
+  updateData[`${prefix}game_name`] = account.gameName;
+  updateData[`${prefix}tag_line`] = account.tagLine;
+  updateData[`${prefix}puuid`] = account.puuid;
+  updateData[`${prefix}region`] = region;
+  updateData[`${prefix}bio`] = bio;
+  updateData[`${prefix}main_role`] = role;
+  updateData[`${prefix}preferred_queue`] = queues.join(',');
+
+  if (activeGame === 'LOL') {
+    updateData.solo_rank = stats.solo_rank;
+    updateData.flex_rank = stats.flex_rank;
+  } else if (activeGame === 'TFT') {
+    updateData.tft_rank = stats.tft_rank;
+  } else if (activeGame === 'VALORANT') {
+    updateData.val_rank = stats.val_rank;
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .upsert({
-      id: user.id, // Обов'язково для upsert
-      game_name: account.gameName,
-      tag_line: account.tagLine,
-      puuid: account.puuid,
-      summoner_id: summoner?.id || null, // Це encryptedSummonerId
-      region: region,
-      solo_rank: ranks.solo,
-      flex_rank: ranks.flex,
-      tft_rank: tftRank,
-      has_mic: hasMic,
-      is_paused: isPaused,
-      main_role: role,
-      preferred_queue: queues.join(','),
-      enabled_games: enabledGames.join(','), // Напр: "LOL,TFT"
-      avatar_url: user.user_metadata.avatar_url,
-      language: languages.join(','),
-      bio: bio,
-      discord_id: user.user_metadata.provider_id || user.identities?.[0]?.id || user.id, // Справжній Discord Snowflake ID
-      discord_username: user.user_metadata.full_name || user.user_metadata.name,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'id' })
+    .upsert(updateData, { onConflict: 'id' })
 
   if (error) return { error: error.message }
   return { success: true }

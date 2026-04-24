@@ -152,8 +152,8 @@ export async function getMatches() {
       user_id,
       target_id,
       status,
-      sender:profiles!user_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, flex_rank, preferred_queue),
-      receiver:profiles!target_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, flex_rank, preferred_queue)
+      sender:profiles!user_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, flex_rank, preferred_queue, last_seen),
+      receiver:profiles!target_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, flex_rank, preferred_queue, last_seen)
     `)
     .or(`user_id.eq.${user.id},target_id.eq.${user.id}`)
 
@@ -195,7 +195,7 @@ export async function updateMatchStatus(matchId: string, status: 'ACCEPTED' | 'D
   return { success: true }
 }
 
-export async function upsertReview(targetId: string, comment: string, behaviorRating: number, skillRating: number, gameType: 'LOL' | 'TFT' = 'LOL') {
+export async function upsertReview(targetId: string, comment: string, behaviorRating: number, skillRating: number, gameType: 'LOL' | 'TFT' | 'VALORANT' = 'LOL') {
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -238,7 +238,7 @@ export async function upsertReview(targetId: string, comment: string, behaviorRa
   return { success: true }
 }
 
-export async function getReviewsForUser(targetId: string, gameType: 'LOL' | 'TFT' = 'LOL') {
+export async function getReviewsForUser(targetId: string, gameType: 'LOL' | 'TFT' | 'VALORANT' = 'LOL') {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

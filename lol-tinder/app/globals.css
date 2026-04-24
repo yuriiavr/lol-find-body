@@ -9,18 +9,29 @@
   /* Obsidian & Ember Palette */
   --bg-primary: 10 10 10;      /* Near black */
   --bg-secondary: 24 24 24;    /* Dark charcoal */
-  --accent-orange: 251 146 60; /* orange-400 */
-  --accent-blue: 37 99 235;    /* blue-600 */
+  --accent-color: 251 146 60; /* Default (LOL - Orange) */
   --text-primary: 250 250 250;
   --text-secondary: 161 161 170;
   --border-color: 39 39 42;    /* zinc-800 */
+}
+
+[data-game-theme="lol"] {
+  --accent-color: 251 146 60; /* orange-400 */
+}
+
+[data-game-theme="tft"] {
+  --accent-color: 37 99 235; /* blue-600 */
+}
+
+[data-game-theme="valorant"] {
+  --accent-color: 239 68 68; /* red-500 */
 }
 
 body {
   background-color: rgb(var(--bg-primary));
   color: rgb(var(--text-primary));
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  @apply min-h-screen antialiased selection:bg-violet-500/30;
+  @apply min-h-screen antialiased selection:bg-[rgb(var(--accent-color)/0.3)];
 }
 
 /* Discovery Grid for PC */
@@ -45,18 +56,20 @@ body {
 /* Modern Action Button */
 .btn-modern {
   @apply px-6 py-3 rounded-lg font-bold uppercase tracking-wider text-sm transition-all active:scale-95 flex items-center justify-center gap-2;
-  background: linear-gradient(135deg, rgb(var(--accent-orange)), #ea580c);
-  @apply text-black shadow-lg shadow-orange-500/10 hover:shadow-orange-500/20;
+  background: linear-gradient(135deg, rgb(var(--accent-color)), rgb(var(--accent-color) / 0.8));
+  @apply text-black shadow-lg;
+  box-shadow: 0 10px 15px -3px rgb(var(--accent-color) / 0.15);
 }
 
 /* Tech Input */
 .modern-input {
-  @apply w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500/50 transition-all text-base;
+  @apply w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[rgb(var(--accent-color)/0.5)] transition-all text-base;
 }
 
 /* Gradient Heading Text */
 .text-tech-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-blue-400;
+  @apply bg-clip-text text-transparent;
+  background-image: linear-gradient(to right, rgb(var(--accent-color)), rgb(var(--text-primary)));
 }
 
 * {
@@ -74,5 +87,5 @@ body {
   border-color: rgb(var(--bg-primary));
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-orange-500;
+  background-color: rgb(var(--accent-color));
 }

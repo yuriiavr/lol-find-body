@@ -17,12 +17,7 @@ export default function PublicProfilePage() {
   const searchParams = useSearchParams()
   const id = params.id as string
   const router = useRouter()
-  const [activeGame, setActiveGame] = useState<'LOL' | 'TFT'>(() => {
-    if (typeof window !== 'undefined') {
-      return (searchParams.get('game') as 'LOL' | 'TFT') || (localStorage.getItem('lastProfileGame') as 'LOL' | 'TFT') || 'LOL';
-    }
-    return 'LOL';
-  });
+  const [activeGame, setActiveGame] = useState<'LOL' | 'TFT' | 'VALORANT'>('LOL');
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRequesting, setIsRequesting] = useState(false)
@@ -39,19 +34,20 @@ export default function PublicProfilePage() {
   const [behaviorRating, setBehaviorRating] = useState(5)
   const [skillRating, setSkillRating] = useState(5)
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
-
-  // Ref для запобігання подвійним запитам
-  const fetchedRef = useRef(false)
+  const hasInitialized = useRef(false)
 
   const { showToast } = useToast()
 
+  // Визначаємо список ігор, які гравець активував
+  const enabledGamesList = useMemo((): ("LOL" | "TFT" | "VALORANT")[] => {
+    if (!profile?.enabled_games) return [];
+    return profile.enabled_games.split(',').map((g: string) => g.trim()) as ('LOL' | 'TFT' | 'VALORANT')[];
+  }, [profile?.enabled_games]);
+
+  // Крок 1: Завантажуємо основні дані профілю та статус матчу
   useEffect(() => {
     const fetchProfile = async () => {
-      if (fetchedRef.current) return
-      fetchedRef.current = true
-
       const { data: { user: authUser } } = await supabase.auth.getUser()
-      
       if (!authUser) {
         router.push('/login-required')
         return
@@ -69,20 +65,7 @@ export default function PublicProfilePage() {
 
       if (profileRes.data) {
         setProfile(profileRes.data)
-        
-        // Отримуємо живі дані від Riot паралельно
-        const [stats, tft, champs] = await Promise.all([
-          getRiotLeagueStats(profileRes.data.puuid, profileRes.data.region),
-          getRiotTFTStats(profileRes.data.puuid, profileRes.data.region),
-          getTopChampions(profileRes.data.puuid, profileRes.data.region)
-        ])
-        setRiotStats(stats)
-        setTftStats(tft)
-        setTopChamps(champs)
       }
-
-      // Завантажуємо відгуки для активної гри
-      await refreshReviews(id, activeGame, authUser.id)
 
       if (matchRes.data) {
         if (matchRes.data.status === 'ACCEPTED') {
@@ -95,21 +78,75 @@ export default function PublicProfilePage() {
       setIsLoading(false)
     }
     fetchProfile()
-  }, [id, activeGame])
+  }, [id, router])
 
-  const refreshReviews = async (targetId: string, gameType: 'LOL' | 'TFT', authUserId: string) => {
-    const { data } = await getReviewsForUser(targetId, gameType)
-    if (data) {
-      setReviews(data)
-      const myReview = data.find((r: any) => r.reviewer_id === authUserId)
-      if (myReview) {
+  // Крок 2: Завантажуємо статистику та відгуки при зміні гри
+  useEffect(() => {
+    if (!profile || !currentUser) return
+
+    const fetchGameSpecificData = async () => {
+      if (activeGame === 'LOL' && profile.puuid) {
+        const [stats, champs] = await Promise.all([
+          getRiotLeagueStats(profile.puuid, profile.region),
+          getTopChampions(profile.puuid, profile.region)
+        ])
+        setRiotStats(stats)
+        setTopChamps(champs)
+      } else if (activeGame === 'TFT' && profile.tft_puuid) {
+        const tft = await getRiotTFTStats(profile.tft_puuid, profile.tft_region || profile.region)
+        setTftStats(tft)
+      } else {
+        // Очищуємо статси при переході на Valorant (якщо немає API)
+        setRiotStats(null)
+        setTftStats(null)
+        setTopChamps([])
+      }
+
+      // Завантажуємо відгуки для поточної обраної гри
+      await refreshReviews(id, activeGame, currentUser.id)
+    }
+
+    fetchGameSpecificData()
+  }, [activeGame, profile, currentUser, id])
+
+  // Логіка вибору початкової вкладки залежно від теми та доступних ігор
+  useEffect(() => {
+    if (profile && enabledGamesList.length > 0 && !hasInitialized.current) {
+      const siteTheme = localStorage.getItem('site-game-theme') as any;
+      const requestedGame = searchParams.get('game')?.toUpperCase() as any;
+
+      let initialGame: 'LOL' | 'TFT' | 'VALORANT' = 'LOL';
+
+      if (requestedGame && enabledGamesList.includes(requestedGame)) {
+        initialGame = requestedGame;
+      } else if (siteTheme && enabledGamesList.includes(siteTheme)) {
+        initialGame = siteTheme;
+      } else {
+        initialGame = enabledGamesList[0];
+      }
+
+      setActiveGame(initialGame);
+      hasInitialized.current = true;
+    }
+  }, [profile, searchParams, enabledGamesList]);
+
+  const refreshReviews = async (targetId: string, gameType: 'LOL' | 'TFT' | 'VALORANT', authUserId: string) => {
+    const res = await getReviewsForUser(targetId, gameType)
+    if (res.data) {
+      setReviews(res.data)
+      const myReview = res.data.find((r: any) => r.reviewer_id === authUserId)
+      if (myReview && authUserId) {
         setReviewComment(myReview.comment || '')
         setBehaviorRating(myReview.behavior_rating)
         setSkillRating(myReview.skill_rating)
       } else {
         setReviewComment('')
+        setBehaviorRating(5)
+        setSkillRating(5)
       }
     }
+    // Якщо помилка або немає даних - скидаємо список
+    if (res.error) setReviews([])
   }
 
   const handleMatch = async () => {
@@ -148,21 +185,6 @@ export default function PublicProfilePage() {
     : 0, [reviews])
   const totalAvg = useMemo(() => (avgBehavior + avgSkill) / 2, [avgBehavior, avgSkill])
 
-  // Визначаємо список ігор, які гравець активував у себе в профілі
-  const enabledGamesList = useMemo((): ("LOL" | "TFT")[] => {
-    if (!profile?.enabled_games) return ['LOL'];
-    return profile.enabled_games.split(',') as ('LOL' | 'TFT')[];
-  }, [profile?.enabled_games]);
-
-  // Якщо поточна activeGame не в списку активованих ігор (наприклад, через localStorage),
-  // перемикаємось на першу доступну гру
-  useEffect(() => {
-    const firstGame = enabledGamesList[0];
-    if (profile && firstGame && !enabledGamesList.includes(activeGame)) {
-      setActiveGame(firstGame);
-    }
-  }, [enabledGamesList, activeGame, profile]);
-
   // Хелпер для пошуку статсів конкретної черги
   // Немає потреби в useCallback, оскільки вона не передається мемоізованим дочірнім компонентам
   const getQueueData = (type: string) => {
@@ -171,18 +193,18 @@ export default function PublicProfilePage() {
 
   if (isLoading) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-      <Loader2 className="animate-spin text-orange-500 w-12 h-12" />
+      <Loader2 className="animate-spin text-[rgb(var(--accent-color))] w-12 h-12" />
     </div>
   )
 
   if (!profile) return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-white p-4">
-      <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-orange-500 to-zinc-700 bg-clip-text text-transparent uppercase tracking-tighter">Player not found</h1>
+      <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent uppercase tracking-tighter">Player not found</h1>
       <Link 
-        href={activeGame === 'TFT' ? '/tft' : '/league'} 
-        className={`hover:underline flex items-center gap-2 font-bold ${activeGame === 'TFT' ? 'text-blue-400' : 'text-orange-400'}`}
+        href={activeGame === 'TFT' ? '/tft' : activeGame === 'VALORANT' ? '/valorant' : '/league'} 
+        className="hover:underline flex items-center gap-2 font-bold text-[rgb(var(--accent-color))]"
       >
-        <ArrowLeft size={18} /> BACK TO {activeGame === 'TFT' ? 'STRATEGISTS' : 'RIFT'}
+        <ArrowLeft size={18} /> BACK TO DISCOVERY
       </Link>
     </div>
   )
@@ -196,14 +218,14 @@ export default function PublicProfilePage() {
           {/* Summary Side (Left) */}
           <section className="w-full lg:w-96 flex flex-col items-center lg:items-start text-center lg:text-left">
             <Link 
-              href={activeGame === 'TFT' ? '/tft' : '/league'} 
-              className={`hover:underline flex items-center gap-2 font-bold mb-8 ${activeGame === 'TFT' ? 'text-blue-400' : 'text-orange-400'}`}
+              href={activeGame === 'TFT' ? '/tft' : activeGame === 'VALORANT' ? '/valorant' : '/league'} 
+              className="hover:underline flex items-center gap-2 font-bold mb-8 text-[rgb(var(--accent-color))]"
             >
-              <ArrowLeft size={18} /> BACK TO {activeGame === 'TFT' ? 'STRATEGISTS' : 'RIFT'}
+              <ArrowLeft size={18} /> BACK TO DISCOVERY
             </Link>
 
             <div className="relative mb-10 group">
-              <div className="w-56 h-56 rounded-[2.5rem] bg-gradient-to-tr from-orange-600 to-amber-500 p-1 shadow-2xl shadow-orange-500/20">
+              <div className="w-56 h-56 rounded-[2.5rem] bg-[rgb(var(--accent-color))] p-1 shadow-2xl shadow-[rgb(var(--accent-color)/0.2)]">
                 <div className="w-full h-full rounded-[2.3rem] bg-zinc-950 flex items-center justify-center overflow-hidden">
                   {profile.avatar_url ? (
                     <img src={profile.avatar_url} className="w-full h-full object-cover opacity-90" alt="" />
@@ -213,7 +235,7 @@ export default function PublicProfilePage() {
                 </div>
               </div>
               <div className="absolute -bottom-4 -right-4 bg-slate-900 p-4 rounded-2xl border border-white/10 shadow-xl">
-                <Trophy size={24} className="text-orange-400" />
+                <Trophy size={24} className="text-[rgb(var(--accent-color))]" />
               </div>
               {profile.has_mic === false && (
                 <div className="absolute -top-4 -left-4 bg-red-500/10 p-3 rounded-full border border-red-500/30 text-red-500 backdrop-blur-sm shadow-xl shadow-red-900/20"><MicOff size={24} /></div>
@@ -237,19 +259,19 @@ export default function PublicProfilePage() {
               )}
 
               {totalAvg > 4.5 && reviews.length >= 1 && (
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full w-fit mx-auto lg:mx-0 mt-4">
-                  <ShieldCheck size={14} className="text-orange-400" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Verified Teammate</span>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-[rgb(var(--accent-color)/0.1)] border border-[rgb(var(--accent-color)/0.2)] rounded-full w-fit mx-auto lg:mx-0 mt-4">
+                  <ShieldCheck size={14} className="text-[rgb(var(--accent-color))]" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[rgb(var(--accent-color))]">Verified Teammate</span>
                 </div>
               )}
             </div>
 
             <div className="flex flex-wrap gap-4 mt-6 justify-center lg:justify-start">
-               <div className="px-4 py-2 bg-white/5 rounded-full border border-white/5 text-xs font-bold text-orange-400 uppercase tracking-widest flex items-center gap-2">
-                  <Sword size={14} /> {profile.main_role}
+               <div className="px-4 py-2 bg-white/5 rounded-full border border-white/5 text-xs font-bold text-[rgb(var(--accent-color))] uppercase tracking-widest flex items-center gap-2">
+                  <Sword size={14} /> {activeGame === 'LOL' ? profile.main_role : activeGame === 'TFT' ? profile.tft_main_role : profile.val_main_role}
                </div>
                {profile.language && (
-                 <div className="px-4 py-2 bg-white/5 rounded-full border border-white/5 text-xs font-bold text-orange-400 uppercase tracking-widest flex items-center gap-2">
+                 <div className="px-4 py-2 bg-white/5 rounded-full border border-white/5 text-xs font-bold text-[rgb(var(--accent-color))] uppercase tracking-widest flex items-center gap-2">
                    <Languages size={14} /> {profile.language.replace(/,/g, ', ')}
                  </div>
                )}
@@ -260,14 +282,14 @@ export default function PublicProfilePage() {
                 <div className="flex items-center justify-between bg-zinc-900/40 px-5 py-4 rounded-2xl border border-white/5">
                   <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Behavior</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-orange-400 leading-none">{avgBehavior.toFixed(1)}</span>
+                    <span className="text-sm font-bold text-[rgb(var(--accent-color))] leading-none">{avgBehavior.toFixed(1)}</span>
                     <StarRating rating={avgBehavior} size={12} />
                   </div>
                 </div>
                 <div className="flex items-center justify-between bg-zinc-900/40 px-5 py-4 rounded-2xl border border-white/5">
                   <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Skill</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-orange-400 leading-none">{avgSkill.toFixed(1)}</span>
+                    <span className="text-sm font-bold text-[rgb(var(--accent-color))] leading-none">{avgSkill.toFixed(1)}</span>
                     <StarRating rating={avgSkill} size={12} />
                   </div>
                 </div>
@@ -282,7 +304,7 @@ export default function PublicProfilePage() {
                       setActiveGame('LOL');
                       localStorage.setItem('lastProfileGame', 'LOL');
                     }}
-                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'LOL' ? 'bg-orange-500 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'LOL' ? 'bg-[rgb(var(--accent-color))] text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
                   >
                     League
                   </button>
@@ -293,9 +315,20 @@ export default function PublicProfilePage() {
                       setActiveGame('TFT');
                       localStorage.setItem('lastProfileGame', 'TFT');
                     }}
-                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'TFT' ? 'bg-blue-600 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'TFT' ? 'bg-[rgb(var(--accent-color))] text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
                   >
                     TFT
+                  </button>
+                )}
+                {enabledGamesList.includes('VALORANT') && (
+                  <button 
+                    onClick={() => {
+                      setActiveGame('VALORANT');
+                      localStorage.setItem('lastProfileGame', 'VALORANT');
+                    }}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeGame === 'VALORANT' ? 'bg-[rgb(var(--accent-color))] text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  >
+                    Valorant
                   </button>
                 )}
               </div>
@@ -304,24 +337,24 @@ export default function PublicProfilePage() {
             <div className="mt-6 w-full space-y-4">
               {activeGame === 'LOL' ? (
                 <>
-                  <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Solo/Duo') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
+                  <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Solo/Duo') ? 'bg-[rgb(var(--accent-color)/0.1)] border-[rgb(var(--accent-color)/0.4)]' : 'bg-white/5 opacity-60'}`}>
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Solo Queue</span>
-                      <Star size={12} className="text-orange-400" />
+                      <Star size={12} className="text-[rgb(var(--accent-color))]" />
                     </div>
                     <p className="text-3xl font-bold text-white uppercase italic">
                       {getQueueData('RANKED_SOLO_5x5')?.tier ? `${getQueueData('RANKED_SOLO_5x5').tier} ${getQueueData('RANKED_SOLO_5x5').rank}` : profile.solo_rank || 'Unranked'}
                     </p>
                   </div>
-                  <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Flex') ? 'bg-orange-500/10 border-orange-500/40' : 'bg-orange-500/5 opacity-60'}`}>
+                  <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Flex') ? 'bg-[rgb(var(--accent-color)/0.1)] border-[rgb(var(--accent-color)/0.4)]' : 'bg-white/5 opacity-60'}`}>
                     <span className="text-[10px] font-black uppercase text-zinc-500 block mb-1 tracking-widest">Flex Queue</span>
                     <p className="text-2xl font-bold text-slate-300 uppercase italic">
                       {getQueueData('RANKED_FLEX_SR')?.tier ? `${getQueueData('RANKED_FLEX_SR').tier} ${getQueueData('RANKED_FLEX_SR').rank}` : profile.flex_rank || 'Unranked'}
                     </p>
                   </div>
                 </>
-              ) : (
-                <div className="modern-panel p-5 bg-blue-500/10 border-blue-500/40">
+              ) : activeGame === 'TFT' ? (
+                <div className="modern-panel p-5 bg-[rgb(var(--accent-color)/0.1)] border-[rgb(var(--accent-color)/0.4)]">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">TFT Ranked</span>
                     <Gamepad size={12} className="text-blue-400" />
@@ -338,12 +371,22 @@ export default function PublicProfilePage() {
                     </div>
                   )}
                 </div>
+              ) : (
+                <div className="modern-panel p-5 bg-[rgb(var(--accent-color)/0.1)] border-[rgb(var(--accent-color)/0.4)]">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-black uppercase text-red-400 tracking-widest">Valorant Rank</span>
+                    <Trophy size={12} className="text-red-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-white uppercase italic">
+                    {profile.val_rank || 'Unranked'}
+                  </p>
+                </div>
               )}
 
-              {profile.preferred_queue?.split(',').some((q: string) => !['Solo/Duo', 'Flex'].includes(q)) && (
+              {activeGame === 'LOL' && profile.preferred_queue?.split(',').some((q: string) => !['Solo/Duo', 'Flex'].includes(q)) && (
                 <div className="flex flex-wrap gap-2 pt-2 justify-center lg:justify-start">
                   {profile.preferred_queue.split(',').filter((q: string) => !['Solo/Duo', 'Flex'].includes(q)).map((q: string) => (
-                    <span key={q} className="text-[9px] bg-orange-500/10 px-3 py-1.5 rounded-full text-orange-400 border border-orange-500/20 font-black uppercase tracking-widest shadow-lg shadow-orange-500/5">
+                    <span key={q} className="text-[9px] bg-[rgb(var(--accent-color)/0.1)] px-3 py-1.5 rounded-full text-[rgb(var(--accent-color))] border border-[rgb(var(--accent-color)/0.2)] font-black uppercase tracking-widest shadow-lg shadow-[rgb(var(--accent-color)/0.05)]">
                       {q}
                     </span>
                   ))}
@@ -360,11 +403,11 @@ export default function PublicProfilePage() {
                 <div>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Biography & Playstyle</p>
                   <p className="text-2xl text-slate-200 leading-relaxed italic font-medium">
-                    "{profile.bio || "This summoner prefers to keep a low profile."}"
+                    "{ (activeGame === 'LOL' ? profile.bio : activeGame === 'TFT' ? profile.tft_bio : profile.val_bio) || "This summoner prefers to keep a low profile."}"
                   </p>
                 </div>
 
-                {topChamps.length > 0 && (
+                {activeGame === 'LOL' && topChamps.length > 0 && (
                   <div className="mt-10 border-t border-white/5 pt-8">
                     <div className="flex items-center justify-between mb-6">
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Top Champions Mastery</p>
@@ -379,10 +422,10 @@ export default function PublicProfilePage() {
                     <div className="flex flex-wrap gap-3">
                       {topChamps.map((champ) => (
                         <div key={champ.id} className="group relative flex flex-col items-center">
-                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 group-hover:border-orange-500/50 transition-all shadow-lg">
+                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 group-hover:border-[rgb(var(--accent-color)/0.5)] transition-all shadow-lg">
                           <img src={champ.icon} alt={champ.name} title={`${champ.name} - ${champ.points.toLocaleString()} pts`} />
                           </div>
-                        <div className="absolute -bottom-2 bg-zinc-950 text-orange-400 text-[7px] font-black px-1.5 py-0.5 rounded border border-white/10 shadow-sm">
+                        <div className="absolute -bottom-2 bg-zinc-950 text-[rgb(var(--accent-color))] text-[7px] font-black px-1.5 py-0.5 rounded border border-white/10 shadow-sm">
                           {champ.points >= 1000 ? `${(champ.points / 1000).toFixed(0)}k` : champ.points}
                           </div>
                         </div>
@@ -413,8 +456,8 @@ export default function PublicProfilePage() {
                 </div>
 
                 {isMatched && (
-                  <div className="mb-12 p-6 bg-orange-500/5 rounded-2xl border border-orange-500/10">
-                    <h4 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-6">Leave your feedback</h4>
+                  <div className="mb-12 p-6 bg-[rgb(var(--accent-color)/0.05)] rounded-2xl border border-[rgb(var(--accent-color)/0.1)]">
+                    <h4 className="text-sm font-bold text-[rgb(var(--accent-color))] uppercase tracking-widest mb-6">Leave your feedback</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
                       <div className="space-y-2">
                         <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Communication & Attitude</span>
@@ -440,7 +483,7 @@ export default function PublicProfilePage() {
                         value={reviewComment}
                         onChange={(e) => setReviewComment(e.target.value)}
                         placeholder="How was your experience playing together?"
-                        className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-sm text-slate-200 outline-none focus:border-orange-500/50 h-24 resize-none mb-4"
+                        className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-sm text-slate-200 outline-none focus:border-[rgb(var(--accent-color)/0.5)] h-24 resize-none mb-4"
                       />
                       <button 
                         onClick={handleSubmitReview}

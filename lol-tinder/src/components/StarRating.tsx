@@ -27,7 +27,7 @@ export function StarRating({
           type="button"
           disabled={!interactive}
           onClick={() => interactive && onChange?.(star)}
-          className={`transition-all ${star <= rating ? 'text-orange-400' : 'text-zinc-800'} ${interactive ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
+          className={`transition-all ${star <= rating ? 'text-[rgb(var(--accent-color))]' : 'text-zinc-800'} ${interactive ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
         >
           <Star 
             size={size} 

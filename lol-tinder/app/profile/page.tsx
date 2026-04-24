@@ -2,6 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/src/utils/supabase/client";
+import { 
+  FormInput, 
+  FormSelect, 
+  FormSwitch, 
+  FormTextArea, 
+  BadgeSelector,
+  VoiceSwitch 
+} from "@/src/components/ui/FormFields";
 import { updateProfile } from "./actions";
 import { useRouter } from "next/navigation"; // Keep this for redirection
 import {
@@ -23,6 +31,7 @@ import {
   EyeOff,
   Gamepad2,
   Gamepad,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/src/components/ToastProvider";
@@ -50,6 +59,12 @@ const AVAILABLE_QUEUES = [
   "Seasonal",
 ];
 
+const GAMES = [
+  { id: 'LOL', name: 'League of Legends', icon: Sword, color: 'orange' },
+  { id: 'TFT', name: 'TFT', icon: Gamepad2, color: 'blue' },
+  { id: 'VALORANT', name: 'Valorant', icon: Zap, color: 'red' },
+];
+
 // Виносимо створення клієнта Supabase за межі компонента
 // Це гарантує, що він створюється лише один раз і є стабільним
 const supabase = createClient();
@@ -65,6 +80,57 @@ export default function ProfilePage() {
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
   const [selectedQueues, setSelectedQueues] = useState<string[]>([]);
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
+  
+  const [activeTab, setActiveTab] = useState<'LOL' | 'TFT' | 'VALORANT'>('LOL');
+
+  const getGameValue = (field: string) => {
+    if (!profile) return "";
+    const prefix = activeTab === 'LOL' ? '' : `${activeTab.toLowerCase()}_`;
+    return profile[`${prefix}${field}`] || "";
+  };
+
+  // Effect to save to localStorage whenever relevant states change
+  useEffect(() => {
+    // Only save if user is logged in and not in initial loading phase
+    if (!user || isInitialLoading) return;
+
+    const formDataToSave = {
+      profile,
+      selectedLangs,
+      selectedQueues,
+      enabledGames,
+      activeTab,
+    };
+    try {
+      localStorage.setItem(`profileFormData_${user.id}`, JSON.stringify(formDataToSave));
+      // Save global theme preference for other components
+      localStorage.setItem('site-game-theme', activeTab);
+      document.documentElement.setAttribute('data-game-theme', activeTab.toLowerCase());
+    } catch (e) {
+      console.error("Failed to save profileFormData to localStorage", e);
+    }
+  }, [profile, selectedLangs, selectedQueues, enabledGames, activeTab, user, isInitialLoading]);
+
+  // Обробник для миттєвого оновлення прев'ю при зміні полів
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const isCheckbox = type === 'checkbox';
+    const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
+    const prefix = activeTab === 'LOL' ? '' : `${activeTab.toLowerCase()}_`;
+
+    setProfile((prev: any) => {
+      const next = { ...prev };
+      if (name === 'role') next[`${prefix}main_role`] = val;
+      else if (name === 'bio') next[`${prefix}bio`] = val;
+      else if (name === 'hasMic') next.has_mic = val;
+      else if (name === 'isPaused') next.is_paused = val;
+      // Handle game-specific fields directly
+      else if (name.endsWith('_gameName')) next[`${prefix}game_name`] = val;
+      else if (name.endsWith('_tagLine')) next[`${prefix}tag_line`] = val;
+      else if (name.endsWith('_region')) next[`${prefix}region`] = val;
+      return next;
+    });
+  };
 
   const toggleLang = (lang: string) => {
     setSelectedLangs((prev) =>
@@ -87,11 +153,17 @@ export default function ProfilePage() {
   const { showToast } = useToast();
 
   useEffect(() => {
+    let isMounted = true;
+
     const getProfile = async () => {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-      if (!authUser) return router.push("/");
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        router.push("/");
+        return;
+      }
+
+      if (!isMounted) return;
 
       const { data, error } = await supabase
         .from("profiles")
@@ -99,32 +171,54 @@ export default function ProfilePage() {
         .eq("id", authUser.id)
         .single();
 
-      setUser(authUser);
+      if (isMounted) setUser(authUser);
 
       if (data) {
-        setProfile(data);
-        if (data.language) setSelectedLangs(data.language.split(","));
-        if (data.preferred_queue) setSelectedQueues(data.preferred_queue.split(","));
-        if (data.enabled_games) setEnabledGames(data.enabled_games.split(","));
+        if (isMounted) {
+          setProfile(data);
+          if (data.language) setSelectedLangs(data.language.split(","));
+          if (data.preferred_queue) setSelectedQueues(data.preferred_queue.split(","));
+          if (data.enabled_games) setEnabledGames(data.enabled_games.split(","));
+        }
       } else {
-        // Новий користувач: ініціалізуємо порожній профіль для форми
-        setProfile({
-          id: authUser.id,
-          game_name: "",
-          tag_line: "",
-          region: "EUW",
-          main_role: "FILL",
-          has_mic: true,
-          is_paused: false,
-          bio: "",
-          solo_rank: "Unranked",
-          flex_rank: "Unranked",
-          tft_rank: "Unranked",
-          enabled_games: "LOL",
-          language: "",
-        });
-        setEnabledGames(["LOL"]);
+        if (isMounted) {
+          setProfile({
+            id: authUser.id,
+            game_name: "", tag_line: "", region: "EUW", main_role: "FILL", bio: "",
+            tft_game_name: "", tft_tag_line: "", tft_region: "EUW", tft_main_role: "FILL", tft_bio: "",
+            val_game_name: "", val_tag_line: "", val_region: "EUW", val_main_role: "FILL", val_bio: "",
+            has_mic: true,
+            is_paused: false,
+            solo_rank: "Unranked",
+            flex_rank: "Unranked",
+            tft_rank: "Unranked",
+            val_rank: "Unranked",
+            enabled_games: "LOL",
+            language: "",
+          });
+          setEnabledGames(["LOL"]);
+        }
       }
+
+      // Restoration logic remains the same, but wrapped in isMounted check
+      const savedFormData = localStorage.getItem(`profileFormData_${authUser.id}`);
+      if (savedFormData) {
+        try {
+          const parsed = JSON.parse(savedFormData);
+          if (parsed.activeTab && isMounted) {
+            setActiveTab(parsed.activeTab);
+          }
+        } catch (e) {
+          console.error("Failed to restore active tab from localStorage", e);
+        }
+      } else {
+        // Fallback to global theme if no profile data yet
+        const globalTheme = localStorage.getItem('site-game-theme') as any;
+        if (globalTheme) {
+          setActiveTab(globalTheme);
+        }
+      }
+
       setIsInitialLoading(false);
     };
     getProfile();
@@ -132,6 +226,7 @@ export default function ProfilePage() {
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
+    formData.append("activeGame", activeTab);
     // Додаємо обрані мови у FormData перед відправкою
     selectedLangs.forEach((lang) => formData.append("languages", lang));
     // Додаємо обрані черги у FormData
@@ -146,19 +241,21 @@ export default function ProfilePage() {
       setLoading(false);
     } else {
       // Миттєво оновлюємо локальний стан профілю
-      const updatedProfile: any = {
-        ...profile,
-        game_name: formData.get("gameName"),
-        tag_line: formData.get("tagLine"),
-        region: formData.get("region"),
-        main_role: formData.get("role"),
-        preferred_queue: selectedQueues.join(","),
-        has_mic: formData.get("hasMic") === "on",
-        is_paused: formData.get("isPaused") === "on",
-        language: selectedLangs.join(","),
-        enabled_games: enabledGames.join(","),
-        bio: formData.get("bio"),
-      };
+      const prefix = activeTab === 'LOL' ? '' : `${activeTab.toLowerCase()}_`;
+      const updatedProfile: any = { ...profile };
+
+      updatedProfile[`${prefix}game_name`] = formData.get(`${activeTab.toLowerCase()}_gameName`);
+      updatedProfile[`${prefix}tag_line`] = formData.get(`${activeTab.toLowerCase()}_tagLine`);
+      updatedProfile[`${prefix}region`] = formData.get(`${activeTab.toLowerCase()}_region`);
+      updatedProfile[`${prefix}main_role`] = formData.get("role");
+      updatedProfile[`${prefix}bio`] = formData.get("bio");
+      updatedProfile[`${prefix}preferred_queue`] = selectedQueues.join(",");
+      
+      // Загальні налаштування
+      updatedProfile.has_mic = formData.get("hasMic") === "on";
+      updatedProfile.language = selectedLangs.join(",");
+      updatedProfile.enabled_games = enabledGames.join(",");
+
       setProfile(updatedProfile);
       showToast("Profile updated successfully!", "success");
       setLoading(false);
@@ -170,22 +267,35 @@ export default function ProfilePage() {
     router.push("/");
   }
 
+  const renderRankPanel = (title: string, value: string, isActive: boolean, isMain: boolean = false) => (
+    <div className={`modern-panel p-5 transition-all ${isActive ? 'bg-[rgb(var(--accent-color)/0.1)] border-[rgb(var(--accent-color)/0.4)]' : 'bg-white/5 opacity-60'}`}>
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-[10px] font-black uppercase text-slate-500">{title}</span>
+        {isMain && <Star size={12} className="text-[rgb(var(--accent-color))]" />}
+      </div>
+      <p className={`${isMain ? 'text-2xl' : 'text-xl'} font-bold ${isMain ? 'text-white' : 'text-slate-300'} uppercase italic`}>{value || "Unranked"}</p>
+    </div>
+  );
+
   if (isInitialLoading)
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <Loader2 className="animate-spin text-orange-500 w-12 h-12" />
+      <div className="min-h-screen bg-[rgb(var(--bg-primary))] flex items-center justify-center">
+        <Loader2 className={`animate-spin text-[rgb(var(--accent-color))] w-12 h-12`} />
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-slate-50 flex flex-col">
-
+    <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50 flex flex-col">
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-8 lg:p-16">
         <div className="flex flex-col lg:flex-row gap-16">
           {/* Profile Preview (Left) */}
           <section className="w-full lg:w-96 flex flex-col items-center lg:items-start">
+            <div className="mb-6 flex items-center gap-2 px-4 py-2 bg-zinc-900 rounded-full border border-white/5">
+              <div className={`w-2 h-2 rounded-full bg-[rgb(var(--accent-color))]`} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{activeTab} PREVIEW</span>
+            </div>
             <div className="relative mb-10 group">
-              <div className="w-56 h-56 rounded-[2.5rem] bg-gradient-to-tr from-orange-600 to-amber-500 p-1 shadow-2xl shadow-orange-500/20 group-hover:rotate-3 transition-transform duration-500">
+              <div className={`w-56 h-56 rounded-[2.5rem] bg-[rgb(var(--accent-color))] p-1 shadow-2xl shadow-[rgb(var(--accent-color)/0.2)] group-hover:rotate-3 transition-transform duration-500`}>
                 <div className="w-full h-full rounded-[2.3rem] bg-zinc-950 overflow-hidden">
                   <img
                     src={user?.user_metadata?.avatar_url}
@@ -195,7 +305,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div className="absolute -bottom-4 -right-4 bg-slate-900 p-4 rounded-2xl border border-white/10 shadow-xl">
-                <Trophy size={24} className="text-orange-400" />
+                <Trophy size={24} className="text-[rgb(var(--accent-color))]" />
               </div>
               {profile.has_mic === false && (
                 <div className="absolute -top-2 -left-2 bg-red-500/20 p-2 rounded-full border border-red-500/50 backdrop-blur-md text-red-500 shadow-lg">
@@ -206,9 +316,9 @@ export default function ProfilePage() {
 
             <div className="text-center lg:text-left space-y-2">
               <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
-                {profile.game_name || "Summoner"}
+                {getGameValue('game_name') || "Summoner"}
                 <span className="text-slate-600 block text-2xl mt-1">
-                  #{profile.tag_line || "UA1"}
+                  #{getGameValue('tag_line') || "UA1"}
                 </span>
               </h1>
               {selectedLangs.length > 0 && (
@@ -218,7 +328,7 @@ export default function ProfilePage() {
                       key={lang}
                       className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-slate-400 border border-white/5 flex items-center gap-1"
                     >
-                      <Languages size={10} className="text-orange-400" /> {lang}
+                      <Languages size={10} className="text-[rgb(var(--accent-color))]" /> {lang}
                     </span>
                   ))}
                 </div>
@@ -226,39 +336,37 @@ export default function ProfilePage() {
             </div>
 
             <div className="mt-10 w-full space-y-4">
-              <div
-                className={`modern-panel p-5 ${selectedQueues.includes("Solo/Duo") ? "bg-orange-500/10 border-orange-500/40" : "bg-orange-500/5 opacity-60"}`}
-              >
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-black uppercase text-slate-500">
-                    Solo Queue
+              {activeTab === 'LOL' ? (
+                <>
+                  {renderRankPanel("Solo Queue", profile.solo_rank, selectedQueues.includes("Solo/Duo"), true)}
+                  {renderRankPanel("Flex Queue", profile.flex_rank, selectedQueues.includes("Flex"))}
+                </>
+              ) : activeTab === 'TFT' ? (
+                renderRankPanel("TFT Ranked", profile.tft_rank, true, true)
+              ) : (
+                renderRankPanel("VALORANT Rank", profile.val_rank, true, true)
+              )}
+
+              <div className="p-5 bg-zinc-900/20 border border-white/5 rounded-2xl">
+                <span className="text-[10px] font-black uppercase text-slate-500 block mb-2 tracking-widest">Position</span>
+                <div className="flex items-center gap-2">
+                  <Sword size={14} className="text-[rgb(var(--accent-color))]" />
+                  <span className="font-bold text-sm uppercase italic">
+                    {getGameValue('main_role') || "FILL"}
                   </span>
-                  <Star size={12} className="text-orange-400" />
                 </div>
-                <p className="text-2xl font-bold text-white uppercase italic">
-                  {profile.solo_rank || "Unranked"}
-                </p>
               </div>
-              <div
-                className={`modern-panel p-5 ${selectedQueues.includes("Flex") ? "bg-orange-500/10 border-orange-500/40" : "bg-orange-500/5 opacity-60"}`}
-              >
-                <span className="text-[10px] font-black uppercase text-slate-500 block mb-1">
-                  Flex Queue
-                </span>
-                <p className="text-xl font-bold text-slate-300 uppercase italic">
-                  {profile.flex_rank || "Unranked"}
-                </p>
-              </div>
+
               {selectedQueues.some(
                 (q) => !["Solo/Duo", "Flex"].includes(q),
               ) && (
-                <div className="flex flex-wrap gap-2 pt-2">
+                <div className="flex flex-wrap gap-2 pt-2 justify-center lg:justify-start">
                   {selectedQueues
                     .filter((q) => !["Solo/Duo", "Flex"].includes(q))
                     .map((q) => (
                       <span
                         key={q}
-                        className="text-[9px] bg-orange-500/10 px-2 py-1 rounded text-orange-400 border border-orange-500/20 font-black uppercase tracking-widest"
+                        className={`text-[9px] bg-[rgb(var(--accent-color)/0.1)] px-2 py-1 rounded text-[rgb(var(--accent-color))] border border-[rgb(var(--accent-color)/0.2)] font-black uppercase tracking-widest`}
                       >
                         {q}
                       </span>
@@ -271,197 +379,137 @@ export default function ProfilePage() {
           {/* Configuration Form (Right) */}
           <section className="flex-1">
             <div className="flex items-center gap-3 mb-10">
-              <Settings size={24} className="text-orange-400" />
+              <Settings size={24} className="text-[rgb(var(--accent-color))]" />
               <h3 className="text-2xl font-black uppercase tracking-widest">
-                General Configuration
+                Profile Editor
               </h3>
+            </div>
+
+            <div className="flex border-b border-white/5 mb-8 overflow-x-auto no-scrollbar">
+              {GAMES.map((game) => (
+                <button
+                  key={game.id}
+                  type="button"
+                  onClick={() => setActiveTab(game.id as any)}
+                  className={`px-8 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap flex items-center gap-2 ${
+                    activeTab === game.id 
+                    ? `border-[rgb(var(--accent-color))] text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.05)]` 
+                    : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  <game.icon size={14} /> {game.name}
+                </button>
+              ))}
             </div>
 
             <form action={handleSubmit} className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="md:col-span-2 space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <Gamepad2 size={14} /> Discovery Games (Where to show your card)
-                  </label>
-                  <div className="flex gap-4">
-                    <button
-                      type="button"
-                      onClick={() => toggleGame('LOL')}
-                      className={`flex-1 p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 ${
-                        enabledGames.includes('LOL') 
-                        ? 'bg-orange-500/10 border-orange-500 text-white' 
-                        : 'bg-zinc-900/50 border-white/5 text-zinc-500'
-                      }`}
-                    >
-                      <Trophy size={32} />
-                      <span className="font-black uppercase tracking-widest text-xs">League of Legends</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleGame('TFT')}
-                      className={`flex-1 p-6 rounded-2xl border transition-all flex flex-col items-center gap-3 ${
-                        enabledGames.includes('TFT') 
-                        ? 'bg-blue-500/10 border-blue-500 text-white' 
-                        : 'bg-zinc-900/50 border-white/5 text-zinc-500'
-                      }`}
-                    >
-                      <Gamepad size={32} />
-                      <span className="font-black uppercase tracking-widest text-xs">Teamfight Tactics</span>
-                    </button>
-                  </div>
-                </div>
+                <FormSwitch
+                  className="md:col-span-2"
+                  label="Post this card?"
+                  description={`Enable to show your ${activeTab} profile in discovery.`}
+                  checked={enabledGames.includes(activeTab)}
+                  onChange={() => toggleGame(activeTab)}
+                  name="isGameEnabled"
+                />
 
-                <div className="space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <UserIcon size={14} /> Game Name
-                  </label>
-                  <input
-                    name="gameName"
-                    defaultValue={profile.game_name || ""}
-                    placeholder="e.g. Faker"
-                    required
-                    className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all placeholder:text-zinc-600"
-                  />
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <Tag size={14} /> Tagline
-                  </label>
-                  <input
-                    name="tagLine"
-                    defaultValue={profile.tag_line || ""}
-                    placeholder="e.g. EUW"
-                    required
-                    className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all placeholder:text-zinc-600"
-                  />
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <Globe size={14} /> Region
-                  </label>
-                  <select
-                    name="region"
-                    defaultValue={profile.region || "EUNE"}
-                    className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="EUNE">Europe Nordic & East</option>
-                    <option value="EUW">Europe West</option>
-                    <option value="NA">North America</option>
-                  </select>
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <Sword size={14} /> Primary Position
-                  </label>
-                  <select
-                    name="role"
-                    defaultValue={profile.main_role || "FILL"}
-                    className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="TOP">TOP</option>
-                    <option value="JUNGLE">JUNGLE</option>
-                    <option value="MID">MID</option>
-                    <option value="ADC">ADC</option>
-                    <option value="SUPPORT">SUPPORT</option>
-                    <option value="FILL">FILL</option>
-                  </select>
-                </div>
+                <FormInput
+                  label="Riot ID (Name)"
+                  icon={UserIcon}
+                  name={`${activeTab.toLowerCase()}_gameName`}
+                  value={getGameValue('game_name')}
+                  onChange={handleInputChange}
+                  placeholder="e.g. Faker"
+                  required
+                />
 
-                <div className="space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-4">
-                    <Mic size={14} /> Voice Comms
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      name="hasMic"
-                      defaultChecked={profile.has_mic !== false}
-                      className="sr-only peer"
-                    />
-                    <div className="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-7 rtl:peer-checked:after:-translate-x-7 peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:bg-orange-600 peer-checked:after:bg-white border border-white/5 group-hover:border-white/10"></div>
-                    <span className="ms-3 text-sm font-bold text-slate-400 group-hover:text-slate-200 transition-colors">
-                      I have a microphone
-                    </span>
-                  </label>
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-4">
-                    <EyeOff size={14} /> Discovery Status
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      name="isPaused"
-                      defaultChecked={profile.is_paused === true}
-                      className="sr-only peer"
-                    />
-                    <div className="w-14 h-7 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-7 rtl:peer-checked:after:-translate-x-7 peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:bg-red-600 peer-checked:after:bg-white border border-white/5 group-hover:border-white/10"></div>
-                    <span className="ms-3 text-sm font-bold text-slate-400 group-hover:text-slate-200 transition-colors">
-                      Pause showing my card
-                    </span>
-                  </label>
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <LayoutGrid size={14} /> Preferred Queue
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {AVAILABLE_QUEUES.map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => toggleQueue(q)}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                          selectedQueues.includes(q)
-                            ? "bg-orange-500/20 border-orange-500 text-orange-300"
-                            : "bg-slate-800/40 border-white/5 text-slate-500 hover:border-white/10"
-                        }`}
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <Languages size={14} /> Languages you speak
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {POPULAR_LANGUAGES.map((lang) => (
-                      <button
-                        key={lang}
-                        type="button"
-                        onClick={() => toggleLang(lang)}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                          selectedLangs.includes(lang)
-                            ? "bg-orange-500/20 border-orange-500 text-orange-300"
-                            : "bg-slate-800/40 border-white/5 text-slate-500 hover:border-white/10"
-                        }`}
-                      >
-                        {lang}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                <FormInput
+                  label="Tagline"
+                  icon={Tag}
+                  name={`${activeTab.toLowerCase()}_tagLine`}
+                  value={getGameValue('tag_line')}
+                  onChange={handleInputChange}
+                  placeholder="e.g. UA1"
+                  required
+                />
 
-              <div className="space-y-4">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                  Player Biography
-                </label>
-                <textarea
-                  name="bio"
-                  defaultValue={profile.bio || ""}
-                  placeholder="Looking for competitive duo..."
-                  className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-5 py-4 text-slate-200 outline-none focus:border-orange-500/50 focus:bg-zinc-900 transition-all placeholder:text-zinc-600 h-32 resize-none"
+                <FormSelect
+                  label="Region"
+                  icon={Globe}
+                  name={`${activeTab.toLowerCase()}_region`}
+                  value={getGameValue('region') || "EUW"}
+                  onChange={handleInputChange}
+                >
+                  <option value="EUW">Europe West</option>
+                  <option value="EUNE">Europe Nordic & East</option>
+                  <option value="NA">North America</option>
+                  <option value="KR">Korea</option>
+                </FormSelect>
+
+                <FormSelect
+                  label="Primary Position"
+                  icon={Sword}
+                  name="role"
+                  value={getGameValue('main_role') || "FILL"}
+                  onChange={handleInputChange}
+                >
+                  {activeTab === 'VALORANT' ? (
+                    <>
+                      <option value="DUELIST">DUELIST</option>
+                      <option value="INITIATOR">INITIATOR</option>
+                      <option value="CONTROLLER">CONTROLLER</option>
+                      <option value="SENTINEL">SENTINEL</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="TOP">TOP</option>
+                      <option value="JUNGLE">JUNGLE</option>
+                      <option value="MID">MID</option>
+                      <option value="ADC">ADC</option>
+                      <option value="SUPPORT">SUPPORT</option>
+                      <option value="FILL">FILL</option>
+                    </>
+                  )}
+                </FormSelect>
+
+                <VoiceSwitch
+                  label="Voice Comms"
+                  icon={Mic}
+                  checked={profile.has_mic !== false}
+                  onChange={handleInputChange}
+                  name="hasMic"
+                />
+
+                <BadgeSelector
+                  label="Preferred Queue"
+                  icon={LayoutGrid}
+                  items={AVAILABLE_QUEUES}
+                  selectedItems={selectedQueues}
+                  onToggle={toggleQueue}
+                />
+
+                <BadgeSelector
+                  label="Languages you speak"
+                  icon={Languages}
+                  items={POPULAR_LANGUAGES}
+                  selectedItems={selectedLangs}
+                  onToggle={toggleLang}
                 />
               </div>
+
+              <FormTextArea
+                label="Player Biography"
+                name="bio"
+                value={getGameValue('bio')}
+                onChange={handleInputChange}
+                placeholder="Looking for competitive duo..."
+              />
 
               <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
                 <button
                   disabled={loading}
                   type="submit"
-                  className="btn-modern w-full md:w-auto px-12 py-4"
+                  className={`btn-modern w-full md:w-auto px-12 py-4 bg-[rgb(var(--accent-color))] hover:brightness-110`}
                 >
                   {loading ? (
                     <Loader2 className="animate-spin" />

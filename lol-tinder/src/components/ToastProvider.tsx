@@ -27,9 +27,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0, y: 50, x: '-50%' }}
             animate={{ opacity: 1, y: 0, x: '-50%' }}
             exit={{ opacity: 0, y: 20, x: '-50%', transition: { duration: 0.2 } }}
-            className="fixed bottom-10 left-1/2 z-[100] modern-panel px-6 py-4 flex items-center gap-4 min-w-[320px] border-orange-500/50 bg-zinc-900/90 backdrop-blur-xl shadow-2xl shadow-orange-900/20"
+            className="fixed bottom-10 left-1/2 z-[100] modern-panel px-6 py-4 flex items-center gap-4 min-w-[320px] border-[rgb(var(--accent-color)/0.5)] bg-[rgb(var(--bg-secondary)/0.9)] backdrop-blur-xl shadow-2xl shadow-[rgb(var(--accent-color)/0.2)]"
           >
-            <div className={`p-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'}`}>
+            <div className={`p-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[rgb(var(--accent-color)/0.2)] text-[rgb(var(--accent-color))]'}`}>
               {toast.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
             </div>
             <div className="flex-1">

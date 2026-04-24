@@ -6,6 +6,7 @@ import { Menu, X, LogIn, LogOut, User as UserIcon, MessageSquare, Compass } from
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/client";
+import { ProfileButton } from "./ui/ProfileButton";
 
 const supabase = createClient();
 
@@ -14,20 +15,60 @@ export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const [discoveryHref, setDiscoveryHref] = useState("/league");
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user);
+      if (data.user) {
+        fetchPendingCount(data.user.id);
+      }
     };
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) fetchPendingCount(session.user.id);
     });
 
-    return () => subscription.unsubscribe();
+    // Підписка на зміни в таблиці matches
+    const channel = supabase
+      .channel('navbar-matches-count')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'matches' 
+      }, () => {
+        if (user) fetchPendingCount(user.id);
+        else getUser(); // Якщо юзер змінився або ще не завантажився
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  const fetchPendingCount = async (userId: string) => {
+    const { count } = await supabase
+      .from('matches')
+      .select('*', { count: 'exact', head: true })
+      .eq('target_id', userId)
+      .eq('status', 'PENDING');
+    
+    setPendingCount(count || 0);
+  };
+
+  useEffect(() => {
+    // Sync discovery link with last visited tab
+    const lastTab = localStorage.getItem('lastDiscoveryTab');
+    if (lastTab) {
+      setDiscoveryHref(`/${lastTab}`);
+    }
+  }, [pathname]);
 
   const handleLogin = async () => {
     const redirectTo = typeof window !== 'undefined' 
@@ -47,16 +88,16 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { name: "Discovery", href: "/league", icon: Compass }, // Default to League discovery
+    { name: "Discovery", href: discoveryHref, icon: Compass },
     { name: "Matches", href: "/matches", icon: MessageSquare },
   ];
 
   return (
-    <nav className="w-full border-b border-white/5 bg-[#121212]/80 backdrop-blur-lg sticky top-0 z-[100] px-6">
+    <nav className="w-full border-b border-white/5 bg-[rgb(var(--bg-secondary)/0.8)] backdrop-blur-lg sticky top-0 z-[100] px-6">
       <div className="max-w-[1600px] mx-auto h-20 flex justify-between items-center">
         <div className="flex items-center gap-10">
           <Link href="/">
-            <h1 className="text-2xl font-black bg-gradient-to-r from-orange-500 to-zinc-800 bg-clip-text text-transparent tracking-tighter italic hover:opacity-80 transition-opacity cursor-pointer">
+            <h1 className="text-2xl font-black bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-800 bg-clip-text text-transparent tracking-tighter italic hover:opacity-80 transition-opacity cursor-pointer">
               LoLMatch
             </h1>
           </Link>
@@ -68,13 +109,18 @@ export function Navbar() {
                 <Link 
                   key={link.href} 
                   href={link.href} 
-                  className={`transition-colors hover:text-white ${ // Highlight "Discovery" if on /league or /tft
-                    (link.href === '/league' && (pathname.startsWith('/league') || pathname.startsWith('/tft'))) || pathname === link.href
-                      ? `text-white border-b-2 ${pathname.startsWith('/tft') ? 'border-blue-500' : 'border-orange-500'} pb-1` 
+                  className={`transition-colors hover:text-white ${ 
+                    (link.name === 'Discovery' && (pathname.startsWith('/league') || pathname.startsWith('/tft') || pathname.startsWith('/valorant'))) || pathname === link.href
+                      ? "text-white border-b-2 border-[rgb(var(--accent-color))] pb-1" 
                       : ""
                   }`}
                 >
                   {link.name}
+                  {link.name === 'Matches' && pendingCount > 0 && (
+                    <span className="ml-2 px-1.5 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[10px] rounded-full animate-pulse">
+                      {pendingCount}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>
@@ -84,10 +130,7 @@ export function Navbar() {
         <div className="flex items-center gap-4">
           {user ? (
             <>
-              <Link href="/profile" className="hidden md:flex items-center gap-3 p-1.5 pr-5 bg-zinc-900 rounded-full hover:bg-zinc-800 border border-white/5 transition-all">
-                <img src={user.user_metadata.avatar_url} className="w-8 h-8 rounded-full border border-orange-500/30" alt="avatar" />
-                <span className="text-sm font-bold">{user.user_metadata.full_name}</span>
-              </Link>
+              <ProfileButton user={user} className="hidden md:flex" />
               
               {/* Mobile Menu Toggle */}
               <button 
@@ -112,7 +155,7 @@ export function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-white/5 overflow-hidden bg-[#121212]"
+            className="md:hidden border-t border-white/5 overflow-hidden bg-[rgb(var(--bg-secondary))]"
           >
             <div className="flex flex-col p-6 gap-4">
               {navLinks.map((link) => (
@@ -121,12 +164,17 @@ export function Navbar() {
                   href={link.href} 
                   onClick={() => setIsMenuOpen(false)} // Highlight "Discovery" if on /league or /tft
                   className={`flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest ${
-                    (link.href === '/league' && (pathname.startsWith('/league') || pathname.startsWith('/tft'))) || pathname === link.href
-                      ? "bg-orange-500/10 text-orange-500" : "text-slate-400"
+                    (link.name === 'Discovery' && (pathname.startsWith('/league') || pathname.startsWith('/tft') || pathname.startsWith('/valorant'))) || pathname === link.href
+                      ? "bg-[rgb(var(--accent-color)/0.1)] text-[rgb(var(--accent-color))]" : "text-slate-400"
                   }`}
                 >
                   <link.icon size={20} />
                   {link.name}
+                  {link.name === 'Matches' && pendingCount > 0 && (
+                    <span className="ml-auto px-2 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[10px] rounded-full">
+                      {pendingCount}
+                    </span>
+                  )}
                 </Link>
               ))}
               <Link href="/profile" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest text-slate-400">
