@@ -61,14 +61,14 @@ export async function updateProfile(formData: FormData) {
   // Крок 2: Отримання статсів залежно від гри
   let stats: any = {};
   if (activeGame === 'LOL') {
-    const ranks = await getRanksByPuuid(account.puuid, region) || { solo: 'UNRANKED', flex: 'UNRANKED', solo_wins: 0, solo_losses: 0, flex_wins: 0, flex_losses: 0 };
+    const ranks = (await getRanksByPuuid(account.puuid, region) || {}) as any;
     stats = { 
-      solo_rank: ranks.solo, 
-      flex_rank: ranks.flex,
-      solo_wins: ranks.solo_wins,
-      solo_losses: ranks.solo_losses,
-      flex_wins: ranks.flex_wins,
-      flex_losses: ranks.flex_losses
+      solo_rank: ranks.solo || 'UNRANKED', 
+      flex_rank: ranks.flex || 'UNRANKED',
+      solo_wins: ranks.solo_wins || 0,
+      solo_losses: ranks.solo_losses || 0,
+      flex_wins: ranks.flex_wins || 0,
+      flex_losses: ranks.flex_losses || 0
     };
   } else if (activeGame === 'TFT') {
     try {
