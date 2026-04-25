@@ -17,7 +17,7 @@ export default function PublicProfilePage() {
   const searchParams = useSearchParams()
   const id = params.id as string
   const router = useRouter()
-  const [activeGame, setActiveGame] = useState<'LOL' | 'TFT' | 'VALORANT'>('LOL');
+  const [activeGame, setActiveGame] = useState<'LOL' | 'TFT' | 'VALORANT' | null>(null);
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRequesting, setIsRequesting] = useState(false)
@@ -34,7 +34,6 @@ export default function PublicProfilePage() {
   const [behaviorRating, setBehaviorRating] = useState(5)
   const [skillRating, setSkillRating] = useState(5)
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
-  const hasInitialized = useRef(false)
 
   const { showToast } = useToast()
 
@@ -64,7 +63,23 @@ export default function PublicProfilePage() {
       ])
 
       if (profileRes.data) {
-        setProfile(profileRes.data)
+        const prof = profileRes.data;
+        const enabled = prof.enabled_games ? prof.enabled_games.split(',').map((g: string) => g.trim()) : [];
+        
+        const siteTheme = localStorage.getItem('site-game-theme') as any;
+        const requestedGame = searchParams.get('game')?.toUpperCase() as any;
+
+        let initialGame: 'LOL' | 'TFT' | 'VALORANT' = 'LOL';
+        if (requestedGame && enabled.includes(requestedGame)) {
+          initialGame = requestedGame;
+        } else if (siteTheme && enabled.includes(siteTheme)) {
+          initialGame = siteTheme;
+        } else if (enabled.length > 0) {
+          initialGame = enabled[0] as any;
+        }
+
+        setActiveGame(initialGame);
+        setProfile(prof);
       }
 
       if (matchRes.data) {
@@ -82,7 +97,7 @@ export default function PublicProfilePage() {
 
   // Крок 2: Завантажуємо статистику та відгуки при зміні гри
   useEffect(() => {
-    if (!profile || !currentUser) return
+    if (!profile || !currentUser || !activeGame) return
 
     const fetchGameSpecificData = async () => {
       if (activeGame === 'LOL' && profile.puuid) {
@@ -108,27 +123,6 @@ export default function PublicProfilePage() {
 
     fetchGameSpecificData()
   }, [activeGame, profile, currentUser, id])
-
-  // Логіка вибору початкової вкладки залежно від теми та доступних ігор
-  useEffect(() => {
-    if (profile && enabledGamesList.length > 0 && !hasInitialized.current) {
-      const siteTheme = localStorage.getItem('site-game-theme') as any;
-      const requestedGame = searchParams.get('game')?.toUpperCase() as any;
-
-      let initialGame: 'LOL' | 'TFT' | 'VALORANT' = 'LOL';
-
-      if (requestedGame && enabledGamesList.includes(requestedGame)) {
-        initialGame = requestedGame;
-      } else if (siteTheme && enabledGamesList.includes(siteTheme)) {
-        initialGame = siteTheme;
-      } else {
-        initialGame = enabledGamesList[0];
-      }
-
-      setActiveGame(initialGame);
-      hasInitialized.current = true;
-    }
-  }, [profile, searchParams, enabledGamesList]);
 
   const refreshReviews = async (targetId: string, gameType: 'LOL' | 'TFT' | 'VALORANT', authUserId: string) => {
     const res = await getReviewsForUser(targetId, gameType)
@@ -163,6 +157,7 @@ export default function PublicProfilePage() {
   }
 
   const handleSubmitReview = async () => {
+    if (!activeGame) return
     setIsSubmittingReview(true)
     const result = await upsertReview(id, reviewComment, behaviorRating, skillRating, activeGame)
     setIsSubmittingReview(false)
@@ -170,7 +165,7 @@ export default function PublicProfilePage() {
     if (result.success) {
       showToast('Review saved!', 'success')
       await refreshReviews(id, activeGame, currentUser.id)
-      localStorage.setItem('lastProfileGame', activeGame); // Save active game to localStorage
+      localStorage.setItem('lastProfileGame', activeGame)
     } else {
       showToast(result.error || 'Error saving review', 'error')
     }
@@ -217,12 +212,7 @@ export default function PublicProfilePage() {
           
           {/* Summary Side (Left) */}
           <section className="w-full lg:w-96 flex flex-col items-center lg:items-start text-center lg:text-left">
-            <Link 
-              href={activeGame === 'TFT' ? '/tft' : activeGame === 'VALORANT' ? '/valorant' : '/league'} 
-              className="hover:underline flex items-center gap-2 font-bold mb-8 text-[rgb(var(--accent-color))]"
-            >
-              <ArrowLeft size={18} /> BACK TO DISCOVERY
-            </Link>
+            
 
             <div className="relative mb-10 group">
               <div className="w-56 h-56 rounded-[2.5rem] bg-[rgb(var(--accent-color))] p-1 shadow-2xl shadow-[rgb(var(--accent-color)/0.2)]">
@@ -243,20 +233,10 @@ export default function PublicProfilePage() {
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
+              <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
                 {profile.game_name}
                 <span className="text-slate-600 block text-2xl mt-1">#{profile.tag_line}</span>
               </h1>
-              
-              {isMatched && (
-                <a 
-                  href={`https://discord.com/channels/@me/${profile.discord_id}`} 
-                  target="_blank"
-                  className="mt-6 flex items-center gap-2 px-6 py-3 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all w-fit mx-auto lg:mx-0 shadow-lg shadow-indigo-500/20"
-                >
-                  <MessageSquare size={16} /> Chat on Discord
-                </a>
-              )}
 
               {totalAvg > 4.5 && reviews.length >= 1 && (
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-[rgb(var(--accent-color)/0.1)] border border-[rgb(var(--accent-color)/0.2)] rounded-full w-fit mx-auto lg:mx-0 mt-4">

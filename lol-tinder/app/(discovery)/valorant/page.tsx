@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion"
-import { Sword, Zap, User, Filter, Activity, Search, Trophy, Loader2, MicOff } from "lucide-react"
+import { Sword, Zap, User, Filter, Activity, Search, Trophy, Loader2, MicOff, Globe } from "lucide-react"
 import { createClient } from "@/src/utils/supabase/client";
 import Link from "next/link";
 
@@ -196,7 +196,11 @@ export default function ValorantDiscovery() {
           <div className="main-grid">
             <AnimatePresence mode="popLayout">
               {players.length > 0 ? (
-                players.map((player) => (
+                players.map((player: any) => {
+                  const langs = player.language ? player.language.split(',').filter(Boolean) : [];
+                  const queues = player.val_preferred_queue ? player.val_preferred_queue.split(',').filter(Boolean) : [];
+
+                  return (
                   <motion.div
                     key={player.id}
                     layout
@@ -205,13 +209,13 @@ export default function ValorantDiscovery() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="modern-panel p-6 group flex flex-col h-full border-red-500/5 hover:border-red-500/20"
                   >
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="flex gap-4">
-                        <div className="relative group/avatar">
+                    <div className="relative flex justify-between items-start mb-4">
+                      <div className="flex gap-4 overflow-hidden pr-20">
+                        <div className="relative flex-shrink-0 group/avatar">
                           <div className="w-14 h-14 rounded-xl bg-zinc-800 p-[1px] group-hover/avatar:bg-red-500/50 transition-colors">
                             <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center overflow-hidden">
                               {player.avatar_url ? (
-                                <img src={player.avatar_url} className="w-full h-full object-cover" alt="" />
+                                <img src={player.avatar_url} className="w-full h-full object-cover group-hover:opacity-100 transition-opacity" alt="" />
                               ) : (
                                 <User size={28} className="text-slate-700" />
                               )}
@@ -220,45 +224,72 @@ export default function ValorantDiscovery() {
                           {new Date(player.last_seen).getTime() > Date.now() - 10 * 60 * 1000 && (
                             <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-lg shadow-emerald-500/50" />
                           )}
+                          {player.has_mic === false && (
+                            <div className="absolute -bottom-1 -left-1 text-red-500 bg-[#0a0a0a] rounded-full p-0.5 shadow-lg border border-red-500/20"><MicOff size={14} /></div>
+                          )}
                         </div>
-                        <div>
-                          <h4 className="text-lg font-bold text-white group-hover:text-red-400 transition-colors">
+                        <div className="min-w-0 flex flex-col justify-center">
+                          <h4 className="text-lg font-black text-white group-hover:text-red-400 transition-colors truncate">
                             {player.val_game_name || player.game_name}
+                            {!player.val_game_name && player.tag_line && (
+                              <span className="text-zinc-600 text-sm font-medium ml-1">
+                                #{player.tag_line}
+                              </span>
+                            )}
                           </h4>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-1.5 mt-0.5">
                             <Trophy size={12} className="text-red-400" />
                             <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
                               {player.val_rank || 'Unranked'}
                             </span>
-                            {player.language && (
-                              <>
-                                <span className="text-zinc-800">•</span>
-                                <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">{player.language.split(',')[0]}</span>
-                              </>
-                            )}
+                            <span className="text-zinc-800 text-[10px]">•</span>
+                            <span className="text-[10px] font-bold text-red-400/60 uppercase">Valorant</span>
                           </div>
                         </div>
                       </div>
-                      <div className="bg-red-500/10 px-2 py-1 rounded text-[10px] font-bold text-red-400 border border-red-500/20">
+                      <div className="absolute top-0 right-0 bg-red-500/10 px-2 py-1 rounded text-[9px] font-black text-red-400 border border-red-500/20 uppercase tracking-widest">
                         {player.val_main_role || 'AGENT'}
                       </div>
                     </div>
 
-                    <div className="flex-1 bg-black/20 rounded-lg p-4 mb-6 border border-white/[0.02]">
-                      <p className="text-sm text-zinc-400 italic leading-relaxed line-clamp-3">
+                    <div className="flex-1 bg-black/20 rounded-xl p-4 mb-5 border border-white/[0.02] flex flex-col">
+                      <p className="text-sm text-zinc-400 italic leading-relaxed line-clamp-2">
                         "{player.val_bio || player.bio || "No tactical briefing provided."}"
                       </p>
                     </div>
 
+                    <div className="space-y-4 mb-6">
+                       {queues.length > 0 && (
+                         <div className="flex flex-wrap gap-1.5">
+                           {queues.map((q: string) => (
+                             <span key={q} className="px-2 py-1 rounded bg-red-500/5 border border-red-500/10 text-[9px] font-black uppercase text-red-400/70 tracking-tighter">
+                               {q}
+                             </span>
+                           ))}
+                         </div>
+                       )}
+
+                       {langs.length > 0 && (
+                         <div className="flex flex-wrap gap-1.5">
+                           {langs.map((l: string) => (
+                             <span key={l} className="flex items-center gap-1 px-2 py-1 rounded bg-zinc-900 border border-white/5 text-[9px] font-bold text-zinc-500">
+                               <Globe size={10} className="text-zinc-700" /> {l}
+                             </span>
+                           ))}
+                         </div>
+                       )}
+                    </div>
+
                     <div className="flex gap-2">
                       <Link href={`/profile/${player.id}?game=VALORANT`} className="flex-1">
-                        <button className="btn-modern w-full text-[10px] py-3 bg-red-600/10 border-red-600/20 hover:bg-red-600/20 text-red-400">
+                        <button className="btn-modern w-full text-[10px] font-black uppercase tracking-widest py-3 bg-red-600/10 border-red-600/20 hover:bg-red-600/20 text-red-400 transition-all">
                           View Agent
                         </button>
                       </Link>
                     </div>
                   </motion.div>
-                ))
+                  );
+                })
               ) : (
                 <div className="col-span-full py-40 flex flex-col items-center gap-4 text-slate-600">
                   <Search size={64} className="opacity-10" />

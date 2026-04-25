@@ -17,14 +17,34 @@ export default function MatchesPage() {
     const [user, setUser] = useState<any>(null);
     const [matches, setMatches] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'TEAM' | 'PENDING'>('TEAM');
+    const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
     const { showToast } = useToast();
 
-    const fetchMatches = useCallback(async () => {
+    const fetchMatches = useCallback(async (userId?: string) => {
         const { data, error } = await getMatches();
         if (!error && data) {
             setMatches(data);
+            
+            const currentUserId = userId || user?.id;
+            if (currentUserId) {
+                const matchIds = data.filter((m: any) => m.status === 'ACCEPTED').map((m: any) => m.id);
+                if (matchIds.length > 0) {
+                    const { data: unreadData } = await supabase
+                        .from('messages')
+                        .select('match_id')
+                        .in('match_id', matchIds)
+                        .eq('is_read', false)
+                        .neq('sender_id', currentUserId);
+                    
+                    const counts: Record<string, number> = {};
+                    unreadData?.forEach((msg: any) => {
+                        counts[msg.match_id] = (counts[msg.match_id] || 0) + 1;
+                    });
+                    setUnreadMap(counts);
+                }
+            }
         }
-    }, []);
+    }, [user?.id]);
 
     useEffect(() => {
         // Створюємо канал синхронно з унікальною назвою
@@ -34,7 +54,7 @@ export default function MatchesPage() {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             setUser(authUser);
             if (authUser) {
-                await fetchMatches();
+                await fetchMatches(authUser.id);
 
                 channel
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
@@ -119,36 +139,42 @@ export default function MatchesPage() {
                                             <div className="w-16 h-16 rounded-2xl bg-zinc-800 p-[1px] overflow-hidden">
                                                  <img src={m.profile.avatar_url} className="w-full h-full object-cover rounded-[15px]" alt="" />
                                             </div>
+                                            {unreadMap[m.id] > 0 && (
+                                                <div className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-zinc-900 z-10 shadow-lg">
+                                                    {unreadMap[m.id] > 9 ? '9+' : unreadMap[m.id]}
+                                                </div>
+                                            )}
                                             {m.profile.last_seen && new Date(m.profile.last_seen).getTime() > Date.now() - 10 * 60 * 1000 && (
                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-zinc-900 rounded-full shadow-lg shadow-emerald-500/50" />
                                             )}
                                         </div>
-                                        <div>
-                                            <h4 className="text-lg font-bold text-white group-hover:text-[rgb(var(--accent-color))] transition-colors">
-                                              {m.profile.game_name}
+                                        <div className="min-w-0">
+                                            <h4 className="text-lg font-bold text-white group-hover:text-[rgb(var(--accent-color))] transition-colors truncate">
+                                              {m.profile.display_name || m.profile.game_name} 
+                                              {!m.profile.display_name && (
+                                                <span className="text-zinc-600 text-sm font-medium ml-1">
+                                                  #{m.profile.tag_line}
+                                                </span>
+                                              )}
                                             </h4>
                                             <div className="flex items-center gap-2 mt-1">
-                                                <Trophy size={12} className="text-[rgb(var(--accent-color))]" />
-                                                <span className="text-[10px] font-black uppercase text-zinc-500">{m.profile.solo_rank || 'Unranked'}</span>
+                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter">{m.profile.region}</span>
+                                                {m.profile.language && (
+                                                    <>
+                                                        <span className="text-zinc-800">•</span>
+                                                        <span className="text-[10px] font-bold text-zinc-500 truncate">{m.profile.language.split(',')[0]}</span>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-2 items-end">
-                                      <div className="bg-[rgb(var(--accent-color)/0.1)] px-2 py-1 rounded text-[10px] font-bold text-[rgb(var(--accent-color))] border border-[rgb(var(--accent-color)/0.2)] uppercase">
-                                        {m.profile.main_role}
-                                      </div>
-                                    </div>
                                 </div>
 
-                                {activeTab === 'TEAM' && m.last_message && (
-                                    <div className="mb-6 p-3 bg-black/20 rounded-xl border border-white/5">
-                                        <p className="text-[9px] text-zinc-600 uppercase font-black mb-1 tracking-widest">Last Intel</p>
-                                        <p className="text-xs text-zinc-400 truncate italic">
-                                            {m.last_message.sender_id === user?.id && <span className="text-[rgb(var(--accent-color))] font-bold mr-1">You:</span>}
-                                            {m.last_message.content}
-                                        </p>
-                                    </div>
-                                )}
+                                <div className="mb-6 h-12">
+                                    <p className="text-[11px] text-zinc-500 italic line-clamp-2 leading-relaxed">
+                                        {m.profile.bio ? `"${m.profile.bio}"` : "No biography added."}
+                                    </p>
+                                </div>
 
                                 {activeTab === 'TEAM' ? (
                                     <div className="flex gap-2">
@@ -161,7 +187,9 @@ export default function MatchesPage() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="flex gap-2 pt-4 border-t border-white/5">
+                                    <div className="space-y-4">
+                                        <ViewProfileButton profileId={m.profile.id} className="w-full" />
+                                        <div className="flex gap-2 pt-4 border-t border-white/5">
                                         <button 
                                             onClick={() => handleStatusUpdate(m.id, 'ACCEPTED')}
                                             className="flex-1 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 py-3 rounded-xl text-[10px] font-black uppercase transition-all"
@@ -174,6 +202,7 @@ export default function MatchesPage() {
                                         >
                                             <X size={16} /> Decline
                                         </button>
+                                        </div>
                                     </div>
                                 )}
                             </motion.div>

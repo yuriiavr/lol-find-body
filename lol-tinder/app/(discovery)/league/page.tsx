@@ -11,9 +11,16 @@ const POPULAR_LANGUAGES = [
   "Spanish", "Italian", "Romanian", "Dutch", "Hungarian", "Czech"
 ];
 
+const RANK_PRIORITY = ['CHALLENGER', 'GRANDMASTER', 'MASTER', 'DIAMOND', 'EMERALD', 'PLATINUM', 'GOLD', 'SILVER', 'BRONZE', 'IRON', 'UNRANKED'];
+const getRankWeight = (r: string | null) => {
+  if (!r) return 100;
+  const tier = r.split(' ')[0].toUpperCase();
+  const idx = RANK_PRIORITY.indexOf(tier);
+  return idx === -1 ? 100 : idx;
+};
+
 const AVAILABLE_QUEUES = [
-  "Solo/Duo", "Flex", "Draft", "ARAM", "ARAM: Mayhem", 
-  "Arena", "Quick Play", "Seasonal", "Clash"
+  "Solo/Duo", "Flex", "Draft", "ARAM", "Arena", "Quick Play", "Clash"
 ];
 
 // Виносимо створення клієнта Supabase за межі компонента
@@ -288,18 +295,39 @@ export default function Home() {
                 <div className="main-grid">
                 <AnimatePresence mode="popLayout">
                   {players.length > 0 ? (
-                    players.map((player) => (
+                    players.map((player: any) => {
+                      const soloWeight = getRankWeight(player.solo_rank);
+                      const flexWeight = getRankWeight(player.flex_rank);
+                      
+                      let displayedRank = player.solo_rank || 'UNRANKED';
+                      let displayedLabel = 'Solo';
+
+                      if (filterQueue === 'Flex') {
+                        displayedRank = player.flex_rank || 'UNRANKED';
+                        displayedLabel = 'Flex';
+                      } else if (filterQueue === 'Solo/Duo') {
+                        displayedRank = player.solo_rank || 'UNRANKED';
+                        displayedLabel = 'Solo';
+                      } else if (flexWeight < soloWeight) {
+                        displayedRank = player.flex_rank || 'UNRANKED';
+                        displayedLabel = 'Flex';
+                      }
+
+                      const langs = player.language ? player.language.split(',').filter(Boolean) : [];
+                      const queues = player.preferred_queue ? player.preferred_queue.split(',').filter(Boolean) : [];
+
+                      return (
                       <motion.div
                         key={player.id}
                         layout
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="modern-panel p-6 group flex flex-col h-full"
+                        className="modern-panel p-6 group flex flex-col h-full hover:border-orange-500/20 transition-all"
                       >
-                        <div className="relative flex justify-between items-start mb-6">
-                          <div className="flex gap-4 overflow-hidden pr-16">
-                            <div className="relative group/avatar">
+                        <div className="relative flex justify-between items-start mb-4">
+                          <div className="flex gap-4 overflow-hidden pr-20">
+                            <div className="relative flex-shrink-0 group/avatar">
                               <div className="w-14 h-14 rounded-xl bg-zinc-800 p-[1px] group-hover/avatar:bg-orange-500/50 transition-colors">
                                 <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center overflow-hidden">
                                   {player.avatar_url ? (
@@ -313,45 +341,69 @@ export default function Home() {
                                 <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-lg shadow-emerald-500/50" />
                               )}
                               {player.has_mic === false && (
-                                <div className="absolute -bottom-1 -left-1 text-red-500 bg-[#0a0a0a] rounded-full p-0.5"><MicOff size={14} /></div>
+                                <div className="absolute -bottom-1 -left-1 text-red-500 bg-[#0a0a0a] rounded-full p-0.5 shadow-lg border border-red-500/20"><MicOff size={14} /></div>
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <h4 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors truncate">{player.game_name}</h4>
-                              <div className="flex items-center gap-2 mt-1">
+                            <div className="min-w-0 flex flex-col justify-center">
+                              <h4 className="text-lg font-black text-white group-hover:text-orange-400 transition-colors truncate">
+                                {player.display_name || player.game_name}
+                                {!player.display_name && (
+                                  <span className="text-zinc-600 text-sm font-medium ml-1">
+                                    #{player.tag_line}
+                                  </span>
+                                )}
+                              </h4>
+                              <div className="flex items-center gap-1.5 mt-0.5">
                                 <Trophy size={12} className="text-orange-400" />
                                 <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
-                                  {player.preferred_queue?.includes('Flex') ? player.flex_rank : player.solo_rank}
+                                  {displayedRank}
                                 </span>
-                                <span className="text-zinc-800">•</span>
-                                <span className="text-[10px] font-bold text-orange-400/60 uppercase">{player.preferred_queue?.includes('Flex') ? 'Flex' : 'Solo'}</span>
-                                {player.language && (
-                                  <>
-                                    <span className="text-zinc-800">•</span>
-                                    <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">{player.language}</span>
-                                  </>
-                                )}
+                                <span className="text-zinc-800 text-[10px]">•</span>
+                                <span className="text-[10px] font-bold text-orange-400/60 uppercase">{displayedLabel}</span>
                               </div>
                             </div>
                           </div>
-                          <div className="absolute top-0 right-0 bg-blue-500/10 px-2 py-1 rounded text-[10px] font-bold text-blue-400 border border-blue-500/20 whitespace-nowrap">
+                          <div className="absolute top-0 right-0 bg-blue-500/10 px-2 py-1 rounded text-[9px] font-black text-blue-400 border border-blue-500/20 uppercase tracking-widest">
                             {player.main_role}
                           </div>
                         </div>
 
-                        <div className="flex-1 bg-black/20 rounded-lg p-4 mb-6 border border-white/[0.02]">
-                          <p className="text-sm text-zinc-400 italic leading-relaxed">
-                            "{player.bio || "Жодної інформації не додано."}"
+                        <div className="flex-1 bg-black/20 rounded-xl p-4 mb-5 border border-white/[0.02] flex flex-col">
+                          <p className="text-sm text-zinc-400 italic leading-relaxed line-clamp-3">
+                            "{player.bio || "Summoner is keeping a low profile."}"
                           </p>
                         </div>
 
+                        <div className="space-y-4 mb-6">
+                           {queues.length > 0 && (
+                             <div className="flex flex-wrap gap-1.5">
+                               {queues.map((q: string) => (
+                                 <span key={q} className="px-2 py-1 rounded bg-orange-500/5 border border-orange-500/10 text-[9px] font-black uppercase text-orange-400/70 tracking-tighter">
+                                   {q}
+                                 </span>
+                               ))}
+                             </div>
+                           )}
+
+                           {langs.length > 0 && (
+                             <div className="flex flex-wrap gap-1.5">
+                               {langs.map((l: string) => (
+                                 <span key={l} className="flex items-center gap-1 px-2 py-1 rounded bg-zinc-900 border border-white/5 text-[9px] font-bold text-zinc-500">
+                                   <Globe size={10} className="text-zinc-700" /> {l}
+                                 </span>
+                               ))}
+                             </div>
+                           )}
+                        </div>
+
                         <Link href={`/profile/${player.id}`} className="w-full">
-                          <button className="btn-modern w-full text-xs py-3">
+                          <button className="btn-modern w-full text-[10px] font-black uppercase tracking-widest py-3 hover:bg-orange-500/5 transition-all">
                             View Profile
                           </button>
                         </Link>
                       </motion.div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="col-span-full py-40 flex flex-col items-center gap-4 text-slate-600">
                       <Search size={64} className="opacity-10" />

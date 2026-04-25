@@ -18,7 +18,6 @@ export function Navbar() {
   const router = useRouter();
   const [discoveryHref, setDiscoveryHref] = useState("/league");
   const [pendingCount, setPendingCount] = useState(0);
-  const [unreadCount, setUnreadCount] = useState(0);
   const { showToast } = useToast();
 
   const fetchNotifications = useCallback(async (userId: string) => {
@@ -30,25 +29,6 @@ export function Navbar() {
       .eq('status', 'PENDING');
     
     setPendingCount(pCount || 0);
-
-    // 2. Отримуємо кількість непрочитаних повідомлень у всіх активних чатах
-    const { data: matches } = await supabase
-      .from('matches')
-      .select('id')
-      .or(`user_id.eq.${userId},target_id.eq.${userId}`);
-    
-    const matchIds = matches?.map(m => m.id) || [];
-    if (matchIds.length > 0) {
-      const { count: mCount } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .in('match_id', matchIds)
-        .neq('sender_id', userId)
-        .eq('is_read', false);
-      setUnreadCount(mCount || 0);
-    } else {
-      setUnreadCount(0);
-    }
   }, []);
 
   useEffect(() => {
@@ -70,7 +50,6 @@ export function Navbar() {
   useEffect(() => {
     if (!user) {
       setPendingCount(0);
-      setUnreadCount(0);
       return;
     }
 
@@ -82,15 +61,6 @@ export function Navbar() {
         fetchNotifications(user.id);
         if (payload.eventType === 'INSERT' && payload.new.target_id === user.id) {
           showToast("New team request received!", "success");
-        }
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
-        fetchNotifications(user.id);
-        if (payload.eventType === 'INSERT' && payload.new.sender_id !== user.id) {
-          // Показуємо тост, лише якщо користувач не знаходиться на сторінці повідомлень прямо зараз
-          if (!pathname.includes('/matches')) {
-            showToast("New message received!", "success");
-          }
         }
       })
       .subscribe();
@@ -154,9 +124,9 @@ export function Navbar() {
                   }`}
                 >
                   {link.name}
-                  {link.name === 'Matches' && (pendingCount + unreadCount) > 0 && (
+                  {link.name === 'Matches' && pendingCount > 0 && (
                     <span className="ml-2 px-1.5 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[9px] rounded-full animate-pulse inline-flex items-center justify-center min-w-[18px]">
-                      {pendingCount + unreadCount}
+                      {pendingCount}
                     </span>
                   )}
                 </Link>
@@ -215,9 +185,9 @@ export function Navbar() {
                 >
                   <link.icon size={20} />
                   {link.name}
-                  {link.name === 'Matches' && (pendingCount + unreadCount) > 0 && (
+                  {link.name === 'Matches' && pendingCount > 0 && (
                     <span className="ml-auto px-2 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[10px] rounded-full">
-                      {pendingCount + unreadCount}
+                      {pendingCount}
                     </span>
                   )}
                 </Link>

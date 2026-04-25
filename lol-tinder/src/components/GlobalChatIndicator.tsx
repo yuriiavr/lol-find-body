@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { usePathname, useRouter } from 'next/navigation'
 import { getMatches } from '@/app/matches/actions'
 import { Chat } from './Chat'
+import { useToast } from '@/src/components/ToastProvider'
 
 const supabase = createClient();
 
@@ -21,6 +22,7 @@ export function GlobalChatIndicator() {
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({})
   const pathname = usePathname()
   const router = useRouter()
+  const { showToast } = useToast()
 
   const fetchMatchesAndUnread = async (userId: string) => {
     const res = await getMatches()
@@ -64,7 +66,13 @@ export function GlobalChatIndicator() {
       await fetchMatchesAndUnread(authUser.id)
 
       channel
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchMatchesAndUnread(authUser.id))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+          fetchMatchesAndUnread(authUser.id)
+          // Показуємо тост про нове повідомлення, якщо користувач не в розділі матчів
+          if (payload.eventType === 'INSERT' && payload.new.sender_id !== authUser.id && !pathname.includes('/matches')) {
+            showToast("New message received!", "success");
+          }
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => fetchMatchesAndUnread(authUser.id))
         .subscribe()
     }
@@ -81,7 +89,7 @@ export function GlobalChatIndicator() {
       window.removeEventListener('open-global-chat', handleOpenChat)
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [pathname, showToast]) // Додано залежності для коректної роботи тостів та реалтайму
 
   // Оновлення заголовка сторінки
   useEffect(() => {

@@ -29,6 +29,15 @@ export async function GET(request: Request) {
     if (!error) {
       return NextResponse.redirect(`${origin}`)
     }
+
+    // Якщо виникла помилка під час обміну коду на сесію, передаємо її в URL
+    return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${encodeURIComponent(error.message)}`)
+  }
+
+  // Перевіряємо, чи повернув провайдер (Discord) помилку ще до обміну коду
+  const errorDescription = searchParams.get('error_description') || searchParams.get('error')
+  if (errorDescription) {
+    return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${encodeURIComponent(errorDescription)}`)
   }
 
   return NextResponse.redirect(`${origin}/auth/auth-code-error`)

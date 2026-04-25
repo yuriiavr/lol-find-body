@@ -152,8 +152,8 @@ export async function getMatches() {
       user_id,
       target_id,
       status,
-      sender:profiles!user_id (id, game_name, tag_line, avatar_url, main_role, last_seen),
-      receiver:profiles!target_id (id, game_name, tag_line, avatar_url, main_role, last_seen),
+      sender:profiles!user_id (id, display_name, game_name, tag_line, avatar_url, main_role, last_seen, bio, region, language),
+      receiver:profiles!target_id (id, display_name, game_name, tag_line, avatar_url, main_role, last_seen, bio, region, language),
       messages (content, sender_id, created_at)
     `)
     .or(`user_id.eq.${user.id},target_id.eq.${user.id}`)

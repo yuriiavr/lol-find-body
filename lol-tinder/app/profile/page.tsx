@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, useCallback } from "react";
 import { createClient } from "@/src/utils/supabase/client";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   FormInput, 
   FormSelect, 
@@ -50,17 +51,55 @@ const POPULAR_LANGUAGES = [
   "Czech",
 ];
 
-const AVAILABLE_QUEUES = [
-  "Solo/Duo",
-  "Flex",
-  "Draft",
-  "ARAM",
-  "ARAM: Mayhem",
-  "Arena",
-  "Quick Play",
-  "Seasonal",
-  "Clash"
-];
+// Окремий компонент для глобальних налаштувань, який не залежить від обраної гри
+const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onInputChange }: any) => {
+  return (
+    <div className="modern-panel p-8 mb-10 bg-white/[0.02] border-white/5">
+      <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-4">
+        <Settings size={18} className="text-zinc-500" />
+        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">Global Account Settings</h3>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="md:col-span-2">
+          <FormInput
+            label="Global Display Name"
+            icon={UserIcon}
+            name="display_name"
+            value={profile?.display_name || ""}
+            onChange={onInputChange}
+            placeholder="Your social nickname for this app"
+          />
+        </div>
+
+        <BadgeSelector
+          label="Languages you speak"
+          icon={Languages}
+          items={POPULAR_LANGUAGES}
+          selectedItems={selectedLangs}
+          onToggle={onToggleLang}
+        />
+
+        <div className="space-y-8">
+          <VoiceSwitch
+            label="Voice Comms"
+            icon={Mic}
+            checked={profile?.has_mic !== false}
+            onChange={onInputChange}
+            name="hasMic"
+          />
+          
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const QUEUES_BY_GAME: Record<string, string[]> = {
+  LOL: ["Solo/Duo", "Flex", "Draft", "ARAM", "Arena", "Quick Play", "Clash"],
+  TFT: ["Ranked", "Normal", "Hyper Roll", "Double Up"],
+  VALORANT: ["Competitive", "Unrated", "Swiftplay", "Spike Rush", "Deathmatch", "Premier"]
+};
 
 const GAMES = [
   { id: 'LOL', name: 'League of Legends', icon: Sword, color: 'orange' },
@@ -77,14 +116,28 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false); // Keep this for button loading state
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
+  const [lastSavedProfile, setLastSavedProfile] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
 
+  const [isDirty, setIsDirty] = useState(false);
   // Стан для обраних мов (розбиваємо рядок з бази назад у масив)
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
   const [selectedQueues, setSelectedQueues] = useState<string[]>([]);
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
   
   const [activeTab, setActiveTab] = useState<'LOL' | 'TFT' | 'VALORANT'>('LOL');
+
+  // Обчислюємо чи є зміни порівняно з останнім збереженим станом
+  useEffect(() => {
+    if (!profile || !lastSavedProfile || isInitialLoading) {
+      setIsDirty(false);
+      return;
+    }
+
+    // Глибоке порівняння через JSON stringify
+    const hasChanges = JSON.stringify(profile) !== JSON.stringify(lastSavedProfile);
+    setIsDirty(hasChanges);
+  }, [profile, lastSavedProfile, isInitialLoading]);
 
   const getGameValue = (field: string) => {
     // Важливо: ніколи не повертати undefined для value в селектах, 
@@ -127,7 +180,21 @@ export default function ProfilePage() {
   }, [profile, selectedLangs, selectedQueues, enabledGames, user, isInitialLoading, activeTab]);
 
   // Обробник для миттєвого оновлення прев'ю при зміні полів
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const isCheckbox = type === 'checkbox';
+    const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
+    
+    setProfile((prev: any) => {
+      const next = { ...prev };
+      if (name === 'hasMic') next.has_mic = val;
+      else if (name === 'isPaused') next.is_paused = val;
+      else next[name] = val;
+      return next;
+    });
+  }, []);
+
+  const handleGameInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
     const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
@@ -145,25 +212,43 @@ export default function ProfilePage() {
       else if (name.endsWith('_region')) next[`${prefix}region`] = val;
       return next;
     });
-  };
+  }, [activeTab]);
 
-  const toggleLang = (lang: string) => {
-    setSelectedLangs((prev) =>
-      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang],
-    );
-  };
+  const toggleLang = useCallback((lang: string) => {
+    setSelectedLangs((prev) => {
+      const next = prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang];
+      // Синхронізуємо з об'єктом профілю (глобально)
+      setProfile((p: any) => ({ ...p, language: next.join(',') }));
+      return next;
+    });
+  }, []);
 
-  const toggleQueue = (queue: string) => {
-    setSelectedQueues((prev) =>
-      prev.includes(queue) ? prev.filter((q) => q !== queue) : [...prev, queue],
-    );
-  };
+  const toggleQueue = useCallback((queue: string) => {
+    setSelectedQueues((prev) => {
+      const next = prev.includes(queue) ? prev.filter((q) => q !== queue) : [...prev, queue];
+      // Оновлюємо конкретне поле черги для поточної гри
+      const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
+      setProfile((p: any) => ({ ...p, [`${prefix}preferred_queue`]: next.join(',') }));
+      return next;
+    });
+  }, [activeTab]);
 
-  const toggleGame = (game: string) => {
-    setEnabledGames((prev) =>
-      prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game],
-    );
-  };
+  // Синхронізація вибраних черг при зміні гри
+  useEffect(() => {
+    if (!profile) return;
+    const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
+    const queueStr = profile[`${prefix}preferred_queue`] || "";
+    setSelectedQueues(queueStr ? queueStr.split(",").filter(Boolean) : []);
+  }, [activeTab, !!profile]);
+
+  const toggleGame = useCallback((game: string) => {
+    setEnabledGames((prev) => {
+      const next = prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game];
+      // Синхронізуємо зі станом профілю для dirty check
+      setProfile((p: any) => ({ ...p, enabled_games: next.join(',') }));
+      return next;
+    });
+  }, []);
 
   const { showToast } = useToast();
 
@@ -188,30 +273,41 @@ export default function ProfilePage() {
 
       if (isMounted) setUser(authUser);
 
-      // Спершу готуємо об'єкт профілю
-      let initialProfile = data;
-      if (!data) {
-        initialProfile = {
-            id: authUser.id,
-            game_name: "", tag_line: "", region: "EUW", main_role: "FILL", bio: "",
-            tft_game_name: "", tft_tag_line: "", tft_region: "EUW", tft_main_role: "FILL", tft_bio: "",
-            val_game_name: "", val_tag_line: "", val_region: "EUW", val_main_role: "FILL", val_bio: "",
-            has_mic: true,
-            is_paused: false,
-            solo_rank: "Unranked",
-            flex_rank: "Unranked",
-            tft_rank: "Unranked",
-            val_rank: "Unranked",
-            enabled_games: "LOL",
-            language: "",
-        };
-      }
+      const defaultProfile = {
+        id: authUser.id,
+        display_name: "",
+        game_name: "", tag_line: "", region: "EUW", main_role: "FILL", bio: "",
+        tft_game_name: "", tft_tag_line: "", tft_region: "EUW", tft_main_role: "FILL", tft_bio: "",
+        val_game_name: "", val_tag_line: "", val_region: "EUW", val_main_role: "FILL", val_bio: "",
+        has_mic: true,
+        is_paused: false,
+        solo_rank: "Unranked",
+        flex_rank: "Unranked",
+        tft_rank: "Unranked",
+        val_rank: "Unranked",
+        enabled_games: "LOL",
+        language: "",
+        preferred_queue: "",
+        tft_preferred_queue: "",
+        val_preferred_queue: "",
+      };
+
+      // Об'єднуємо з дефолтними значеннями та перетворюємо null на "" для стабільного порівняння
+      const initialProfile = data ? { ...defaultProfile, ...data } : defaultProfile;
+      Object.keys(initialProfile).forEach(key => {
+        if (initialProfile[key] === null) initialProfile[key] = "";
+      });
 
       if (isMounted) {
         // Оновлюємо всі стани одночасно
         setProfile(initialProfile);
+        setLastSavedProfile(JSON.parse(JSON.stringify(initialProfile)));
         if (initialProfile.language) setSelectedLangs(initialProfile.language.split(","));
-        if (initialProfile.preferred_queue) setSelectedQueues(initialProfile.preferred_queue.split(","));
+        
+        const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
+        const qStr = initialProfile[`${prefix}preferred_queue`] || "";
+        setSelectedQueues(qStr.split(",").filter(Boolean));
+
         if (initialProfile.enabled_games) setEnabledGames(initialProfile.enabled_games.split(","));
         if (!initialProfile.enabled_games) setEnabledGames(["LOL"]);
       }
@@ -276,6 +372,8 @@ export default function ProfilePage() {
       updatedProfile[`${prefix}main_role`] = role; // Присвоюємо значення, яке вже має дефолт
       if (bio !== null) updatedProfile[`${prefix}bio`] = bio;
 
+      updatedProfile.display_name = formData.get("display_name") as string;
+
       updatedProfile[`${prefix}preferred_queue`] = selectedQueues.join(",");
       
       // Загальні налаштування
@@ -284,6 +382,7 @@ export default function ProfilePage() {
       updatedProfile.enabled_games = enabledGames.join(",");
 
       setProfile(updatedProfile);
+      setLastSavedProfile(JSON.parse(JSON.stringify(updatedProfile)));
       showToast("Profile updated successfully!", "success");
       setLoading(false);
     }
@@ -313,6 +412,32 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50 flex flex-col">
+      {/* Unsaved Changes Banner */}
+      <AnimatePresence>
+        {isDirty && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[110] w-[90%] max-w-2xl"
+          >
+            <div className="bg-zinc-900/90 backdrop-blur-xl border border-[rgb(var(--accent-color)/0.3)] p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-6">
+              <div className="flex items-center gap-3 ml-2">
+                <div className="w-2 h-2 rounded-full bg-[rgb(var(--accent-color))] animate-pulse" />
+                <p className="text-xs font-bold uppercase tracking-widest text-zinc-200">
+                  You have unsaved changes
+                </p>
+              </div>
+              <button 
+                onClick={() => (document.querySelector('button[type="submit"]') as HTMLButtonElement)?.click()}
+                className="bg-[rgb(var(--accent-color))] hover:brightness-110 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all active:scale-95 shadow-lg shadow-[rgb(var(--accent-color)/0.2)]"
+              >
+                Save Now
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-8 lg:p-16">
         <div className="flex flex-col lg:flex-row gap-16">
@@ -343,7 +468,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="text-center lg:text-left space-y-2">
-              <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
+              <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
                 {getGameValue('game_name') || "Summoner"}
                 <span className="text-slate-600 block text-2xl mt-1">
                   #{getGameValue('tag_line') || "EUW"}
@@ -408,10 +533,18 @@ export default function ProfilePage() {
           <section className="flex-1">
             <div className="flex items-center gap-3 mb-10">
               <Settings size={24} className="text-[rgb(var(--accent-color))]" />
-              <h3 className="text-2xl font-black uppercase tracking-widest">
+              <h3 className="text-2xl font-black uppercase tracking-tighter italic">
                 Profile Editor
               </h3>
             </div>
+
+            <form onSubmit={handleSubmit} className="space-y-10">
+              <GlobalSettingsSection 
+                profile={profile}
+                selectedLangs={selectedLangs}
+                onToggleLang={toggleLang}
+                onInputChange={handleInputChange}
+              />
 
             <div className="flex border-b border-white/5 mb-8 overflow-x-auto no-scrollbar">
               {GAMES.map((game) => (
@@ -430,7 +563,6 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <FormSwitch
                   className="md:col-span-2"
@@ -446,7 +578,7 @@ export default function ProfilePage() {
                   icon={UserIcon}
                   name={`${activeTab.toLowerCase()}_gameName`}
                   value={getGameValue('game_name')}
-                  onChange={handleInputChange}
+                  onChange={handleGameInputChange}
                   placeholder="e.g. Faker"
                   required
                 />
@@ -456,7 +588,7 @@ export default function ProfilePage() {
                   icon={Tag}
                   name={`${activeTab.toLowerCase()}_tagLine`}
                   value={getGameValue('tag_line')}
-                  onChange={handleInputChange}
+                  onChange={handleGameInputChange}
                   placeholder="e.g. EUW"
                   required
                 />
@@ -466,7 +598,7 @@ export default function ProfilePage() {
                   icon={Globe}
                   name={`${activeTab.toLowerCase()}_region`}
                   value={getGameValue('region') || "EUW"}
-                  onChange={handleInputChange}
+                  onChange={handleGameInputChange}
                 >
                   <option value="EUW">Europe West</option>
                   <option value="EUNE">Europe Nordic & East</option>
@@ -479,7 +611,7 @@ export default function ProfilePage() {
                   icon={Sword}
                   name="role"
                   value={getGameValue('main_role') || "FILL"}
-                  onChange={handleInputChange}
+                  onChange={handleGameInputChange}
                 >
                   {activeTab === 'VALORANT' ? (
                     <>
@@ -500,28 +632,12 @@ export default function ProfilePage() {
                   )}
                 </FormSelect>
 
-                <VoiceSwitch
-                  label="Voice Comms"
-                  icon={Mic}
-                  checked={profile.has_mic !== false}
-                  onChange={handleInputChange}
-                  name="hasMic"
-                />
-
                 <BadgeSelector
                   label="Preferred Queue"
                   icon={LayoutGrid}
-                  items={AVAILABLE_QUEUES}
+                  items={QUEUES_BY_GAME[activeTab] || []}
                   selectedItems={selectedQueues}
                   onToggle={toggleQueue}
-                />
-
-                <BadgeSelector
-                  label="Languages you speak"
-                  icon={Languages}
-                  items={POPULAR_LANGUAGES}
-                  selectedItems={selectedLangs}
-                  onToggle={toggleLang}
                 />
               </div>
 
@@ -529,7 +645,7 @@ export default function ProfilePage() {
                 label="Player Biography"
                 name="bio"
                 value={getGameValue('bio')}
-                onChange={handleInputChange}
+                onChange={handleGameInputChange}
                 placeholder="Looking for competitive duo..."
               />
 

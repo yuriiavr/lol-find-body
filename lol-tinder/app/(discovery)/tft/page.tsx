@@ -2,13 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion"
-import { User, Filter, Activity, Search, Trophy, Loader2, MicOff, Gamepad } from "lucide-react"
+import { User, Filter, Activity, Search, Trophy, Loader2, MicOff, Gamepad, Globe } from "lucide-react"
 import { createClient } from "@/src/utils/supabase/client";
 import Link from "next/link";
 
 const POPULAR_LANGUAGES = [
   "Ukrainian", "English", "Polish", "German", "French", 
   "Spanish", "Italian", "Romanian", "Dutch", "Hungarian", "Czech"
+];
+
+const AVAILABLE_QUEUES = [
+  "Ranked", "Normal", "Hyper Roll", "Double Up"
 ];
 
 const supabase = createClient();
@@ -21,6 +25,7 @@ export default function TFTDiscoveryPage() {
   const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRank, setFilterRank] = useState<string>("ALL");
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
+  const [filterQueue, setFilterQueue] = useState<string>("ALL");
   const [onlyOnline, setOnlyOnline] = useState<boolean>(false);
 
   useEffect(() => {
@@ -61,6 +66,10 @@ export default function TFTDiscoveryPage() {
 
       if (filterRank !== "ALL") {
         query = query.ilike('tft_rank', `%${filterRank}%`);
+      }
+
+      if (filterQueue !== "ALL") {
+        query = query.ilike('tft_preferred_queue', `%${filterQueue}%`);
       }
 
       if (filterLangs.length > 0) {
@@ -128,6 +137,20 @@ export default function TFTDiscoveryPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Queue Type</label>
+                  <select 
+                    value={filterQueue} 
+                    onChange={(e) => setFilterQueue(e.target.value)}
+                    className="w-full bg-zinc-950/50 border border-white/5 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-blue-500/50"
+                  >
+                    <option value="ALL">All Queues</option>
+                    {AVAILABLE_QUEUES.map(q => (
+                      <option key={q} value={q}>{q.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Language</label>
                   <div className="flex flex-wrap gap-1">
                     {POPULAR_LANGUAGES.map(lang => (
@@ -189,7 +212,14 @@ export default function TFTDiscoveryPage() {
                               </div>
                             </div>
                             <div>
-                              <h4 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">{player.game_name}</h4>
+                              <h4 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">
+                                {player.display_name || player.game_name}
+                                {!player.display_name && (
+                                  <span className="text-zinc-600 text-sm font-medium ml-1">
+                                    #{player.tag_line}
+                                  </span>
+                                )}
+                              </h4>
                               <div className="flex items-center gap-2 mt-1">
                                 <Trophy size={12} className="text-blue-400" />
                                 <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
