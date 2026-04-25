@@ -325,12 +325,28 @@ export default function PublicProfilePage() {
                     <p className="text-3xl font-bold text-white uppercase italic">
                       {getQueueData('RANKED_SOLO_5x5')?.tier ? `${getQueueData('RANKED_SOLO_5x5').tier} ${getQueueData('RANKED_SOLO_5x5').rank}` : profile.solo_rank || 'Unranked'}
                     </p>
+                    {getQueueData('RANKED_SOLO_5x5') && (
+                      <div className="flex gap-2 mt-1 text-[10px] font-bold">
+                        <span className="text-emerald-500">
+                          {Math.round((getQueueData('RANKED_SOLO_5x5').wins / (getQueueData('RANKED_SOLO_5x5').wins + getQueueData('RANKED_SOLO_5x5').losses)) * 100)}% WR
+                        </span>
+                        <span className="text-slate-500">({getQueueData('RANKED_SOLO_5x5').wins + getQueueData('RANKED_SOLO_5x5').losses} games)</span>
+                      </div>
+                    )}
                   </div>
                   <div className={`modern-panel p-5 ${profile.preferred_queue?.split(',').includes('Flex') ? 'bg-[rgb(var(--accent-color)/0.1)] border-[rgb(var(--accent-color)/0.4)]' : 'bg-white/5 opacity-60'}`}>
                     <span className="text-[10px] font-black uppercase text-zinc-500 block mb-1 tracking-widest">Flex Queue</span>
                     <p className="text-2xl font-bold text-slate-300 uppercase italic">
                       {getQueueData('RANKED_FLEX_SR')?.tier ? `${getQueueData('RANKED_FLEX_SR').tier} ${getQueueData('RANKED_FLEX_SR').rank}` : profile.flex_rank || 'Unranked'}
                     </p>
+                    {getQueueData('RANKED_FLEX_SR') && (
+                      <div className="flex gap-2 mt-1 text-[10px] font-bold">
+                        <span className="text-emerald-500">
+                          {Math.round((getQueueData('RANKED_FLEX_SR').wins / (getQueueData('RANKED_FLEX_SR').wins + getQueueData('RANKED_FLEX_SR').losses)) * 100)}% WR
+                        </span>
+                        <span className="text-slate-500">({getQueueData('RANKED_FLEX_SR').wins + getQueueData('RANKED_FLEX_SR').losses} games)</span>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : activeGame === 'TFT' ? (
@@ -383,7 +399,7 @@ export default function PublicProfilePage() {
                 <div>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Biography & Playstyle</p>
                   <p className="text-2xl text-slate-200 leading-relaxed italic font-medium">
-                    "{ (activeGame === 'LOL' ? profile.bio : activeGame === 'TFT' ? profile.tft_bio : profile.val_bio) || "This summoner prefers to keep a low profile."}"
+                    { (activeGame === 'LOL' ? profile.bio : activeGame === 'TFT' ? profile.tft_bio : profile.val_bio) || "This summoner prefers to keep a low profile." }
                   </p>
                 </div>
 
@@ -491,7 +507,7 @@ export default function PublicProfilePage() {
                             <RatingItem label="Skill" rating={rev.skill_rating} />
                           </div>
                         </div>
-                        <p className="text-sm text-zinc-400 italic">"{rev.comment || "No comment left."}"</p>
+                        <p className="text-sm text-zinc-400 italic">{rev.comment || "No comment left."}</p>
                       </div>
                     ))
                   ) : (

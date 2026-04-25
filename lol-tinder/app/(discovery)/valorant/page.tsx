@@ -237,13 +237,20 @@ export default function ValorantDiscovery() {
                               </span>
                             )}
                           </h4>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <Trophy size={12} className="text-red-400" />
-                            <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
-                              {player.val_rank || 'Unranked'}
-                            </span>
-                            <span className="text-zinc-800 text-[10px]">•</span>
-                            <span className="text-[10px] font-bold text-red-400/60 uppercase">Valorant</span>
+                              <div className="flex flex-col mt-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <Trophy size={12} className="text-red-400" />
+                                  <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
+                                    {player.val_rank || 'Unranked'}
+                                  </span>
+                                  <span className="text-zinc-800 text-[10px]">•</span>
+                                  <span className="text-[10px] font-bold text-red-400/60 uppercase">Valorant</span>
+                                </div>
+                                {player.val_wins > 0 && (
+                                  <div className="text-[10px] font-bold text-emerald-500 mt-0.5">
+                                    {Math.round((player.val_wins / (player.val_wins + player.val_losses)) * 100)}% WR
+                                  </div>
+                                )}
                           </div>
                         </div>
                       </div>
@@ -254,7 +261,7 @@ export default function ValorantDiscovery() {
 
                     <div className="flex-1 bg-black/20 rounded-xl p-4 mb-5 border border-white/[0.02] flex flex-col">
                       <p className="text-sm text-zinc-400 italic leading-relaxed line-clamp-2">
-                        "{player.val_bio || player.bio || "No tactical briefing provided."}"
+                        {player.val_bio || player.bio || "No tactical briefing provided."}
                       </p>
                     </div>
 

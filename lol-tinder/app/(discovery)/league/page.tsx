@@ -316,6 +316,11 @@ export default function Home() {
                       const langs = player.language ? player.language.split(',').filter(Boolean) : [];
                       const queues = player.preferred_queue ? player.preferred_queue.split(',').filter(Boolean) : [];
 
+                        const wins = displayedLabel === 'Solo' ? (player.solo_wins || 0) : (player.flex_wins || 0);
+                        const losses = displayedLabel === 'Solo' ? (player.solo_losses || 0) : (player.flex_losses || 0);
+                        const totalGames = wins + losses;
+                        const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : null;
+
                       return (
                       <motion.div
                         key={player.id}
@@ -353,13 +358,20 @@ export default function Home() {
                                   </span>
                                 )}
                               </h4>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <Trophy size={12} className="text-orange-400" />
-                                <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
-                                  {displayedRank}
-                                </span>
-                                <span className="text-zinc-800 text-[10px]">•</span>
-                                <span className="text-[10px] font-bold text-orange-400/60 uppercase">{displayedLabel}</span>
+                              <div className="flex flex-col mt-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <Trophy size={12} className="text-orange-400" />
+                                  <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
+                                    {displayedRank}
+                                  </span>
+                                  <span className="text-zinc-800 text-[10px]">•</span>
+                                  <span className="text-[10px] font-bold text-orange-400/60 uppercase">{displayedLabel}</span>
+                                </div>
+                                {winRate !== null && (
+                                  <div className="text-[10px] font-bold text-emerald-500 mt-0.5">
+                                    {winRate}% WR <span className="text-zinc-600 font-medium ml-1">({totalGames} games)</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -370,7 +382,7 @@ export default function Home() {
 
                         <div className="flex-1 bg-black/20 rounded-xl p-4 mb-5 border border-white/[0.02] flex flex-col">
                           <p className="text-sm text-zinc-400 italic leading-relaxed line-clamp-3">
-                            "{player.bio || "Summoner is keeping a low profile."}"
+                            {player.bio || "Summoner is keeping a low profile."}
                           </p>
                         </div>
 

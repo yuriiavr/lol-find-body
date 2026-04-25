@@ -220,13 +220,21 @@ export default function TFTDiscoveryPage() {
                                   </span>
                                 )}
                               </h4>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Trophy size={12} className="text-blue-400" />
-                                <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
-                                  {player.tft_rank || 'UNRANKED'}
-                                </span>
-                                <span className="text-zinc-800">•</span>
-                                <span className="text-[10px] font-bold text-blue-400/60 uppercase">TFT</span>
+                              <div className="flex flex-col mt-1">
+                                <div className="flex items-center gap-2">
+                                  <Trophy size={12} className="text-blue-400" />
+                                  <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
+                                    {player.tft_rank || 'UNRANKED'}
+                                  </span>
+                                  <span className="text-zinc-800">•</span>
+                                  <span className="text-[10px] font-bold text-blue-400/60 uppercase">TFT</span>
+                                </div>
+                                {player.tft_wins + player.tft_losses > 0 && (
+                                  <div className="text-[10px] font-bold text-emerald-500 mt-0.5">
+                                    {Math.round((player.tft_wins / (player.tft_wins + player.tft_losses)) * 100)}% WR 
+                                    <span className="text-zinc-600 font-medium ml-1">({player.tft_wins + player.tft_losses} games)</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -234,7 +242,7 @@ export default function TFTDiscoveryPage() {
 
                         <div className="flex-1 bg-black/20 rounded-lg p-4 mb-6 border border-white/[0.02]">
                           <p className="text-sm text-zinc-400 italic leading-relaxed">
-                            "{player.bio || "Жодної інформації не додано."}"
+                            {player.bio || "Жодної інформації не додано."}
                           </p>
                         </div>
 

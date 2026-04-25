@@ -61,12 +61,21 @@ export async function updateProfile(formData: FormData) {
   // Крок 2: Отримання статсів залежно від гри
   let stats: any = {};
   if (activeGame === 'LOL') {
-    const ranks = await getRanksByPuuid(account.puuid, region) || { solo: 'UNRANKED', flex: 'UNRANKED' };
-    stats = { solo_rank: ranks.solo, flex_rank: ranks.flex };
+    const ranks = await getRanksByPuuid(account.puuid, region) || { solo: 'UNRANKED', flex: 'UNRANKED', solo_wins: 0, solo_losses: 0, flex_wins: 0, flex_losses: 0 };
+    stats = { 
+      solo_rank: ranks.solo, 
+      flex_rank: ranks.flex,
+      solo_wins: ranks.solo_wins,
+      solo_losses: ranks.solo_losses,
+      flex_wins: ranks.flex_wins,
+      flex_losses: ranks.flex_losses
+    };
   } else if (activeGame === 'TFT') {
     try {
       const tftStats = await getRiotTFTStats(account.puuid, region);
       stats.tft_rank = tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : 'UNRANKED';
+      stats.tft_wins = tftStats && tftStats[0] ? tftStats[0].wins : 0;
+      stats.tft_losses = tftStats && tftStats[0] ? tftStats[0].losses : 0;
     } catch (e) {
       console.error("Failed to fetch TFT stats:", e);
     }
@@ -109,8 +118,14 @@ export async function updateProfile(formData: FormData) {
   if (activeGame === 'LOL') {
     updateData.solo_rank = stats.solo_rank;
     updateData.flex_rank = stats.flex_rank;
+    updateData.solo_wins = stats.solo_wins;
+    updateData.solo_losses = stats.solo_losses;
+    updateData.flex_wins = stats.flex_wins;
+    updateData.flex_losses = stats.flex_losses;
   } else if (activeGame === 'TFT') {
     updateData.tft_rank = stats.tft_rank;
+    updateData.tft_wins = stats.tft_wins;
+    updateData.tft_losses = stats.tft_losses;
   } else if (activeGame === 'VALORANT') {
     updateData.val_rank = stats.val_rank;
   }

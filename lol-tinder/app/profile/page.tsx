@@ -12,6 +12,7 @@ import {
   VoiceSwitch 
 } from "@/src/components/ui/FormFields";
 import { updateProfile } from "./actions";
+import { getRiotLeagueStats, getRiotTFTStats } from "@/app/matches/actions";
 import { useRouter } from "next/navigation"; // Keep this for redirection
 import {
   ArrowLeft,
@@ -118,6 +119,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [lastSavedProfile, setLastSavedProfile] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
+  const [riotStats, setRiotStats] = useState<any>(null);
+  const [tftStats, setTftStats] = useState<any>(null);
 
   const [isDirty, setIsDirty] = useState(false);
   // Стан для обраних мов (розбиваємо рядок з бази назад у масив)
@@ -138,6 +141,10 @@ export default function ProfilePage() {
     const hasChanges = JSON.stringify(profile) !== JSON.stringify(lastSavedProfile);
     setIsDirty(hasChanges);
   }, [profile, lastSavedProfile, isInitialLoading]);
+
+  const getQueueData = (type: string) => {
+    return riotStats?.find((s: any) => s.queueType === type);
+  };
 
   const getGameValue = (field: string) => {
     // Важливо: ніколи не повертати undefined для value в селектах, 
@@ -310,6 +317,18 @@ export default function ProfilePage() {
 
         if (initialProfile.enabled_games) setEnabledGames(initialProfile.enabled_games.split(","));
         if (!initialProfile.enabled_games) setEnabledGames(["LOL"]);
+
+        // Fetch Riot Stats if PUUID exists
+        if (initialProfile.puuid) {
+          getRiotLeagueStats(initialProfile.puuid, initialProfile.region).then(stats => {
+            if (isMounted) setRiotStats(stats);
+          });
+        }
+        if (initialProfile.tft_puuid) {
+          getRiotTFTStats(initialProfile.tft_puuid, initialProfile.tft_region || initialProfile.region).then(stats => {
+            if (isMounted) setTftStats(stats);
+          });
+        }
       }
 
       // Restoration logic remains the same, but wrapped in isMounted check
@@ -393,13 +412,21 @@ export default function ProfilePage() {
     router.push("/");
   }
 
-  const renderRankPanel = (title: string, value: string, isActive: boolean, isMain: boolean = false) => (
+  const renderRankPanel = (title: string, value: string, isActive: boolean, isMain: boolean = false, stats?: any) => (
     <div className={`modern-panel p-5 transition-all ${isActive ? 'bg-[rgb(var(--accent-color)/0.1)] border-[rgb(var(--accent-color)/0.4)]' : 'bg-white/5 opacity-60'}`}>
       <div className="flex justify-between items-center mb-1">
         <span className="text-[10px] font-black uppercase text-slate-500">{title}</span>
         {isMain && <Star size={12} className="text-[rgb(var(--accent-color))]" />}
       </div>
       <p className={`${isMain ? 'text-2xl' : 'text-xl'} font-bold ${isMain ? 'text-white' : 'text-slate-300'} uppercase italic`}>{value || "Unranked"}</p>
+      {stats && (stats.wins + stats.losses > 0) && (
+        <div className="flex gap-2 mt-1 text-[10px] font-bold">
+           <span className="text-emerald-500">
+             {Math.round((stats.wins / (stats.wins + stats.losses)) * 100)}% WR
+           </span>
+           <span className="text-slate-500">({stats.wins + stats.losses} games)</span>
+        </div>
+      )}
     </div>
   );
 
@@ -491,11 +518,11 @@ export default function ProfilePage() {
             <div className="mt-10 w-full space-y-4">
               {activeTab === 'LOL' ? (
                 <>
-                  {renderRankPanel("Solo Queue", profile.solo_rank, selectedQueues.includes("Solo/Duo"), true)}
-                  {renderRankPanel("Flex Queue", profile.flex_rank, selectedQueues.includes("Flex"))}
+                  {renderRankPanel("Solo Queue", getQueueData('RANKED_SOLO_5x5')?.tier ? `${getQueueData('RANKED_SOLO_5x5').tier} ${getQueueData('RANKED_SOLO_5x5').rank}` : profile.solo_rank, selectedQueues.includes("Solo/Duo"), true, getQueueData('RANKED_SOLO_5x5'))}
+                  {renderRankPanel("Flex Queue", getQueueData('RANKED_FLEX_SR')?.tier ? `${getQueueData('RANKED_FLEX_SR').tier} ${getQueueData('RANKED_FLEX_SR').rank}` : profile.flex_rank, selectedQueues.includes("Flex"), false, getQueueData('RANKED_FLEX_SR'))}
                 </>
               ) : activeTab === 'TFT' ? (
-                renderRankPanel("TFT Ranked", profile.tft_rank, true, true)
+                renderRankPanel("TFT Ranked", (tftStats && tftStats[0]) ? `${tftStats[0].tier} ${tftStats[0].rank}` : profile.tft_rank, true, true, tftStats?.[0])
               ) : (
                 renderRankPanel("VALORANT Rank", profile.val_rank, true, true)
               )}

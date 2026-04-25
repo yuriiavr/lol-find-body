@@ -172,7 +172,7 @@ export default function MatchesPage() {
 
                                 <div className="mb-6 h-12">
                                     <p className="text-[11px] text-zinc-500 italic line-clamp-2 leading-relaxed">
-                                        {m.profile.bio ? `"${m.profile.bio}"` : "No biography added."}
+                                        {m.profile.bio || "No biography added."}
                                     </p>
                                 </div>
 
