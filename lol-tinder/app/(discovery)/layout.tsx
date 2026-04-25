@@ -11,8 +11,7 @@ export default function DiscoveryLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-
-  // Derive activeTab from pathname to ensure consistency between server and client during hydration
+  
   const activeTab = pathname.startsWith('/tft') 
     ? 'tft' 
     : pathname.startsWith('/valorant') 
@@ -29,10 +28,8 @@ export default function DiscoveryLayout({
   return (
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50 flex flex-col">
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-10">
-        {/* Secondary Navigation for Discovery */}
         <div className="mb-12">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-8 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent transition-all duration-500">Discovery</h2>
-          
           <div className="flex gap-8 border-b border-white/5">
             <Link 
               href="/league"
@@ -54,8 +51,6 @@ export default function DiscoveryLayout({
             </Link>
           </div>
         </div>
-
-        {/* Children (League or TFT page content) */}
         {children}
       </main>
     </div>

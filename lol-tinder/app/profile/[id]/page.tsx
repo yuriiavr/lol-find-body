@@ -5,11 +5,10 @@ import { createClient } from '@/src/utils/supabase/client'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Loader2, Trophy, Star, Languages, User, Sword, Check, MessageSquare, Send, ShieldCheck, MicOff, ExternalLink, Gamepad } from 'lucide-react'
 import Link from 'next/link'
-import { sendMatchRequest, upsertReview, getReviewsForUser, getRiotLeagueStats, getTopChampions, getRiotTFTStats } from '@/app/matches/actions'
+import { sendMatchRequest, upsertReview, getReviewsForUser, getRiotLeagueStats, getTopChampions, getRiotTFTStats, getRiotValorantStats } from '@/app/matches/actions'
 import { useToast } from '@/src/components/ToastProvider'
 import { StarRating } from '@/src/components/StarRating'
 
-// Створюємо клієнт один раз поза компонентом
 const supabase = createClient()
 
 export default function PublicProfilePage() {
@@ -29,21 +28,17 @@ export default function PublicProfilePage() {
   const [topChamps, setTopChamps] = useState<any[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
   
-  // Поля для нового відгуку
   const [reviewComment, setReviewComment] = useState('')
   const [behaviorRating, setBehaviorRating] = useState(5)
   const [skillRating, setSkillRating] = useState(5)
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   const { showToast } = useToast()
-
-  // Визначаємо список ігор, які гравець активував
   const enabledGamesList = useMemo((): ("LOL" | "TFT" | "VALORANT")[] => {
     if (!profile?.enabled_games) return [];
     return profile.enabled_games.split(',').map((g: string) => g.trim()) as ('LOL' | 'TFT' | 'VALORANT')[];
   }, [profile?.enabled_games]);
 
-  // Крок 1: Завантажуємо основні дані профілю та статус матчу
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -94,12 +89,12 @@ export default function PublicProfilePage() {
     }
     fetchProfile()
   }, [id, router])
-
-  // Крок 2: Завантажуємо статистику та відгуки при зміні гри
   useEffect(() => {
     if (!profile || !currentUser || !activeGame) return
-
     const fetchGameSpecificData = async () => {
+      if (profile.val_puuid) {
+        getRiotValorantStats(profile.val_puuid, profile.val_region || profile.region).then(valStats => {});
+      }
       if (activeGame === 'LOL' && profile.puuid) {
         const [stats, champs] = await Promise.all([
           getRiotLeagueStats(profile.puuid, profile.region),
@@ -111,16 +106,12 @@ export default function PublicProfilePage() {
         const tft = await getRiotTFTStats(profile.tft_puuid, profile.tft_region || profile.region)
         setTftStats(tft)
       } else {
-        // Очищуємо статси при переході на Valorant (якщо немає API)
         setRiotStats(null)
         setTftStats(null)
         setTopChamps([])
       }
-
-      // Завантажуємо відгуки для поточної обраної гри
       await refreshReviews(id, activeGame, currentUser.id)
     }
-
     fetchGameSpecificData()
   }, [activeGame, profile, currentUser, id])
 
@@ -139,10 +130,8 @@ export default function PublicProfilePage() {
         setSkillRating(5)
       }
     }
-    // Якщо помилка або немає даних - скидаємо список
     if (res.error) setReviews([])
   }
-
   const handleMatch = async () => {
     setIsRequesting(true)
     const result = await sendMatchRequest(id)
@@ -155,7 +144,6 @@ export default function PublicProfilePage() {
       showToast(result.error || 'Failed to send request', 'error')
     }
   }
-
   const handleSubmitReview = async () => {
     if (!activeGame) return
     setIsSubmittingReview(true)
@@ -170,8 +158,6 @@ export default function PublicProfilePage() {
       showToast(result.error || 'Error saving review', 'error')
     }
   }
-
-  // Мемоізуємо обчислення середніх рейтингів, оскільки вони залежать від масиву reviews
   const avgBehavior = useMemo(() => reviews.length > 0 
     ? reviews.reduce((acc, r) => acc + r.behavior_rating, 0) / reviews.length 
     : 0, [reviews])
@@ -179,9 +165,6 @@ export default function PublicProfilePage() {
     ? reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length 
     : 0, [reviews])
   const totalAvg = useMemo(() => (avgBehavior + avgSkill) / 2, [avgBehavior, avgSkill])
-
-  // Хелпер для пошуку статсів конкретної черги
-  // Немає потреби в useCallback, оскільки вона не передається мемоізованим дочірнім компонентам
   const getQueueData = (type: string) => {
     return riotStats?.find((s: any) => s.queueType === type)
   }
@@ -206,14 +189,9 @@ export default function PublicProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-slate-50 flex flex-col">
-
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-8 lg:p-16">
         <div className="flex flex-col lg:flex-row gap-16">
-          
-          {/* Summary Side (Left) */}
           <section className="w-full lg:w-96 flex flex-col items-center lg:items-start text-center lg:text-left">
-            
-
             <div className="relative mb-10 group">
               <div className="w-56 h-56 rounded-[2.5rem] bg-[rgb(var(--accent-color))] p-1 shadow-2xl shadow-[rgb(var(--accent-color)/0.2)]">
                 <div className="w-full h-full rounded-[2.3rem] bg-zinc-950 flex items-center justify-center overflow-hidden">
@@ -390,8 +368,6 @@ export default function PublicProfilePage() {
               )}
             </div>
           </section>
-
-          {/* Content Side (Right) */}
           <section className="flex-1">
             <div className="space-y-8">
               <div className="modern-panel p-8 bg-slate-900/20">
@@ -417,12 +393,12 @@ export default function PublicProfilePage() {
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {topChamps.map((champ) => (
-                        <div key={champ.id} className="group relative flex flex-col items-center">
-                        <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 group-hover:border-[rgb(var(--accent-color)/0.5)] transition-all shadow-lg">
-                          <img src={champ.icon} alt={champ.name} title={`${champ.name} - ${champ.points.toLocaleString()} pts`} />
+                        <div key={champ.id} className="group relative flex flex-col items-center" title={`${champ.name}: ${champ.points.toLocaleString()} pts\nLast played: ${new Date(champ.lastPlayed).toLocaleDateString()}`}>
+                          <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 group-hover:border-[rgb(var(--accent-color)/0.5)] transition-all shadow-lg">
+                            <img src={champ.icon} alt={champ.name} />
                           </div>
-                        <div className="absolute -bottom-2 bg-zinc-950 text-[rgb(var(--accent-color))] text-[7px] font-black px-1.5 py-0.5 rounded border border-white/10 shadow-sm">
-                          {champ.points >= 1000 ? `${(champ.points / 1000).toFixed(0)}k` : champ.points}
+                          <div className="absolute -bottom-2 bg-zinc-950/90 backdrop-blur-sm text-[rgb(var(--accent-color))] text-[8px] font-black px-2 py-0.5 rounded-full border border-[rgb(var(--accent-color)/0.3)] shadow-sm flex flex-col items-center min-w-[28px]">
+                            <span>{Math.floor(champ.points / 600)}h</span>
                           </div>
                         </div>
                       ))}
@@ -444,8 +420,6 @@ export default function PublicProfilePage() {
                   )}
                 </div>
               </div>
-
-              {/* Review Section */}
               <div className="modern-panel p-8 bg-zinc-950/40">
                 <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Player Reviews</h3>
@@ -525,9 +499,6 @@ export default function PublicProfilePage() {
     </div>
   )
 }
-
-// Обертаємо RatingItem в React.memo, щоб запобігти зайвим ре-рендерам,
-// якщо його пропси (label, rating) не змінилися.
 const RatingItem = memo(function RatingItem({ label, rating }: { label: string, rating: number }) {
   return (
     <div className="flex items-center gap-2">

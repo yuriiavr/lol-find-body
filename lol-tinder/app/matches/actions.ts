@@ -15,31 +15,61 @@ const regionToPlatform = (region: string) => {
   return mapping[region] || 'euw1';
 };
 
+const regionToRegionGroup = (region: string) => {
+  if (!region) return 'europe';
+  const mapping: Record<string, string> = {
+    'EUW': 'europe',
+    'EUNE': 'europe',
+    'NA': 'americas',
+    'KR': 'asia'
+  };
+  return mapping[region.toUpperCase()] || 'europe';
+};
+
+const regionToShard = (region: string) => {
+  const mapping: Record<string, string> = {
+    'EUW': 'eu',
+    'EUNE': 'eu',
+    'NA': 'na',
+    'KR': 'kr',
+    'LATAM': 'latam',
+    'BR': 'br',
+    'AP': 'ap'
+  };
+  return mapping[region.toUpperCase()] || 'eu';
+};
+
+const VALORANT_RANKS = [
+  "Unranked",
+  "Iron 1", "Iron 2", "Iron 3",
+  "Bronze 1", "Bronze 2", "Bronze 3",
+  "Silver 1", "Silver 2", "Silver 3",
+  "Gold 1", "Gold 2", "Gold 3",
+  "Platinum 1", "Platinum 2", "Platinum 3",
+  "Diamond 1", "Diamond 2", "Diamond 3",
+  "Ascendant 1", "Ascendant 2", "Ascendant 3",
+  "Immortal 1", "Immortal 2", "Immortal 3",
+  "Radiant"
+];
+
 export async function getRiotLeagueStats(puuid: string, region: string) {
   const platform = regionToPlatform(region);
   
-  // Спочатку отримуємо summonerId, бо league-v4 вимагає його, а не PUUID
   const sumUrl = `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
-  console.log(`[League Stats] Summoner URL: ${sumUrl}`);
 
   const sumRes = await fetch(sumUrl, { next: { revalidate: 300 } });
   if (!sumRes.ok) {
-    console.error(`[League Stats] Summoner fetch failed: ${sumRes.status}`);
     return null;
   }
   const summoner = await sumRes.json();
-  console.log(`[League Stats] Summoner ID: ${summoner.id}`);
 
   const leagueUrl = `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`;
-  console.log(`[League Stats] League Entries URL: ${leagueUrl}`);
 
   const leagueRes = await fetch(leagueUrl, { next: { revalidate: 300 } });
   if (!leagueRes.ok) {
-    console.error(`[League Stats] League entries fetch failed: ${leagueRes.status}`);
     return null;
   }
   const data = await leagueRes.json();
-  console.log(`[League Stats] Data:`, data);
   return data;
 }
 
@@ -47,22 +77,62 @@ export async function getRiotTFTStats(puuid: string, region: string) {
   const platform = regionToPlatform(region);
   
   const leagueUrl = `https://${platform}.api.riotgames.com/tft/league/v1/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
-  console.log(`[TFT Stats] League Entries URL: ${leagueUrl}`);
 
   const leagueRes = await fetch(leagueUrl, { next: { revalidate: 300 } });
   if (!leagueRes.ok) {
-    console.error(`[TFT Stats] League entries fetch failed: ${leagueRes.status}`);
     return null;
   }
   const data = await leagueRes.json();
-  console.log(`[TFT Stats] Data:`, data);
   return data;
+}
+
+export async function getRiotValorantStats(puuid: string, region: string) {
+  const regionGroup = regionToRegionGroup(region);
+  const shard = regionToShard(region);
+
+  try {
+    const accountUrl = `https://${regionGroup}.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
+    const accountRes = await fetch(accountUrl, { next: { revalidate: 3600 } });
+    if (!accountRes.ok) return null;
+    const accountData = await accountRes.json();
+    
+    const matchlistUrl = `https://${shard}.api.riotgames.com/val/match/v1/matchlists/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
+    const listRes = await fetch(matchlistUrl, { next: { revalidate: 600 } });
+    
+    if (!listRes.ok) {
+      return { ...accountData, competitiveTier: 0, rankName: 'Unranked', status: "Matchlist restricted" };
+    }
+    
+    const history = await listRes.json();
+    const lastMatchId = history.history?.[0]?.matchId;
+
+    if (!lastMatchId) {
+      return { ...accountData, competitiveTier: 0, rankName: 'Unranked', status: "No matches" };
+    }
+
+    const matchUrl = `https://${shard}.api.riotgames.com/val/match/v1/matches/${lastMatchId}?api_key=${RIOT_API_KEY}`;
+    const matchRes = await fetch(matchUrl, { next: { revalidate: 900 } });
+    if (!matchRes.ok) throw new Error(`Match details failed`);
+    
+    const matchData = await matchRes.json();
+    const player = matchData.players?.find((p: any) => p.puuid === puuid);
+    const tier = player?.competitiveTier || 0;
+    
+    const result = {
+      ...accountData,
+      competitiveTier: tier,
+      rankName: VALORANT_RANKS[tier] || 'Unranked',
+      status: "success"
+    };
+    return result;
+  } catch (err) {
+    return null;
+  }
 }
 
 export async function getTopChampions(puuid: string, region: string) {
   const platform = regionToPlatform(region);
   
-  // Отримуємо майстерність чемпіонів
   const masteryRes = await fetch(
     `https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=10&api_key=${RIOT_API_KEY}`,
     { next: { revalidate: 300 } }
@@ -70,7 +140,6 @@ export async function getTopChampions(puuid: string, region: string) {
   if (!masteryRes.ok) return [];
   const masteries = await masteryRes.json();
 
-  // Отримуємо дані про імена чемпіонів з DataDragon
   const versionRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json', { next: { revalidate: 86400 } }); // DataDragon кешуємо на добу
   const versions = await versionRes.json();
   const latest = versions[0];
@@ -78,7 +147,6 @@ export async function getTopChampions(puuid: string, region: string) {
   const champDataRes = await fetch(`https://ddragon.leagueoflegends.com/cdn/${latest}/data/en_US/champion.json`, { next: { revalidate: 86400 } });
   const { data: champs } = await champDataRes.json();
 
-  // Мапимо ID на імена та іконки
   return masteries.map((m: any) => {
     const champ = Object.values(champs).find((c: any) => parseInt(c.key) === m.championId) as any;
     return {
@@ -86,6 +154,7 @@ export async function getTopChampions(puuid: string, region: string) {
       id: m.championId,
       level: m.championLevel,
       points: m.championPoints,
+      lastPlayed: m.lastPlayTime,
       icon: `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${champ?.image?.full}`
     };
   });
@@ -109,7 +178,6 @@ export async function sendMatchRequest(targetId: string) {
   if (!user) return { error: 'You must be logged in' }
   if (user.id === targetId) return { error: 'You cannot match with yourself' }
 
-  // Перевіряємо чи вже є запит
   const { data: existing } = await supabase
     .from('matches')
     .select('*')
@@ -216,7 +284,6 @@ export async function upsertReview(targetId: string, comment: string, behaviorRa
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  // Перевіряємо наявність ACCEPTED метчу
   const { data: match } = await supabase
     .from('matches')
     .select('status')
@@ -246,7 +313,7 @@ export async function getReviewsForUser(targetId: string, gameType: 'LOL' | 'TFT
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: () => '' } as any } // Тільки для читання
+    { cookies: { get: () => '' } as any }
   )
 
   const { data, error } = await supabase

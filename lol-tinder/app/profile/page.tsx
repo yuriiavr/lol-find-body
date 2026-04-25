@@ -12,8 +12,8 @@ import {
   VoiceSwitch 
 } from "@/src/components/ui/FormFields";
 import { updateProfile } from "./actions";
-import { getRiotLeagueStats, getRiotTFTStats } from "@/app/matches/actions";
-import { useRouter } from "next/navigation"; // Keep this for redirection
+import { getRiotLeagueStats, getRiotTFTStats, getRiotValorantStats } from "@/app/matches/actions";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Save,
@@ -52,7 +52,6 @@ const POPULAR_LANGUAGES = [
   "Czech",
 ];
 
-// Окремий компонент для глобальних налаштувань, який не залежить від обраної гри
 const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onInputChange }: any) => {
   return (
     <div className="modern-panel p-8 mb-10 bg-white/[0.02] border-white/5">
@@ -70,6 +69,7 @@ const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onIn
             value={profile?.display_name || ""}
             onChange={onInputChange}
             placeholder="Your social nickname for this app"
+            required
           />
         </div>
 
@@ -108,13 +108,11 @@ const GAMES = [
   { id: 'VALORANT', name: 'Valorant', icon: Zap, color: 'red' },
 ];
 
-// Виносимо створення клієнта Supabase за межі компонента
-// Це гарантує, що він створюється лише один раз і є стабільним
 const supabase = createClient();
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false); // Keep this for button loading state
+  const [loading, setLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [lastSavedProfile, setLastSavedProfile] = useState<any>(null);
@@ -123,21 +121,18 @@ export default function ProfilePage() {
   const [tftStats, setTftStats] = useState<any>(null);
 
   const [isDirty, setIsDirty] = useState(false);
-  // Стан для обраних мов (розбиваємо рядок з бази назад у масив)
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
   const [selectedQueues, setSelectedQueues] = useState<string[]>([]);
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
   
   const [activeTab, setActiveTab] = useState<'LOL' | 'TFT' | 'VALORANT'>('LOL');
 
-  // Обчислюємо чи є зміни порівняно з останнім збереженим станом
   useEffect(() => {
     if (!profile || !lastSavedProfile || isInitialLoading) {
       setIsDirty(false);
       return;
     }
 
-    // Глибоке порівняння через JSON stringify
     const hasChanges = JSON.stringify(profile) !== JSON.stringify(lastSavedProfile);
     setIsDirty(hasChanges);
   }, [profile, lastSavedProfile, isInitialLoading]);
@@ -147,23 +142,17 @@ export default function ProfilePage() {
   };
 
   const getGameValue = (field: string) => {
-    // Важливо: ніколи не повертати undefined для value в селектах, 
-    // інакше вони скидаються до першої опції списку (TOP).
     if (!profile) return "";
     const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
     return profile[`${prefix}${field}`] ?? "";
   };
 
-  // Відокремлюємо оновлення теми, щоб воно не спрацьовувало при кожній зміні інпутів
   useEffect(() => {
     if (!activeTab) return;
     localStorage.setItem('site-game-theme', activeTab);
     document.documentElement.setAttribute('data-game-theme', activeTab.toLowerCase());
   }, [activeTab]);
 
-  // Зберігаємо дані форми в localStorage з дебаунсом (1 секунда).
-  // Це критично важливо, щоб синхронний запис у localStorage не блокував 
-  // оновлення інтерфейсу селектів та інпутів.
   useEffect(() => {
     if (!user || isInitialLoading) return;
 
@@ -173,20 +162,18 @@ export default function ProfilePage() {
         selectedLangs,
         selectedQueues,
         enabledGames,
-        activeTab, // Додаємо активну вкладку в об'єкт для збереження
+        activeTab,
       };
 
       try {
         localStorage.setItem(`profileFormData_${user.id}`, JSON.stringify(formDataToSave));
       } catch (e) {
-        console.error("Failed to save profileFormData to localStorage", e);
       }
-    }, 1000); // Чекаємо 1с після останньої зміни
+    }, 1000);
     
     return () => clearTimeout(saveTimeout);
   }, [profile, selectedLangs, selectedQueues, enabledGames, user, isInitialLoading, activeTab]);
 
-  // Обробник для миттєвого оновлення прев'ю при зміні полів
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
@@ -213,7 +200,6 @@ export default function ProfilePage() {
       else if (name === 'bio') next[`${prefix}bio`] = val;
       else if (name === 'hasMic') next.has_mic = val;
       else if (name === 'isPaused') next.is_paused = val;
-      // Handle game-specific fields directly
       else if (name.endsWith('_gameName')) next[`${prefix}game_name`] = val;
       else if (name.endsWith('_tagLine')) next[`${prefix}tag_line`] = val;
       else if (name.endsWith('_region')) next[`${prefix}region`] = val;
@@ -224,7 +210,6 @@ export default function ProfilePage() {
   const toggleLang = useCallback((lang: string) => {
     setSelectedLangs((prev) => {
       const next = prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang];
-      // Синхронізуємо з об'єктом профілю (глобально)
       setProfile((p: any) => ({ ...p, language: next.join(',') }));
       return next;
     });
@@ -233,14 +218,12 @@ export default function ProfilePage() {
   const toggleQueue = useCallback((queue: string) => {
     setSelectedQueues((prev) => {
       const next = prev.includes(queue) ? prev.filter((q) => q !== queue) : [...prev, queue];
-      // Оновлюємо конкретне поле черги для поточної гри
       const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
       setProfile((p: any) => ({ ...p, [`${prefix}preferred_queue`]: next.join(',') }));
       return next;
     });
   }, [activeTab]);
 
-  // Синхронізація вибраних черг при зміні гри
   useEffect(() => {
     if (!profile) return;
     const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
@@ -251,7 +234,6 @@ export default function ProfilePage() {
   const toggleGame = useCallback((game: string) => {
     setEnabledGames((prev) => {
       const next = prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game];
-      // Синхронізуємо зі станом профілю для dirty check
       setProfile((p: any) => ({ ...p, enabled_games: next.join(',') }));
       return next;
     });
@@ -299,14 +281,12 @@ export default function ProfilePage() {
         val_preferred_queue: "",
       };
 
-      // Об'єднуємо з дефолтними значеннями та перетворюємо null на "" для стабільного порівняння
       const initialProfile = data ? { ...defaultProfile, ...data } : defaultProfile;
       Object.keys(initialProfile).forEach(key => {
         if (initialProfile[key] === null) initialProfile[key] = "";
       });
 
       if (isMounted) {
-        // Оновлюємо всі стани одночасно
         setProfile(initialProfile);
         setLastSavedProfile(JSON.parse(JSON.stringify(initialProfile)));
         if (initialProfile.language) setSelectedLangs(initialProfile.language.split(","));
@@ -318,7 +298,6 @@ export default function ProfilePage() {
         if (initialProfile.enabled_games) setEnabledGames(initialProfile.enabled_games.split(","));
         if (!initialProfile.enabled_games) setEnabledGames(["LOL"]);
 
-        // Fetch Riot Stats if PUUID exists
         if (initialProfile.puuid) {
           getRiotLeagueStats(initialProfile.puuid, initialProfile.region).then(stats => {
             if (isMounted) setRiotStats(stats);
@@ -329,9 +308,11 @@ export default function ProfilePage() {
             if (isMounted) setTftStats(stats);
           });
         }
+        if (initialProfile.val_puuid) {
+          getRiotValorantStats(initialProfile.val_puuid, initialProfile.val_region || initialProfile.region).then(stats => {}).catch(err => {});
+        }
       }
 
-      // Restoration logic remains the same, but wrapped in isMounted check
       const savedFormData = localStorage.getItem(`profileFormData_${authUser.id}`);
       if (savedFormData) {
         try {
@@ -340,23 +321,19 @@ export default function ProfilePage() {
             setActiveTab(parsed.activeTab);
           }
         } catch (e) {
-          console.error("Failed to restore active tab from localStorage", e);
         }
       } else {
-        // Fallback to global theme if no profile data yet
         const globalTheme = localStorage.getItem('site-game-theme') as any;
         if (globalTheme) {
           setActiveTab(globalTheme);
         }
       }
-
-      // Даємо React один тік на завершення рендеру перед тим як прибрати лоудер
       requestAnimationFrame(() => {
         if (isMounted) setIsInitialLoading(false);
       });
     };
     getProfile();
-  }, [router]); // supabase прибрано з залежностей
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -374,7 +351,6 @@ export default function ProfilePage() {
       showToast(result.error, "error");
       setLoading(false);
     } else {
-      // Миттєво оновлюємо локальний стан профілю
       const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
       const formPrefix = (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
       const updatedProfile: any = { ...profile };
@@ -382,20 +358,19 @@ export default function ProfilePage() {
       const gameName = formData.get(`${formPrefix}gameName`) as string;
       const tagLine = formData.get(`${formPrefix}tagLine`) as string;
       const region = formData.get(`${formPrefix}region`) as string;
-      const role = (formData.get("role") as string) || "FILL"; // Гарантуємо, що role завжди має значення
+      const role = (formData.get("role") as string) || "FILL";
       const bio = formData.get("bio") as string;
 
       if (gameName) updatedProfile[`${prefix}game_name`] = gameName;
       if (tagLine) updatedProfile[`${prefix}tag_line`] = tagLine;
       if (region) updatedProfile[`${prefix}region`] = region;
-      updatedProfile[`${prefix}main_role`] = role; // Присвоюємо значення, яке вже має дефолт
+      updatedProfile[`${prefix}main_role`] = role;
       if (bio !== null) updatedProfile[`${prefix}bio`] = bio;
 
       updatedProfile.display_name = formData.get("display_name") as string;
 
       updatedProfile[`${prefix}preferred_queue`] = selectedQueues.join(",");
       
-      // Загальні налаштування
       updatedProfile.has_mic = formData.get("hasMic") === "on";
       updatedProfile.language = selectedLangs.join(",");
       updatedProfile.enabled_games = enabledGames.join(",");
@@ -496,7 +471,7 @@ export default function ProfilePage() {
 
             <div className="text-center lg:text-left space-y-2">
               <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
-                {getGameValue('game_name') || "Summoner"}
+                {profile.display_name || getGameValue('game_name') || "Summoner"}
                 <span className="text-slate-600 block text-2xl mt-1">
                   #{getGameValue('tag_line') || "EUW"}
                 </span>

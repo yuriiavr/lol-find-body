@@ -34,10 +34,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50 overflow-x-hidden">
-      {/* Static Glow Background */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[600px] bg-[rgb(var(--accent-color)/0.03)] blur-[150px] rounded-full -z-10" />
-
-      {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[rgb(var(--bg-secondary)/0.8)] backdrop-blur-lg">
         <div className="max-w-[1600px] mx-auto px-6 h-20 flex justify-between items-center">
           <Link href="/">
@@ -59,8 +56,6 @@ export default function LandingPage() {
           </div>
         </div>
       </nav>
-
-      {/* Hero Section */}
       <section className="relative pt-48 pb-32 px-6">
         <div className="max-w-[1200px] mx-auto text-center">
           <motion.div
@@ -106,8 +101,6 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </section>
-
-      {/* Features */}
       <section className="py-24 px-6 max-w-[1600px] mx-auto">
          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             <FeatureCard 

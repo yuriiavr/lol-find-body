@@ -18,8 +18,6 @@ export default function ValorantDiscovery() {
   const [players, setPlayers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
-
-  // Фільтри
   const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRole, setFilterRole] = useState<string>("ALL");
   const [filterRank, setFilterRank] = useState<string>("ALL");

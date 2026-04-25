@@ -29,11 +29,8 @@ export function GlobalChatIndicator() {
     if (res.data) {
       const acceptedMatches = res.data.filter((m: any) => m.status === 'ACCEPTED')
       setMatches(acceptedMatches)
-      
-      // Рахуємо вхідні запити
       const pendingIncoming = res.data.filter((m: any) => m.status === 'PENDING' && m.isIncoming)
       setPendingMatchesCount(pendingIncoming.length)
-
       const matchIds = acceptedMatches.map((m: any) => m.id)
       if (matchIds.length > 0) {
         const { data: unreadData } = await supabase
@@ -68,7 +65,6 @@ export function GlobalChatIndicator() {
       channel
         .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
           fetchMatchesAndUnread(authUser.id)
-          // Показуємо тост про нове повідомлення, якщо користувач не в розділі матчів
           if (payload.eventType === 'INSERT' && payload.new.sender_id !== authUser.id && !pathname.includes('/matches')) {
             showToast("New message received!", "success");
           }
@@ -78,7 +74,6 @@ export function GlobalChatIndicator() {
     }
     init()
 
-    // Слухаємо подію на відкриття чату з інших сторінок
     const handleOpenChat = (e: any) => {
       setActiveChat(e.detail)
       setIsWindowOpen(true)
@@ -89,9 +84,8 @@ export function GlobalChatIndicator() {
       window.removeEventListener('open-global-chat', handleOpenChat)
       supabase.removeChannel(channel)
     }
-  }, [pathname, showToast]) // Додано залежності для коректної роботи тостів та реалтайму
+  }, [pathname, showToast])
 
-  // Оновлення заголовка сторінки
   useEffect(() => {
     const totalNotifications = unreadCount + pendingMatchesCount;
     if (totalNotifications > 0) {

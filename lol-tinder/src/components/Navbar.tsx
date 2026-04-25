@@ -19,18 +19,14 @@ export function Navbar() {
   const [discoveryHref, setDiscoveryHref] = useState("/league");
   const [pendingCount, setPendingCount] = useState(0);
   const { showToast } = useToast();
-
   const fetchNotifications = useCallback(async (userId: string) => {
-    // 1. Отримуємо кількість нових запитів в команду (PENDING)
     const { count: pCount } = await supabase
       .from('matches')
       .select('*', { count: 'exact', head: true })
       .eq('target_id', userId)
       .eq('status', 'PENDING');
-    
     setPendingCount(pCount || 0);
   }, []);
-
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -46,7 +42,6 @@ export function Navbar() {
       subscription.unsubscribe();
     };
   }, []);
-
   useEffect(() => {
     if (!user) {
       setPendingCount(0);
@@ -69,15 +64,12 @@ export function Navbar() {
       supabase.removeChannel(channel);
     };
   }, [user?.id, pathname, fetchNotifications, showToast]);
-
   useEffect(() => {
-    // Sync discovery link with last visited tab
     const lastTab = localStorage.getItem('lastDiscoveryTab');
     if (lastTab) {
       setDiscoveryHref(`/${lastTab}`);
     }
   }, [pathname]);
-
   const handleLogin = async () => {
     const redirectTo = typeof window !== 'undefined' 
       ? `${window.location.origin}/auth/callback`
@@ -109,8 +101,6 @@ export function Navbar() {
               LoLMatch
             </h1>
           </Link>
-          
-          {/* Desktop Links */}
           {user && (
             <div className="hidden md:flex gap-8 text-xs font-bold uppercase tracking-widest text-slate-400">
               {navLinks.map((link) => (
@@ -146,8 +136,6 @@ export function Navbar() {
               >
                 <LogOut size={18} />
               </button>
-              
-              {/* Mobile Menu Toggle */}
               <button 
                 onClick={() => setIsMenuOpen(!isMenuOpen)} 
                 className="md:hidden p-2 text-slate-400 hover:text-white transition-colors"
@@ -162,8 +150,6 @@ export function Navbar() {
           )}
         </div>
       </div>
-
-      {/* Mobile Dropdown */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -177,7 +163,7 @@ export function Navbar() {
                 <Link 
                   key={link.href} 
                   href={link.href} 
-                  onClick={() => setIsMenuOpen(false)} // Highlight "Discovery" if on /league or /tft
+                  onClick={() => setIsMenuOpen(false)}
                   className={`flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest ${
                     (link.name === 'Discovery' && (pathname.startsWith('/league') || pathname.startsWith('/tft') || pathname.startsWith('/valorant'))) || pathname === link.href
                       ? "bg-[rgb(var(--accent-color)/0.1)] text-[rgb(var(--accent-color))]" : "text-slate-400"

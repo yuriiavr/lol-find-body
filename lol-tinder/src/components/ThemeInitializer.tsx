@@ -11,11 +11,10 @@ export function ThemeInitializer() {
     if (savedTheme) {
       document.documentElement.setAttribute('data-game-theme', savedTheme.toLowerCase());
     } else {
-      // Default to 'lol' (orange) if no theme is saved
       document.documentElement.setAttribute('data-game-theme', 'lol');
       localStorage.setItem('site-game-theme', 'lol');
     }
-  }, [pathname]); // Re-run if pathname changes, to ensure theme is consistent on navigation
+  }, [pathname]);
 
-  return null; // This component doesn't render anything
+  return null;
 }

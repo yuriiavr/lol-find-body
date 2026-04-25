@@ -98,7 +98,7 @@ export default function TFTDiscoveryPage() {
     </div>
   );
 
-  return ( // The main div and main tag are now provided by the (discovery) layout
+  return (
     <div className="flex flex-col lg:flex-row gap-8">
       <aside className="w-full lg:w-80 space-y-6">
             <div className="modern-panel p-6 border-blue-500/20">

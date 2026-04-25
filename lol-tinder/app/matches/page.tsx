@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/src/components/ToastProvider";
 import { ViewProfileButton } from "@/src/components/ui/ProfileButton";
 
-// Виносимо клієнт за межі компонента для стабільності
 const supabase = createClient();
 
 export default function MatchesPage() {
@@ -47,21 +46,18 @@ export default function MatchesPage() {
     }, [user?.id]);
 
     useEffect(() => {
-        // Створюємо канал синхронно з унікальною назвою
         const channel = supabase.channel(`matches-page-${Math.random()}`);
-
         const init = async () => {
             const { data: { user: authUser } } = await supabase.auth.getUser();
             setUser(authUser);
             if (authUser) {
                 await fetchMatches(authUser.id);
-
                 channel
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
                         fetchMatches();
                     })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-                        fetchMatches(); // Це оновить "останнє повідомлення" автоматично
+                        fetchMatches();
                     })
                     .subscribe();
             }
@@ -132,7 +128,6 @@ export default function MatchesPage() {
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 className="modern-panel p-6 group"
                             >
-                                {/* Card Content (same as before) */}
                                 <div className="flex items-start justify-between mb-6">
                                     <div className="flex gap-4">
                                         <div className="relative">

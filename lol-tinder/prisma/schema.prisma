@@ -25,13 +25,13 @@ model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
-  image         String?   // Аватар з Discord
+  image         String?   // Discord avatar
   
-  // Дані Riot
+  // Riot data
   riotId        String?   // Game Name
-  riotTag       String?   // Tagline (напр. UA1)
-  puuid         String?   @unique // Унікальний ID від Riot
-  region        String    @default("EUNE")
+  riotTag       String?   // Tagline
+  puuid         String?   @unique // ID Riot
+  region        String    @default("EUW")
   rank          Rank      @default(UNRANKED)
   mainRole      Role      @default(FILL)
   secondaryRole Role      @default(FILL)
@@ -53,5 +53,5 @@ model Like {
   from        User     @relation("LikesSent", fields: [fromId], references: [id])
   to          User     @relation("LikesReceived", fields: [toId], references: [id])
 
-  @@unique([fromId, toId]) // Запобігає дубльованим лайкам
+  @@unique([fromId, toId])
 }

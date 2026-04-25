@@ -3,7 +3,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getAccountByRiotId, getSummonerByPuuid, getRanksByPuuid } from '@/src/lib/riot'
-import { getRiotTFTStats } from '@/app/matches/actions'
+import { getRiotTFTStats, getRiotValorantStats } from '@/app/matches/actions'
 
 export async function updateProfile(formData: FormData) {
   const cookieStore = await cookies()
@@ -21,7 +21,12 @@ export async function updateProfile(formData: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
+  const { data: currentProf } = await supabase.from('profiles').select('val_puuid, val_region, region').eq('id', user.id).maybeSingle();
+  if (currentProf?.val_puuid) {
+    getRiotValorantStats(currentProf.val_puuid, currentProf.val_region || currentProf.region).catch(e => {});
+  }
 
+  const display_name = (formData.get('display_name') as string)?.trim() || ''
   const activeGame = formData.get('activeGame') as string
   const gameName = (formData.get(`${activeGame.toLowerCase()}_gameName`) as string)?.trim() || ''
   const tagLine = (formData.get(`${activeGame.toLowerCase()}_tagLine`) as string)?.trim().replace('#', '') || ''
@@ -36,7 +41,9 @@ export async function updateProfile(formData: FormData) {
   const isPaused = formData.get('isPaused') === 'on'
   const isGameEnabled = formData.get('isGameEnabled') === 'on'
 
-  // Крок 1: Пошук Акаунта (PUUID)
+  if (!display_name) {
+    return { error: "Global Display Name is required." };
+  }
   const account = await getAccountByRiotId(gameName, tagLine, region)
   if (!account || (account as any).error) {
     const status = (account as any)?.status;
@@ -44,8 +51,6 @@ export async function updateProfile(formData: FormData) {
     if (status === 403) return { error: "API Key forbidden. Check your Riot Dashboard." };
     return { error: `Riot ID ${gameName}#${tagLine} not found in ${region}.` };
   }
-
-  // Перевірка унікальності PUUID для конкретної гри
   const puuidColumn = activeGame === 'LOL' ? 'puuid' : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_puuid';
   const { data: existingProfile } = await supabase
     .from('profiles')
@@ -53,12 +58,9 @@ export async function updateProfile(formData: FormData) {
     .eq(puuidColumn, account.puuid)
     .neq('id', user.id)
     .maybeSingle()
-
   if (existingProfile) {
     return { error: "This Riot account is already linked to another user's profile." };
   }
-
-  // Крок 2: Отримання статсів залежно від гри
   let stats: any = {};
   if (activeGame === 'LOL') {
     const ranks = (await getRanksByPuuid(account.puuid, region) || {}) as any;
@@ -77,24 +79,24 @@ export async function updateProfile(formData: FormData) {
       stats.tft_wins = tftStats && tftStats[0] ? tftStats[0].wins : 0;
       stats.tft_losses = tftStats && tftStats[0] ? tftStats[0].losses : 0;
     } catch (e) {
-      console.error("Failed to fetch TFT stats:", e);
     }
   } else if (activeGame === 'VALORANT') {
-    // Placeholder для Valorant Rank (потрібен VAL-RANKED-V1)
-    stats.val_rank = 'UNRANKED';
+    try {
+      const valData = await getRiotValorantStats(account.puuid, region);
+      stats.val_rank = valData?.rankName || 'UNRANKED';
+    } catch (e) {
+      stats.val_rank = 'UNRANKED';
+    }
   }
-
-  // Формуємо список увімкнених ігор
   let finalEnabledGames = [...enabledGames];
   if (isGameEnabled && !finalEnabledGames.includes(activeGame)) {
     finalEnabledGames.push(activeGame);
   } else if (!isGameEnabled) {
     finalEnabledGames = finalEnabledGames.filter(g => g !== activeGame);
   }
-
-  // Крок 4: Оновлення в Supabase
   const updateData: any = {
     id: user.id,
+    display_name: display_name,
     has_mic: hasMic,
     is_paused: isPaused,
     enabled_games: finalEnabledGames.join(','),
@@ -104,8 +106,6 @@ export async function updateProfile(formData: FormData) {
     discord_username: user.user_metadata.full_name || user.user_metadata.name,
     avatar_url: user.user_metadata.avatar_url,
   };
-
-  // Динамічно додаємо поля для конкретної гри
   const prefix = activeGame === 'LOL' ? '' : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_';
   updateData[`${prefix}game_name`] = account.gameName;
   updateData[`${prefix}tag_line`] = account.tagLine;

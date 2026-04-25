@@ -23,8 +23,6 @@ const AVAILABLE_QUEUES = [
   "Solo/Duo", "Flex", "Draft", "ARAM", "Arena", "Quick Play", "Clash"
 ];
 
-// Виносимо створення клієнта Supabase за межі компонента
-// Це гарантує, що він створюється лише один раз і є стабільним
 const supabase = createClient();
 
 export default function Home() {
@@ -34,8 +32,6 @@ export default function Home() {
   const [isFetching, setIsFetching] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lastDirection, setLastDirection] = useState<string | null>(null);
-
-  // Фільтри
   const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRole, setFilterRole] = useState<string>("ALL");
   const [filterRank, setFilterRank] = useState<string>("ALL");
@@ -43,17 +39,15 @@ export default function Home() {
   const [filterQueue, setFilterQueue] = useState<string>("ALL");
   const [onlyOnline, setOnlyOnline] = useState<boolean>(false);
   const [showFilters, setShowFilters] = useState(false);
-
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user);
       setIsLoading(false);
     };
-    getUser(); // supabase більше не є залежністю, оскільки він стабільний
+    getUser();
   }, [supabase]);
 
-  // Load filters from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('lol-match-filters');
     if (saved) {
@@ -66,12 +60,9 @@ export default function Home() {
         if (parsed.queue) setFilterQueue(parsed.queue);
         if (parsed.online !== undefined) setOnlyOnline(parsed.online);
       } catch (e) {
-        console.error("Failed to parse filters from localStorage", e);
       }
     }
   }, []);
-
-  // Save filters to localStorage whenever they change
   useEffect(() => {
     const filters = {
       region: filterRegion,
@@ -83,78 +74,54 @@ export default function Home() {
     };
     localStorage.setItem('lol-match-filters', JSON.stringify(filters));
   }, [filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline]);
-
-  // Завантаження гравців з бази
   useEffect(() => {
     const fetchPlayers = async () => {
-      // Чекаємо, поки завантажиться інформація про юзера, щоб уникнути показу власної картки
       if (isLoading) return;
-
       setIsFetching(true);
-      
       let query = supabase
         .from('profiles')
         .select('*')
         .eq('is_paused', false)
         .eq('region', filterRegion)
         .ilike('enabled_games', '%LOL%');
-
       if (user) {
-        // Отримуємо всі ID користувачів, з якими вже є запис у таблиці matches
         const { data: existingMatches } = await supabase
           .from('matches')
           .select('user_id, target_id')
           .or(`user_id.eq.${user.id},target_id.eq.${user.id}`);
-
-        const excludedIds = [user.id]; // Починаємо з себе
-
+        const excludedIds = [user.id];
         if (existingMatches) {
           existingMatches.forEach(m => {
             excludedIds.push(m.user_id === user.id ? m.target_id : m.user_id);
           });
         }
-
-        // Виключаємо всіх знайдених користувачів одним фільтром
         query = query.not('id', 'in', `(${excludedIds.join(',')})`);
       }
-
       if (filterRole !== "ALL") {
         query = query.eq('main_role', filterRole);
       }
-
       if (filterRank !== "ALL") {
-        // Пошук за підстрокою в ранзі (наприклад 'PLATINUM')
         query = query.ilike('solo_rank', `%${filterRank}%`);
       }
-
       if (filterLangs.length > 0) {
-        // Логіка OR: шукаємо гравців, у яких в полі language є хоча б одна з обраних мов
         const orConditions = filterLangs.map(lang => `language.ilike.%${lang}%`).join(',');
         query = query.or(orConditions);
       }
-
       if (filterQueue !== "ALL") {
         query = query.ilike('preferred_queue', `%${filterQueue}%`);
       }
-
       if (onlyOnline) {
-        // Вважаємо онлайн, якщо активність була в останні 10 хвилин
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
         query = query.gt('last_seen', tenMinutesAgo);
       }
-
       const { data, error } = await query.limit(20);
-      
       if (!error && data) {
         setPlayers(data);
         setCurrentIndex(0);
       }
       setIsFetching(false);
     };
-
     fetchPlayers();
-
-    // Оновлюємо статус "last_seen" для поточного користувача
     if (user) {
       supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id).then();
     }
@@ -179,9 +146,8 @@ export default function Home() {
     );
   }
 
-  return ( // The main div and main tag are now provided by the (discovery) layout
+  return ( 
     <div className="flex flex-col lg:flex-row gap-8">
-      {/* Left Filter Sidebar */}
       <aside className="w-full lg:w-80 space-y-6">
               <div className="modern-panel p-6">
                 <div className="flex items-center gap-3 mb-8 border-b border-zinc-800 pb-4">
@@ -284,8 +250,7 @@ export default function Home() {
                 </div>
               </div>
             </aside>
-      
-      {/* Discovery Grid */}
+
       <div className="flex-1">
               {isFetching ? (
                 <div className="w-full h-96 flex items-center justify-center">
