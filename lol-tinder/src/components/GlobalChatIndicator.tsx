@@ -9,6 +9,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { getMatches } from '@/app/matches/actions'
 import { Chat } from './Chat'
 
+const supabase = createClient();
+
 export function GlobalChatIndicator() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [user, setUser] = useState<any>(null)
@@ -17,7 +19,6 @@ export function GlobalChatIndicator() {
   const [matches, setMatches] = useState<any[]>([])
   const [pendingMatchesCount, setPendingMatchesCount] = useState(0)
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({})
-  const supabase = createClient()
   const pathname = usePathname()
   const router = useRouter()
 
@@ -54,19 +55,18 @@ export function GlobalChatIndicator() {
   }
 
   useEffect(() => {
+    const channel = supabase.channel(`global-unread-${Math.random()}`);
+
     const init = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser()
       if (!authUser) return
       setUser(authUser)
       await fetchMatchesAndUnread(authUser.id)
 
-      const channel = supabase
-        .channel('global-unread-count')
+      channel
         .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchMatchesAndUnread(authUser.id))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => fetchMatchesAndUnread(authUser.id))
         .subscribe()
-
-      return () => { supabase.removeChannel(channel) }
     }
     init()
 
@@ -76,7 +76,11 @@ export function GlobalChatIndicator() {
       setIsWindowOpen(true)
     }
     window.addEventListener('open-global-chat', handleOpenChat)
-    return () => window.removeEventListener('open-global-chat', handleOpenChat)
+
+    return () => {
+      window.removeEventListener('open-global-chat', handleOpenChat)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Оновлення заголовка сторінки

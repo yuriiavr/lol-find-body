@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/src/utils/supabase/client";
 import { Loader2, Users, Check, X, Trophy, Sword, MessageCircle, MessageSquare } from "lucide-react";
 import Link from "next/link";
@@ -9,32 +9,50 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/src/components/ToastProvider";
 import { ViewProfileButton } from "@/src/components/ui/ProfileButton";
 
+// Виносимо клієнт за межі компонента для стабільності
+const supabase = createClient();
+
 export default function MatchesPage() {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
     const [matches, setMatches] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'TEAM' | 'PENDING'>('TEAM');
     const { showToast } = useToast();
-    const supabase = createClient();
 
-    useEffect(() => {
-        const init = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-            if (user) {
-                await fetchMatches();
-            }
-            setLoading(false);
-        };
-        init();
-    }, []);
-
-    const fetchMatches = async () => {
+    const fetchMatches = useCallback(async () => {
         const { data, error } = await getMatches();
         if (!error && data) {
             setMatches(data);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        // Створюємо канал синхронно з унікальною назвою
+        const channel = supabase.channel(`matches-page-${Math.random()}`);
+
+        const init = async () => {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            setUser(authUser);
+            if (authUser) {
+                await fetchMatches();
+
+                channel
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
+                        fetchMatches();
+                    })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+                        fetchMatches(); // Це оновить "останнє повідомлення" автоматично
+                    })
+                    .subscribe();
+            }
+            setLoading(false);
+        };
+        init();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [fetchMatches]);
 
     const handleStatusUpdate = async (matchId: string, status: 'ACCEPTED' | 'DECLINED') => {
         const result = await updateMatchStatus(matchId, status);
@@ -121,6 +139,16 @@ export default function MatchesPage() {
                                       </div>
                                     </div>
                                 </div>
+
+                                {activeTab === 'TEAM' && m.last_message && (
+                                    <div className="mb-6 p-3 bg-black/20 rounded-xl border border-white/5">
+                                        <p className="text-[9px] text-zinc-600 uppercase font-black mb-1 tracking-widest">Last Intel</p>
+                                        <p className="text-xs text-zinc-400 truncate italic">
+                                            {m.last_message.sender_id === user?.id && <span className="text-[rgb(var(--accent-color))] font-bold mr-1">You:</span>}
+                                            {m.last_message.content}
+                                        </p>
+                                    </div>
+                                )}
 
                                 {activeTab === 'TEAM' ? (
                                     <div className="flex gap-2">

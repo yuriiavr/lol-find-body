@@ -11,6 +11,11 @@ const POPULAR_LANGUAGES = [
   "Spanish", "Italian", "Romanian", "Dutch", "Hungarian", "Czech"
 ];
 
+const AVAILABLE_QUEUES = [
+  "Solo/Duo", "Flex", "Draft", "ARAM", "ARAM: Mayhem", 
+  "Arena", "Quick Play", "Seasonal", "Clash"
+];
+
 // Виносимо створення клієнта Supabase за межі компонента
 // Це гарантує, що він створюється лише один раз і є стабільним
 const supabase = createClient();
@@ -122,7 +127,7 @@ export default function Home() {
       }
 
       if (filterQueue !== "ALL") {
-        query = query.eq('preferred_queue', filterQueue);
+        query = query.ilike('preferred_queue', `%${filterQueue}%`);
       }
 
       if (onlyOnline) {
@@ -235,8 +240,9 @@ export default function Home() {
                       className="w-full bg-zinc-950/50 border border-white/5 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all cursor-pointer appearance-none hover:border-white/10"
                     >
                       <option value="ALL">All Queues</option>
-                      <option value="SOLO">SOLO / DUO</option>
-                      <option value="FLEX">FLEX QUEUE</option>
+                      {AVAILABLE_QUEUES.map(q => (
+                        <option key={q} value={q}>{q.toUpperCase()}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -291,8 +297,8 @@ export default function Home() {
                         exit={{ opacity: 0, scale: 0.95 }}
                         className="modern-panel p-6 group flex flex-col h-full"
                       >
-                        <div className="flex justify-between items-start mb-6">
-                          <div className="flex gap-4">
+                        <div className="relative flex justify-between items-start mb-6">
+                          <div className="flex gap-4 overflow-hidden pr-16">
                             <div className="relative group/avatar">
                               <div className="w-14 h-14 rounded-xl bg-zinc-800 p-[1px] group-hover/avatar:bg-orange-500/50 transition-colors">
                                 <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center overflow-hidden">
@@ -310,15 +316,15 @@ export default function Home() {
                                 <div className="absolute -bottom-1 -left-1 text-red-500 bg-[#0a0a0a] rounded-full p-0.5"><MicOff size={14} /></div>
                               )}
                             </div>
-                            <div>
-                              <h4 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">{player.game_name}</h4>
+                            <div className="min-w-0">
+                              <h4 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors truncate">{player.game_name}</h4>
                               <div className="flex items-center gap-2 mt-1">
                                 <Trophy size={12} className="text-orange-400" />
                                 <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">
-                                  {player.preferred_queue === 'FLEX' ? player.flex_rank : player.solo_rank}
+                                  {player.preferred_queue?.includes('Flex') ? player.flex_rank : player.solo_rank}
                                 </span>
                                 <span className="text-zinc-800">•</span>
-                                <span className="text-[10px] font-bold text-orange-400/60 uppercase">{player.preferred_queue === 'FLEX' ? 'Flex' : 'Solo'}</span>
+                                <span className="text-[10px] font-bold text-orange-400/60 uppercase">{player.preferred_queue?.includes('Flex') ? 'Flex' : 'Solo'}</span>
                                 {player.language && (
                                   <>
                                     <span className="text-zinc-800">•</span>
@@ -328,7 +334,7 @@ export default function Home() {
                               </div>
                             </div>
                           </div>
-                          <div className="bg-blue-500/10 px-2 py-1 rounded text-[10px] font-bold text-blue-400 border border-blue-500/20">
+                          <div className="absolute top-0 right-0 bg-blue-500/10 px-2 py-1 rounded text-[10px] font-bold text-blue-400 border border-blue-500/20 whitespace-nowrap">
                             {player.main_role}
                           </div>
                         </div>

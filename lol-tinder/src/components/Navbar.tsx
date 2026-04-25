@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, LogIn, LogOut, User as UserIcon, MessageSquare, Compass } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/client";
 import { ProfileButton } from "./ui/ProfileButton";
+import { useToast } from "@/src/components/ToastProvider";
 
 const supabase = createClient();
 
@@ -17,50 +18,87 @@ export function Navbar() {
   const router = useRouter();
   const [discoveryHref, setDiscoveryHref] = useState("/league");
   const [pendingCount, setPendingCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { showToast } = useToast();
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-      if (data.user) {
-        fetchPendingCount(data.user.id);
-      }
-    };
-    getUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchPendingCount(session.user.id);
-    });
-
-    // Підписка на зміни в таблиці matches
-    const channel = supabase
-      .channel('navbar-matches-count')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'matches' 
-      }, () => {
-        if (user) fetchPendingCount(user.id);
-        else getUser(); // Якщо юзер змінився або ще не завантажився
-      })
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const fetchPendingCount = async (userId: string) => {
-    const { count } = await supabase
+  const fetchNotifications = useCallback(async (userId: string) => {
+    // 1. Отримуємо кількість нових запитів в команду (PENDING)
+    const { count: pCount } = await supabase
       .from('matches')
       .select('*', { count: 'exact', head: true })
       .eq('target_id', userId)
       .eq('status', 'PENDING');
     
-    setPendingCount(count || 0);
-  };
+    setPendingCount(pCount || 0);
+
+    // 2. Отримуємо кількість непрочитаних повідомлень у всіх активних чатах
+    const { data: matches } = await supabase
+      .from('matches')
+      .select('id')
+      .or(`user_id.eq.${userId},target_id.eq.${userId}`);
+    
+    const matchIds = matches?.map(m => m.id) || [];
+    if (matchIds.length > 0) {
+      const { count: mCount } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .in('match_id', matchIds)
+        .neq('sender_id', userId)
+        .eq('is_read', false);
+      setUnreadCount(mCount || 0);
+    } else {
+      setUnreadCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+    };
+    getUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setPendingCount(0);
+      setUnreadCount(0);
+      return;
+    }
+
+    fetchNotifications(user.id);
+
+    const channel = supabase
+      .channel(`navbar-realtime-${Math.random()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
+        fetchNotifications(user.id);
+        if (payload.eventType === 'INSERT' && payload.new.target_id === user.id) {
+          showToast("New team request received!", "success");
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+        fetchNotifications(user.id);
+        if (payload.eventType === 'INSERT' && payload.new.sender_id !== user.id) {
+          // Показуємо тост, лише якщо користувач не знаходиться на сторінці повідомлень прямо зараз
+          if (!pathname.includes('/matches')) {
+            showToast("New message received!", "success");
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, pathname, fetchNotifications, showToast]);
 
   useEffect(() => {
     // Sync discovery link with last visited tab
@@ -116,9 +154,9 @@ export function Navbar() {
                   }`}
                 >
                   {link.name}
-                  {link.name === 'Matches' && pendingCount > 0 && (
-                    <span className="ml-2 px-1.5 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[10px] rounded-full animate-pulse">
-                      {pendingCount}
+                  {link.name === 'Matches' && (pendingCount + unreadCount) > 0 && (
+                    <span className="ml-2 px-1.5 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[9px] rounded-full animate-pulse inline-flex items-center justify-center min-w-[18px]">
+                      {pendingCount + unreadCount}
                     </span>
                   )}
                 </Link>
@@ -177,9 +215,9 @@ export function Navbar() {
                 >
                   <link.icon size={20} />
                   {link.name}
-                  {link.name === 'Matches' && pendingCount > 0 && (
+                  {link.name === 'Matches' && (pendingCount + unreadCount) > 0 && (
                     <span className="ml-auto px-2 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[10px] rounded-full">
-                      {pendingCount}
+                      {pendingCount + unreadCount}
                     </span>
                   )}
                 </Link>
