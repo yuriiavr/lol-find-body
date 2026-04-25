@@ -152,10 +152,13 @@ export async function getMatches() {
       user_id,
       target_id,
       status,
-      sender:profiles!user_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, flex_rank, preferred_queue, last_seen),
-      receiver:profiles!target_id (id, game_name, tag_line, avatar_url, main_role, solo_rank, flex_rank, preferred_queue, last_seen)
+      sender:profiles!user_id (id, game_name, tag_line, avatar_url, main_role, last_seen),
+      receiver:profiles!target_id (id, game_name, tag_line, avatar_url, main_role, last_seen),
+      messages (content, sender_id, created_at)
     `)
     .or(`user_id.eq.${user.id},target_id.eq.${user.id}`)
+    .order('created_at', { foreignTable: 'messages', ascending: false })
+    .limit(1, { foreignTable: 'messages' })
 
   if (error) return { error: error.message }
 
@@ -165,7 +168,8 @@ export async function getMatches() {
       id: m.id,
       status: m.status,
       isIncoming: !isSender,
-      profile: isSender ? m.receiver : m.sender
+      profile: isSender ? m.receiver : m.sender,
+      last_message: m.messages?.[0]
     }
   })
 

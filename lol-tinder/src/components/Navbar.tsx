@@ -131,6 +131,13 @@ export function Navbar() {
           {user ? (
             <>
               <ProfileButton user={user} className="hidden md:flex" />
+              <button 
+                onClick={handleSignOut}
+                className="hidden cursor-pointer md:flex items-center gap-2 p-2.5 text-slate-400 hover:text-red-500 transition-colors bg-white/5 rounded-xl border border-white/5 hover:bg-red-500/10 hover:border-red-500/20"
+                title="Logout"
+              >
+                <LogOut size={18} />
+              </button>
               
               {/* Mobile Menu Toggle */}
               <button 

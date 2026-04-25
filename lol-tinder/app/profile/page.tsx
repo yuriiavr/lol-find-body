@@ -54,9 +54,12 @@ const AVAILABLE_QUEUES = [
   "Solo/Duo",
   "Flex",
   "Draft",
+  "ARAM",
+  "ARAM: Mayhem",
   "Arena",
   "Quick Play",
   "Seasonal",
+  "Clash"
 ];
 
 const GAMES = [
@@ -84,39 +87,51 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'LOL' | 'TFT' | 'VALORANT'>('LOL');
 
   const getGameValue = (field: string) => {
+    // Важливо: ніколи не повертати undefined для value в селектах, 
+    // інакше вони скидаються до першої опції списку (TOP).
     if (!profile) return "";
-    const prefix = activeTab === 'LOL' ? '' : `${activeTab.toLowerCase()}_`;
-    return profile[`${prefix}${field}`] || "";
+    const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
+    return profile[`${prefix}${field}`] ?? "";
   };
 
-  // Effect to save to localStorage whenever relevant states change
+  // Відокремлюємо оновлення теми, щоб воно не спрацьовувало при кожній зміні інпутів
   useEffect(() => {
-    // Only save if user is logged in and not in initial loading phase
+    if (!activeTab) return;
+    localStorage.setItem('site-game-theme', activeTab);
+    document.documentElement.setAttribute('data-game-theme', activeTab.toLowerCase());
+  }, [activeTab]);
+
+  // Зберігаємо дані форми в localStorage з дебаунсом (1 секунда).
+  // Це критично важливо, щоб синхронний запис у localStorage не блокував 
+  // оновлення інтерфейсу селектів та інпутів.
+  useEffect(() => {
     if (!user || isInitialLoading) return;
 
-    const formDataToSave = {
-      profile,
-      selectedLangs,
-      selectedQueues,
-      enabledGames,
-      activeTab,
-    };
-    try {
-      localStorage.setItem(`profileFormData_${user.id}`, JSON.stringify(formDataToSave));
-      // Save global theme preference for other components
-      localStorage.setItem('site-game-theme', activeTab);
-      document.documentElement.setAttribute('data-game-theme', activeTab.toLowerCase());
-    } catch (e) {
-      console.error("Failed to save profileFormData to localStorage", e);
-    }
-  }, [profile, selectedLangs, selectedQueues, enabledGames, activeTab, user, isInitialLoading]);
+    const saveTimeout = setTimeout(() => {
+      const formDataToSave = {
+        profile,
+        selectedLangs,
+        selectedQueues,
+        enabledGames,
+        activeTab, // Додаємо активну вкладку в об'єкт для збереження
+      };
+
+      try {
+        localStorage.setItem(`profileFormData_${user.id}`, JSON.stringify(formDataToSave));
+      } catch (e) {
+        console.error("Failed to save profileFormData to localStorage", e);
+      }
+    }, 1000); // Чекаємо 1с після останньої зміни
+    
+    return () => clearTimeout(saveTimeout);
+  }, [profile, selectedLangs, selectedQueues, enabledGames, user, isInitialLoading, activeTab]);
 
   // Обробник для миттєвого оновлення прев'ю при зміні полів
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const isCheckbox = type === 'checkbox';
     const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
-    const prefix = activeTab === 'LOL' ? '' : `${activeTab.toLowerCase()}_`;
+    const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
 
     setProfile((prev: any) => {
       const next = { ...prev };
@@ -173,16 +188,10 @@ export default function ProfilePage() {
 
       if (isMounted) setUser(authUser);
 
-      if (data) {
-        if (isMounted) {
-          setProfile(data);
-          if (data.language) setSelectedLangs(data.language.split(","));
-          if (data.preferred_queue) setSelectedQueues(data.preferred_queue.split(","));
-          if (data.enabled_games) setEnabledGames(data.enabled_games.split(","));
-        }
-      } else {
-        if (isMounted) {
-          setProfile({
+      // Спершу готуємо об'єкт профілю
+      let initialProfile = data;
+      if (!data) {
+        initialProfile = {
             id: authUser.id,
             game_name: "", tag_line: "", region: "EUW", main_role: "FILL", bio: "",
             tft_game_name: "", tft_tag_line: "", tft_region: "EUW", tft_main_role: "FILL", tft_bio: "",
@@ -195,9 +204,16 @@ export default function ProfilePage() {
             val_rank: "Unranked",
             enabled_games: "LOL",
             language: "",
-          });
-          setEnabledGames(["LOL"]);
-        }
+        };
+      }
+
+      if (isMounted) {
+        // Оновлюємо всі стани одночасно
+        setProfile(initialProfile);
+        if (initialProfile.language) setSelectedLangs(initialProfile.language.split(","));
+        if (initialProfile.preferred_queue) setSelectedQueues(initialProfile.preferred_queue.split(","));
+        if (initialProfile.enabled_games) setEnabledGames(initialProfile.enabled_games.split(","));
+        if (!initialProfile.enabled_games) setEnabledGames(["LOL"]);
       }
 
       // Restoration logic remains the same, but wrapped in isMounted check
@@ -219,19 +235,22 @@ export default function ProfilePage() {
         }
       }
 
-      setIsInitialLoading(false);
+      // Даємо React один тік на завершення рендеру перед тим як прибрати лоудер
+      requestAnimationFrame(() => {
+        if (isMounted) setIsInitialLoading(false);
+      });
     };
     getProfile();
   }, [router]); // supabase прибрано з залежностей
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
     formData.append("activeGame", activeTab);
-    // Додаємо обрані мови у FormData перед відправкою
     selectedLangs.forEach((lang) => formData.append("languages", lang));
-    // Додаємо обрані черги у FormData
     selectedQueues.forEach((q) => formData.append("queues", q));
-    // Додаємо обрані ігри
     enabledGames.forEach((g) => formData.append("enabledGames", g));
 
     const result = await updateProfile(formData);
@@ -241,14 +260,22 @@ export default function ProfilePage() {
       setLoading(false);
     } else {
       // Миттєво оновлюємо локальний стан профілю
-      const prefix = activeTab === 'LOL' ? '' : `${activeTab.toLowerCase()}_`;
+      const prefix = activeTab === 'LOL' ? '' : (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
+      const formPrefix = (activeTab === 'VALORANT' ? 'val' : activeTab.toLowerCase()) + '_';
       const updatedProfile: any = { ...profile };
 
-      updatedProfile[`${prefix}game_name`] = formData.get(`${activeTab.toLowerCase()}_gameName`);
-      updatedProfile[`${prefix}tag_line`] = formData.get(`${activeTab.toLowerCase()}_tagLine`);
-      updatedProfile[`${prefix}region`] = formData.get(`${activeTab.toLowerCase()}_region`);
-      updatedProfile[`${prefix}main_role`] = formData.get("role");
-      updatedProfile[`${prefix}bio`] = formData.get("bio");
+      const gameName = formData.get(`${formPrefix}gameName`) as string;
+      const tagLine = formData.get(`${formPrefix}tagLine`) as string;
+      const region = formData.get(`${formPrefix}region`) as string;
+      const role = (formData.get("role") as string) || "FILL"; // Гарантуємо, що role завжди має значення
+      const bio = formData.get("bio") as string;
+
+      if (gameName) updatedProfile[`${prefix}game_name`] = gameName;
+      if (tagLine) updatedProfile[`${prefix}tag_line`] = tagLine;
+      if (region) updatedProfile[`${prefix}region`] = region;
+      updatedProfile[`${prefix}main_role`] = role; // Присвоюємо значення, яке вже має дефолт
+      if (bio !== null) updatedProfile[`${prefix}bio`] = bio;
+
       updatedProfile[`${prefix}preferred_queue`] = selectedQueues.join(",");
       
       // Загальні налаштування
@@ -286,6 +313,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50 flex flex-col">
+
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-8 lg:p-16">
         <div className="flex flex-col lg:flex-row gap-16">
           {/* Profile Preview (Left) */}
@@ -318,7 +346,7 @@ export default function ProfilePage() {
               <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
                 {getGameValue('game_name') || "Summoner"}
                 <span className="text-slate-600 block text-2xl mt-1">
-                  #{getGameValue('tag_line') || "UA1"}
+                  #{getGameValue('tag_line') || "EUW"}
                 </span>
               </h1>
               {selectedLangs.length > 0 && (
@@ -402,7 +430,7 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            <form action={handleSubmit} className="space-y-10">
+            <form onSubmit={handleSubmit} className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <FormSwitch
                   className="md:col-span-2"
@@ -429,7 +457,7 @@ export default function ProfilePage() {
                   name={`${activeTab.toLowerCase()}_tagLine`}
                   value={getGameValue('tag_line')}
                   onChange={handleInputChange}
-                  placeholder="e.g. UA1"
+                  placeholder="e.g. EUW"
                   required
                 />
 
@@ -462,12 +490,12 @@ export default function ProfilePage() {
                     </>
                   ) : (
                     <>
+                      <option value="FILL">FILL</option>
                       <option value="TOP">TOP</option>
                       <option value="JUNGLE">JUNGLE</option>
                       <option value="MID">MID</option>
                       <option value="ADC">ADC</option>
                       <option value="SUPPORT">SUPPORT</option>
-                      <option value="FILL">FILL</option>
                     </>
                   )}
                 </FormSelect>
@@ -509,14 +537,19 @@ export default function ProfilePage() {
                 <button
                   disabled={loading}
                   type="submit"
-                  className={`btn-modern w-full md:w-auto px-12 py-4 bg-[rgb(var(--accent-color))] hover:brightness-110`}
+                  className={`btn-modern w-full md:w-auto px-12 py-4 bg-[rgb(var(--accent-color))] hover:brightness-110 flex items-center justify-center gap-2`}
                 >
                   {loading ? (
-                    <Loader2 className="animate-spin" />
+                    <>
+                      <Loader2 className="animate-spin" size={20} />
+                      Saving...
+                    </>
                   ) : (
-                    <Save size={20} />
+                    <>
+                      <Save size={20} />
+                      Save
+                    </>
                   )}
-                  Apply Changes
                 </button>
               </div>
             </form>

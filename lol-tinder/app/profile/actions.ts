@@ -46,7 +46,7 @@ export async function updateProfile(formData: FormData) {
   }
 
   // Перевірка унікальності PUUID для конкретної гри
-  const puuidColumn = activeGame === 'LOL' ? 'puuid' : `${activeGame.toLowerCase()}_puuid`;
+  const puuidColumn = activeGame === 'LOL' ? 'puuid' : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_puuid';
   const { data: existingProfile } = await supabase
     .from('profiles')
     .select('id')
@@ -97,7 +97,7 @@ export async function updateProfile(formData: FormData) {
   };
 
   // Динамічно додаємо поля для конкретної гри
-  const prefix = activeGame === 'LOL' ? '' : `${activeGame.toLowerCase()}_`;
+  const prefix = activeGame === 'LOL' ? '' : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_';
   updateData[`${prefix}game_name`] = account.gameName;
   updateData[`${prefix}tag_line`] = account.tagLine;
   updateData[`${prefix}puuid`] = account.puuid;
