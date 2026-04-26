@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { memo } from "react";
+import { useTranslations } from "next-intl";
 
 interface UnsavedChangesBannerProps {
   isDirty: boolean;
@@ -7,6 +8,8 @@ interface UnsavedChangesBannerProps {
 }
 
 const UnsavedChangesBanner = memo(({ isDirty, onSave }: UnsavedChangesBannerProps) => {
+  const t = useTranslations('ProfilePage.editor');
+
   return (
     <AnimatePresence>
       {isDirty && (
@@ -20,14 +23,14 @@ const UnsavedChangesBanner = memo(({ isDirty, onSave }: UnsavedChangesBannerProp
             <div className="flex items-center gap-3 ml-2">
               <div className="w-2 h-2 rounded-full bg-[rgb(var(--accent-color))] animate-pulse" />
               <p className="text-xs font-bold uppercase tracking-widest text-zinc-200">
-                You have unsaved changes
+                {t('unsavedChanges')}
               </p>
             </div>
             <button 
               onClick={onSave}
               className="bg-[rgb(var(--accent-color))] hover:brightness-110 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all active:scale-95 shadow-lg shadow-[rgb(var(--accent-color)/0.2)]"
             >
-              Save Now
+              {t('saveNow')}
             </button>
           </div>
         </motion.div>

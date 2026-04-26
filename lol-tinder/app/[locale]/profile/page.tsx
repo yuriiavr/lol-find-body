@@ -15,6 +15,7 @@ import UnsavedChangesBanner from "./components/UnsavedChangesBanner";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/src/components/ToastProvider";
+import { useTranslations } from "next-intl";
 
 const supabase = createClient();
 
@@ -35,6 +36,8 @@ export default function ProfilePage() {
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState<"LOL" | "TFT" | "VALORANT">("LOL");
+
+  const t = useTranslations("ProfilePage.editor");
 
   useEffect(() => {
     if (!profile || !lastSavedProfile || isInitialLoading) {
@@ -339,11 +342,11 @@ export default function ProfilePage() {
     const result = await updateProfile(formData);
 
     if (result?.error) {
-      showToast(result.error, "error");
+      showToast(result.error || t("toasts.error"), "error");
       setLoading(false);
     } else {
       setLastSavedProfile(JSON.parse(JSON.stringify(profile)));
-      showToast("Profile updated successfully!", "success");
+      showToast(t("toasts.success"), "success");
       setLoading(false);
     }
   }

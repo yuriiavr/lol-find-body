@@ -8,10 +8,12 @@ import { getMatches, updateMatchStatus } from "./actions";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/src/components/ToastProvider";
 import { ViewProfileButton } from "@/src/components/ui/ProfileButton";
+import { useTranslations } from "next-intl";
 
 const supabase = createClient();
 
 export default function MatchesPage() {
+    const t = useTranslations('MatchesPage');
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
     const [matches, setMatches] = useState<any[]>([]);
@@ -74,9 +76,9 @@ export default function MatchesPage() {
         const result = await updateMatchStatus(matchId, status);
         if (result.success) {
             await fetchMatches();
-            showToast(status === 'ACCEPTED' ? 'Match accepted!' : 'Request declined', 'success');
+            showToast(status === 'ACCEPTED' ? t('toasts.accepted') : t('toasts.declined'), 'success');
         } else {
-            showToast(result.error || 'Failed to update status', 'error');
+            showToast(result.error || t('toasts.error'), 'error');
         }
     };
 
@@ -98,20 +100,22 @@ export default function MatchesPage() {
 
             <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-10">
                 <div className="mb-12">
-                    <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-8 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent">Match Center</h2>
+                    <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-8 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent">
+                        {t('title')}
+                    </h2>
                     
                     <div className="flex gap-8 border-b border-white/5">
                         <button 
                             onClick={() => setActiveTab('TEAM')}
                             className={`pb-4 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'TEAM' ? 'text-[rgb(var(--accent-color))] border-b-2 border-[rgb(var(--accent-color))]' : 'text-zinc-500 hover:text-zinc-300'}`}
                         >
-                            Confirmed Team ({teamMatches.length})
+                            {t('tabs.confirmed', { count: teamMatches.length })}
                         </button>
                         <button 
                             onClick={() => setActiveTab('PENDING')}
                             className={`pb-4 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'PENDING' ? 'text-[rgb(var(--accent-color))] border-b-2 border-[rgb(var(--accent-color))]' : 'text-zinc-500 hover:text-zinc-300'}`}
                         >
-                            Incoming Requests ({pendingMatches.length})
+                            {t('tabs.incoming', { count: pendingMatches.length })}
                         </button>
                     </div>
                 </div>
@@ -167,13 +171,15 @@ export default function MatchesPage() {
 
                                 <div className="mb-6 h-12">
                                     <p className="text-[11px] text-zinc-500 italic line-clamp-2 leading-relaxed">
-                                        {m.profile.bio || "No biography added."}
+                                        {m.profile.bio || t('noBio')}
                                     </p>
                                 </div>
 
                                 {activeTab === 'TEAM' ? (
                                     <div className="flex gap-2">
-                                        <ViewProfileButton profileId={m.profile.id} className="flex-1" />
+                                        <ViewProfileButton profileId={m.profile.id} className="flex-1">
+                                            {t('buttons.viewProfile')}
+                                        </ViewProfileButton>
                                         <button
                                           onClick={() => openGlobalChat(m)}
                                           className="px-4 bg-[rgb(var(--accent-color)/0.1)] rounded-xl border border-[rgb(var(--accent-color)/0.2)] hover:bg-[rgb(var(--accent-color)/0.2)] transition-colors"
@@ -183,19 +189,21 @@ export default function MatchesPage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        <ViewProfileButton profileId={m.profile.id} className="w-full" />
+                                        <ViewProfileButton profileId={m.profile.id} className="w-full">
+                                            {t('buttons.viewProfile')}
+                                        </ViewProfileButton>
                                         <div className="flex gap-2 pt-4 border-t border-white/5">
                                         <button 
                                             onClick={() => handleStatusUpdate(m.id, 'ACCEPTED')}
                                             className="flex-1 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 py-3 rounded-xl text-[10px] font-black uppercase transition-all"
                                         >
-                                            <Check size={16} /> Accept
+                                            <Check size={16} /> {t('buttons.accept')}
                                         </button>
                                         <button 
                                             onClick={() => handleStatusUpdate(m.id, 'DECLINED')}
                                             className="flex-1 flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 py-3 rounded-xl text-[10px] font-black uppercase transition-all"
                                         >
-                                            <X size={16} /> Decline
+                                            <X size={16} /> {t('buttons.decline')}
                                         </button>
                                         </div>
                                     </div>

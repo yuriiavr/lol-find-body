@@ -1,7 +1,10 @@
+'use client';
+
 import React from "react";
 import { motion } from "framer-motion";
 import { User, Trophy, MicOff, Globe } from "lucide-react";
 import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 
 const RANK_PRIORITY = ['CHALLENGER', 'GRANDMASTER', 'MASTER', 'DIAMOND', 'EMERALD', 'PLATINUM', 'GOLD', 'SILVER', 'BRONZE', 'IRON', 'UNRANKED'];
 const getRankWeight = (r: string | null) => {
@@ -19,6 +22,9 @@ interface DiscoveryPlayerCardProps {
 }
 
 export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = 'ALL' }: DiscoveryPlayerCardProps) {
+  const t = useTranslations('Discovery.card');
+  const locale = useLocale();
+
   const borderColors = { 
     orange: 'hover:border-orange-500/20', 
     blue: 'border-blue-500/10', 
@@ -42,7 +48,7 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
   let displayName = player.display_name || player.game_name;
   let role = '';
   let bio = player.bio;
-  let profileUrl = `/profile/${player.id}`;
+  let profileUrl = `/${locale}/profile/${player.id}`;
   let winRate = null;
 
   if (game === 'LOL') {
@@ -58,14 +64,14 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
   } else if (game === 'TFT') {
     displayedRank = player.tft_rank || 'UNRANKED';
     queueLabel = 'Ranked';
-    profileUrl = `/profile/${player.id}?game=TFT`;
+    profileUrl = `/${locale}/profile/${player.id}?game=TFT`;
   } else if (game === 'VALORANT') {
     displayName = player.val_game_name || player.game_name;
     displayedRank = player.val_rank || 'Unranked';
     queueLabel = 'Competitive';
     role = player.val_main_role || 'AGENT';
     bio = player.val_bio || player.bio;
-    profileUrl = `/profile/${player.id}?game=VALORANT`;
+    profileUrl = `/${locale}/profile/${player.id}?game=VALORANT`;
     if (player.val_wins > 0) winRate = Math.round((player.val_wins / (player.val_wins + player.val_losses)) * 100);
   }
 
@@ -121,7 +127,7 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
 
       <div className="flex-1 bg-black/20 rounded-xl p-4 mb-5 border border-white/[0.02] flex flex-col">
         <p className="text-sm text-zinc-400 italic leading-relaxed line-clamp-3">
-          {bio || (game === 'TFT' ? "Жодної інформації не додано." : game === 'VALORANT' ? "No tactical briefing provided." : "Summoner is keeping a low profile.")}
+          {bio || t(`noInfo.${game.toLowerCase()}`)}
         </p>
       </div>
 
@@ -148,7 +154,7 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
 
       <Link href={profileUrl} className="w-full">
         <button className={`btn-modern w-full text-[10px] font-black uppercase tracking-widest py-3 hover:${accentColor === 'orange' ? 'bg-orange-500/5' : accentColor === 'blue' ? 'bg-blue-500/10' : 'bg-red-600/20'} transition-all ${accentColor === 'blue' ? 'border-blue-500/20' : accentColor === 'red' ? 'bg-red-600/10 border-red-600/20 text-red-400' : ''}`}>
-          {game === 'TFT' ? 'View Tactician' : game === 'VALORANT' ? 'View Agent' : 'View Profile'}
+          {t(game === 'TFT' ? 'viewTactician' : game === 'VALORANT' ? 'viewAgent' : 'viewProfile')}
         </button>
       </Link>
     </motion.div>

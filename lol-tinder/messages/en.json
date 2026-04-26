@@ -1,0 +1,263 @@
+{
+  "LandingPage": {
+    "nav": {
+      "discovery": "Discovery",
+      "matchCenter": "Match Center",
+      "profile": "Profile",
+      "playerPage": "Player Page",
+      "messages": "Messages",
+      "openApp": "Open App",
+      "login": "Discord Login"
+    },
+    "hero": {
+      "badge": "Global Teammates Finder",
+      "title": {
+        "line1": "No more",
+        "line2": "randoms"
+      },
+      "description": "ReMatch verifies every player via the official Riot API — rank, WR, champions. Filter by role, language, region, and find the partner that fits your style.",
+      "buttons": {
+        "findTeammates": "Find Teammates",
+        "seeWhoIsLooking": "See Who's Looking",
+        "loginWithDiscord": "Login with Discord"
+      }
+    },
+    "stats": {
+      "alpha": {
+        "value": "Alpha",
+        "label": "Early Access Phase"
+      },
+      "profiles": {
+        "value": "150M+",
+        "label": "Riot Profiles via API"
+      },
+      "regions": {
+        "value": "Global",
+        "label": "All Regions Supported"
+      },
+      "toxicity": {
+        "value": "0%",
+        "label": "Toxicity Tolerance"
+      }
+    },
+    "discovery": {
+      "header": {
+        "tag": "01 / Discovery",
+        "title": "Find your teammate",
+        "description": "Use the 'Live Online' filter to find players who are active right now and ready to jump into a game. Filter by region, role, and rank to find your ideal teammate in minutes."
+      },
+      "filters": {
+        "title": "Filter Rift",
+        "region": { "label": "Region / Server", "value": "Europe West" },
+        "role": { "label": "Main Role", "value": "All Positions" },
+        "rank": { "label": "Tier Rank", "value": "All Ranks" },
+        "queue": { "label": "Queue Type", "value": "All Queues" },
+        "language": { "label": "Language" },
+        "liveOnline": "Live Online"
+      },
+      "timeSaver": {
+        "badge": "Time Saver",
+        "description": "Activate the <b>Live Online</b> filter to see only those currently on the site. This allows you to find a duo <b>instantly</b>, instead of waiting for hours."
+      },
+      "buttons": {
+        "viewProfile": "View Profile"
+      }
+    },
+    "matchCenter": {
+      "header": {
+        "tag": "02 / Team",
+        "title": "Match Center",
+        "description": "All your confirmed partners in one place. View profiles and message directly — no need to switch to Discord."
+      },
+      "buttons": { "profile": "Profile" },
+      "requests": {
+        "title": "Incoming Requests",
+        "description": "When someone wants to play with you — you'll see it here and in your messages",
+        "count": "{count} new"
+      }
+    },
+    "profileEditor": {
+      "header": { "tag": "03 / Profile", "title": "Profile Editor", "description": "Set up your card for each game and start searching" },
+      "preview": { "position": "Position" },
+      "settings": {
+        "title": "Global Account Settings",
+        "displayName": { "label": "Global Display Name" },
+        "languages": { "label": "Languages You Speak" },
+        "voice": { "label": "Voice Comms", "status": "I have a microphone" },
+        "games": { "label": "Games" }
+      }
+    },
+    "playerProfile": {
+      "header": { "tag": "04 / Player Profile", "title": "Full Player Intel", "description": "Click any card to open the full player profile — verified rank, top champion mastery, playstyle bio, OP.GG link, and community reviews." },
+      "intel": { "tag": "Summoner Intel", "bioLabel": "Additional informatiob", "bio": "I don't just clear camps, I clear the path to victory. Looking for an aggressive mid-laner to invade together" },
+      "mastery": { "title": "Top Champions Mastery", "opgg": "View on OP.GG" },
+      "cta": { "title": "Ready to play together?", "description": "Send a team request and start climbing.", "button": "Send Team Request" },
+      "reviews": { "title": "Player Reviews", "empty": { "title": "No reviews yet", "description": "Be the first to review after playing" } }
+    },
+    "messages": {
+      "header": { "tag": "05 / Chat", "title": "In-app Messaging", "description": "Don't need to hop onto Discord to get to know someone. Message confirmed matches directly through our platform." },
+      "features": {
+        "connecting": { "title": "💬 Message after connecting", "description": "Once you both agree to play, a private chat opens automatically." },
+        "notifications": { "title": "🔔 Real-time notifications", "description": "Get notified instantly when someone wants to join your lobby." },
+        "organized": { "title": "🗂 Organized chats", "description": "Keep your gaming conversations separate from your personal life." }
+      },
+      "preview": { "title": "Messages" }
+    },
+    "howItWorks": {
+      "header": { "tag": "How it works", "title": "Three steps to the climb", "description": "No manual registrations, no fake ranks. Pure data." },
+      "steps": {
+        "step1": { "title": "Customize Profile", "description": "Set up your profile for each game. Your rank and stats are automatically verified via Riot API." },
+        "step2": { "title": "Discovery", "description": "Filter players by role, queue type, and language. Browse real-time verified cards." },
+        "step3": { "title": "Play & Climb", "description": "Message confirmed matches directly on the site. Communication is the key to a 60%+ winrate." }
+      }
+    },
+    "cta": {
+      "title": { "line1": "Ready to", "line2": "climb?" },
+      "description": "The gates are just opening. Join as a <b>Founding Member</b>, shape the future of this community, and find your duo before the first million arrives.",
+      "buttons": { "findTeammates": "FIND TEAMMATES", "seeWhoIsLooking": "See Who's Looking", "loginWithDiscord": "Login with Discord" }
+    },
+    "footer": {
+      "disclaimer": "ReMatch is not affiliated with Riot Games. All data is retrieved via the official Riot API.",
+      "links": { "privacy": "Privacy", "terms": "Terms" }
+    },
+    "games": { "lol": "League of Legends", "tft": "Teamfight Tactics", "valorant": "Valorant" },
+    "languages": { "english": "English" },
+  "roles": { "top": "Top" }
+},
+"MatchesPage": {
+  "title": "Match Center",
+  "tabs": {
+    "confirmed": "Confirmed Team ({count})",
+    "incoming": "Incoming Requests ({count})"
+  },
+  "noBio": "No info added.",
+  "buttons": {
+    "accept": "Accept",
+    "decline": "Decline",
+    "viewProfile": "View Profile"
+  },
+  "toasts": {
+    "accepted": "Match accepted!",
+    "declined": "Request declined",
+    "error": "Failed to update status"
+  }
+},
+"Discovery": {
+  "title": "Discovery",
+  "tabs": {
+    "league": "League of Legends",
+    "tft": "Teamfight Tactics",
+    "valorant": "Valorant"
+  },
+  "card": {
+    "viewProfile": "View Profile",
+    "viewTactician": "View Tactician",
+    "viewAgent": "View Agent",
+    "noInfo": {
+      "lol": "Summoner is keeping a low profile.",
+      "tft": "No information added.",
+      "valorant": "No tactical briefing provided."
+    }
+  }
+},
+  "Common": {
+    "micStatus": "I have a microphone",
+    "regions": {
+      "EUW": "Europe West",
+      "EUNE": "Europe Nordic & East",
+      "NA": "North America",
+      "KR": "Korea"
+    },
+    "roles": {
+      "fill": "Fill",
+      "top": "Top",
+      "jungle": "Jungle",
+      "mid": "Mid",
+      "adc": "ADC",
+      "support": "Support",
+      "duelist": "Duelist",
+      "initiator": "Initiator",
+      "controller": "Controller",
+      "sentinel": "Sentinel"
+    }
+  },
+"Chat": {
+  "title": "Messages",
+  "secureChat": "Secure Chat",
+  "placeholder": "Type a message...",
+  "emptyState": "No active chats. Match with players to start talking!",
+  "startConversation": "Start the conversation...",
+  "you": "You"
+},
+"ProfilePage": {
+  "editor": {
+    "unsavedChanges": "You have unsaved changes",
+    "save": "Save changes",
+      "saveNow": "Save Now",
+      "riotId": "Riot ID (Name)",
+      "tagline": "Tagline",
+      "bio": "You info",
+      "saving": "Saving...",
+      "postCard": "Post this card?",
+      "postCardDesc": "Enable to show your {game} profile in discovery.",
+      "placeholderName": "Your social nickname for this app",
+      "copyId": "Copy Riot ID",
+      "summoner": "Summoner",
+      "winRate": "{rate}% WR",
+      "gamesCount": "({count} games)",
+    "toasts": {
+      "success": "Profile updated successfully!",
+      "error": "Failed to update profile"
+    }
+  },
+  "public": {
+    "notFound": "Player not found",
+    "back": "BACK TO DISCOVERY",
+    "toasts": {
+      "requestSent": "Team request sent successfully!",
+      "requestError": "Failed to send request",
+      "reviewSaved": "Review saved!",
+      "reviewError": "Error saving review"
+    }
+  },
+  "sidebar": {
+    "stats": "Stats",
+    "reviews": "Reviews",
+      "behavior": "Behavior",
+      "skill": "Skill"
+    },
+    "ranks": {
+      "unranked": "Unranked",
+      "solo": "Solo Queue",
+      "flex": "Flex Queue",
+      "tft": "TFT Ranked",
+      "val": "VALORANT Rank"
+    },
+  "intel": {
+    "summonerIntel": "Summoner Intel",
+    "additionalInfo": "Additional Information",
+    "noBio": "User hasn't added a bio yet.",
+    "topChampions": "Top Champions",
+    "readyToPlay": "Ready to play together?",
+    "sendRequest": "Send Team Request",
+    "requestPending": "Request Pending"
+  },
+  "reviews": {
+    "title": "Player Reviews",
+    "leaveReview": "Leave a Review",
+    "commentPlaceholder": "Describe your experience playing together...",
+    "submit": "Submit Review",
+    "empty": "No reviews yet"
+  }
+},
+"Navbar": {
+  "discovery": "Discovery",
+  "matches": "Matches",
+  "profile": "My Profile",
+  "logout": "Logout",
+  "login": "Login",
+  "notifications": {
+    "newRequest": "New team request received!"
+  }
+}
+}

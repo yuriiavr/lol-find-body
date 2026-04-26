@@ -5,17 +5,18 @@ import { createClient } from '@/src/utils/supabase/client'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { sendMatchRequest, upsertReview, getReviewsForUser } from '@/app/matches/actions'
+import { sendMatchRequest, upsertReview, getReviewsForUser } from '@/app/[locale]/matches/actions'
 import { 
   getRanksByPuuid, 
   getTopChampions, 
   getRiotTFTStats, 
   getRiotValorantStats 
-} from '@/app/profile/actions'
+} from '@/app/[locale]/profile/actions'
 import { useToast } from '@/src/components/ToastProvider'
 import { ProfileSidebar } from './components/ProfileSidebar'
 import { ProfileIntel } from './components/ProfileIntel'
 import { ProfileReviews } from './components/ProfileReviews'
+import { useTranslations } from 'next-intl'
 
 const supabase = createClient()
 
@@ -43,6 +44,8 @@ export default function PublicProfilePage() {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   const { showToast } = useToast()
+  const t = useTranslations('ProfilePage.public')
+
   const enabledGamesList = useMemo((): ("LOL" | "TFT" | "VALORANT")[] => {
     if (!profile?.enabled_games) return [];
     return profile.enabled_games.split(',').map((g: string) => g.trim()) as ('LOL' | 'TFT' | 'VALORANT')[];
@@ -154,9 +157,9 @@ export default function PublicProfilePage() {
     
     if (result.success) {
       setRequestStatus(true)
-      showToast('Team request sent successfully!', 'success')
+      showToast(t('toasts.requestSent'), 'success')
     } else {
-      showToast(result.error || 'Failed to send request', 'error')
+      showToast(result.error || t('toasts.requestError'), 'error')
     }
   }
   const handleSubmitReview = async () => {
@@ -166,11 +169,11 @@ export default function PublicProfilePage() {
     setIsSubmittingReview(false)
 
     if (result.success) {
-      showToast('Review saved!', 'success')
+      showToast(t('toasts.reviewSaved'), 'success')
       await refreshReviews(id, activeGame, currentUser.id)
       localStorage.setItem('lastProfileGame', activeGame)
     } else {
-      showToast(result.error || 'Error saving review', 'error')
+      showToast(result.error || t('toasts.reviewError'), 'error')
     }
   }
   const avgBehavior = useMemo(() => reviews.length > 0 
@@ -189,12 +192,12 @@ export default function PublicProfilePage() {
 
   if (!profile) return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-white p-4">
-      <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent uppercase tracking-tighter">Player not found</h1>
+      <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent uppercase tracking-tighter">{t('notFound')}</h1>
       <Link 
         href={activeGame === 'TFT' ? '/tft' : activeGame === 'VALORANT' ? '/valorant' : '/league'} 
         className="hover:underline flex items-center gap-2 font-bold text-[rgb(var(--accent-color))]"
       >
-        <ArrowLeft size={18} /> BACK TO DISCOVERY
+        <ArrowLeft size={18} /> {t('back')}
       </Link>
     </div>
   )

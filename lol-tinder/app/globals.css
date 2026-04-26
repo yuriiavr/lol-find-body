@@ -16,7 +16,7 @@
 }
 
 [data-game-theme="lol"] {
-  --accent-color: 251 146 60; /* orange-400 */
+  --accent-color: 255 127 0; /* orange-400 */
 }
 
 [data-game-theme="tft"] {
@@ -24,7 +24,7 @@
 }
 
 [data-game-theme="valorant"] {
-  --accent-color: 239 68 68; /* red-500 */
+  --accent-color: 196 32 60; /* red-500 */
 }
 
 body {
@@ -88,4 +88,8 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgb(var(--accent-color));
+}
+
+button{
+  cursor: pointer;
 }

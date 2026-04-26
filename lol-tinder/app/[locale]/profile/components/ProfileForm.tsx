@@ -19,6 +19,7 @@ import {
   BadgeSelector,
 } from "@/src/components/ui/FormFields";
 import GlobalSettingsSection from "./GlobalSettingsSection";
+import { useTranslations } from "next-intl";
 
 const POPULAR_LANGUAGES = [
   "Ukrainian",
@@ -93,6 +94,8 @@ const ProfileForm = memo(
     onSetActiveTab,
     loading,
   }: ProfileFormProps) => {
+    const t = useTranslations();
+
     const getGameValue = (field: string) => {
       if (!profile) return "";
       const prefix =
@@ -107,7 +110,7 @@ const ProfileForm = memo(
         <div className="flex items-center gap-3 mb-10">
           <Settings size={24} className="text-[rgb(var(--accent-color))]" />
           <h3 className="text-2xl font-black uppercase tracking-tighter italic">
-            Profile Editor
+            {t('LandingPage.profileEditor.header.title')}
           </h3>
         </div>
 
@@ -139,8 +142,8 @@ const ProfileForm = memo(
 
           <FormSwitch
             className="md:col-span-2"
-            label="Post this card?"
-            description={`Enable to show your ${activeTab} profile in discovery.`}
+            label={t('ProfilePage.editor.postCard')}
+            description={t('ProfilePage.editor.postCardDesc', { game: activeTab })}
             checked={enabledGames.includes(activeTab)}
             onChange={() => toggleGame(activeTab)}
             name="isGameEnabled"
@@ -149,7 +152,7 @@ const ProfileForm = memo(
           <div className="flex flex-col md:flex-row gap-6">
             <FormInput
               className="flex-1"
-              label="Riot ID (Name)"
+              label={t('ProfilePage.editor.riotId')}
               icon={UserIcon}
               name={`${activeTab.toLowerCase()}_gameName`}
               value={getGameValue("game_name")}
@@ -159,7 +162,7 @@ const ProfileForm = memo(
             />
             <FormInput
               className="flex-1"
-              label="Tagline"
+              label={t('ProfilePage.editor.tagline')}
               icon={Tag}
               name={`${activeTab.toLowerCase()}_tagLine`}
               value={getGameValue("tag_line")}
@@ -172,21 +175,21 @@ const ProfileForm = memo(
           <div className="flex flex-col md:flex-row gap-6">
             <FormSelect
               className="flex-1"
-              label="Region"
+              label={t('LandingPage.discovery.filters.region.label')}
               icon={Globe}
               name={`${activeTab.toLowerCase()}_region`}
               value={getGameValue("region") || "EUW"}
               onChange={handleGameInputChange}
             >
-              <option value="EUW">Europe West</option>
-              <option value="EUNE">Europe Nordic & East</option>
-              <option value="NA">North America</option>
-              <option value="KR">Korea</option>
+              <option value="EUW">{t('Common.regions.EUW')}</option>
+              <option value="EUNE">{t('Common.regions.EUNE')}</option>
+              <option value="NA">{t('Common.regions.NA')}</option>
+              <option value="KR">{t('Common.regions.KR')}</option>
             </FormSelect>
             {activeTab !== "TFT" && (
               <FormSelect
                 className="flex-1"
-                label="Primary Position"
+                label={t('LandingPage.discovery.filters.role.label')}
                 icon={Sword}
                 name="role"
                 value={getGameValue("main_role") || "FILL"}
@@ -194,19 +197,19 @@ const ProfileForm = memo(
               >
                 {activeTab === "VALORANT" ? (
                   <>
-                    <option value="DUELIST">DUELIST</option>
-                    <option value="INITIATOR">INITIATOR</option>
-                    <option value="CONTROLLER">CONTROLLER</option>
-                    <option value="SENTINEL">SENTINEL</option>
+                    <option value="DUELIST">{t('Common.roles.duelist')}</option>
+                    <option value="INITIATOR">{t('Common.roles.initiator')}</option>
+                    <option value="CONTROLLER">{t('Common.roles.controller')}</option>
+                    <option value="SENTINEL">{t('Common.roles.sentinel')}</option>
                   </>
                 ) : (
                   <>
-                    <option value="FILL">FILL</option>
-                    <option value="TOP">TOP</option>
-                    <option value="JUNGLE">JUNGLE</option>
-                    <option value="MID">MID</option>
-                    <option value="ADC">ADC</option>
-                    <option value="SUPPORT">SUPPORT</option>
+                    <option value="FILL">{t('Common.roles.fill')}</option>
+                    <option value="TOP">{t('Common.roles.top')}</option>
+                    <option value="JUNGLE">{t('Common.roles.jungle')}</option>
+                    <option value="MID">{t('Common.roles.mid')}</option>
+                    <option value="ADC">{t('Common.roles.adc')}</option>
+                    <option value="SUPPORT">{t('Common.roles.support')}</option>
                   </>
                 )}
               </FormSelect>
@@ -214,7 +217,7 @@ const ProfileForm = memo(
           </div>
 
           <BadgeSelector
-            label="Preferred Queue"
+            label={t('LandingPage.discovery.filters.queue.label')}
             icon={LayoutGrid}
             items={QUEUES_BY_GAME[activeTab] || []}
             selectedItems={selectedQueues}
@@ -222,7 +225,7 @@ const ProfileForm = memo(
           />
 
           <FormTextArea
-            label="Player Biography"
+            label={t('ProfilePage.editor.bio')}
             name="bio"
             value={getGameValue("bio")}
             onChange={handleGameInputChange}
@@ -238,12 +241,12 @@ const ProfileForm = memo(
               {loading ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
-                  Saving...
+                  {t('ProfilePage.editor.saving')}
                 </>
               ) : (
                 <>
                   <Save size={20} />
-                  Save
+                  {t('ProfilePage.editor.save')}
                 </>
               )}
             </button>

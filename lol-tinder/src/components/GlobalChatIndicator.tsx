@@ -6,9 +6,10 @@ import { MessageCircle, X, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePathname, useRouter } from 'next/navigation'
-import { getMatches } from '@/app/matches/actions'
+import { getMatches } from '@/app/[locale]/matches/actions'
 import { Chat } from './Chat'
 import { useToast } from '@/src/components/ToastProvider'
+import { useTranslations } from 'next-intl'
 
 const supabase = createClient();
 
@@ -22,6 +23,7 @@ export function GlobalChatIndicator() {
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({})
   const pathname = usePathname()
   const router = useRouter()
+  const t = useTranslations('Chat')
   const { showToast } = useToast()
 
   const fetchMatchesAndUnread = async (userId: string) => {
@@ -89,9 +91,9 @@ export function GlobalChatIndicator() {
   useEffect(() => {
     const totalNotifications = unreadCount + pendingMatchesCount;
     if (totalNotifications > 0) {
-      document.title = `(${totalNotifications}) LoLMatch - Find your Duo`;
+      document.title = `(${totalNotifications}) ReMatch - Find your Duo`;
     } else {
-      document.title = `LoLMatch - Find your Duo`;
+      document.title = `ReMatch - Find your Duo`;
     }
   }, [unreadCount, pendingMatchesCount]);
 
@@ -122,7 +124,7 @@ export function GlobalChatIndicator() {
             ) : (
               <div className="flex flex-col h-[500px] w-full bg-zinc-900 shadow-2xl border border-white/10 rounded-2xl overflow-hidden">
                 <div className="p-4 bg-white/5 border-b border-white/5 flex items-center justify-between">
-                   <h4 className="text-sm font-bold text-white">Messages</h4>
+                   <h4 className="text-sm font-bold text-white">{t('title')}</h4>
                    <button onClick={() => setIsWindowOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
                      <X size={18} />
                    </button>
@@ -131,7 +133,7 @@ export function GlobalChatIndicator() {
                    {matches.length === 0 ? (
                      <div className="h-full flex flex-col items-center justify-center text-zinc-600 p-8 text-center">
                         <MessageCircle size={32} className="mb-2 opacity-20" />
-                        <p className="text-xs uppercase font-bold tracking-widest">No active chats. Match with players to start talking!</p>
+                        <p className="text-xs uppercase font-bold tracking-widest">{t('emptyState')}</p>
                      </div>
                    ) : (
                      matches.map(m => (
@@ -154,7 +156,7 @@ export function GlobalChatIndicator() {
                              <p className="text-sm font-bold text-zinc-200 group-hover:text-[rgb(var(--accent-color))] transition-colors">{m.profile.game_name}</p>
                              {m.last_message && (
                                <p className="text-[10px] text-zinc-500 truncate max-w-[180px]">
-                                 {m.last_message.sender_id === user.id && <span className="text-[rgb(var(--accent-color))] font-black mr-1">You:</span>}
+                                 {m.last_message.sender_id === user.id && <span className="text-[rgb(var(--accent-color))] font-black mr-1">{t('you')}:</span>}
                                  {m.last_message.content}
                                </p>
                              )}

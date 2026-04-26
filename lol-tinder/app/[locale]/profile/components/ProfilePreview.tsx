@@ -1,6 +1,7 @@
 import { memo, useState, useCallback } from "react";
 import { Trophy, MicOff, Languages, Sword, Copy, Check } from "lucide-react";
 import RankPanel from "./RankPanel";
+import { useTranslations } from "next-intl";
 
 interface ProfilePreviewProps {
   profile: any;
@@ -27,6 +28,7 @@ const ProfilePreview = memo(
     getGameValue,
   }: ProfilePreviewProps) => {
     const [copied, setCopied] = useState(false);
+    const t = useTranslations();
 
     const handleCopy = useCallback(() => {
       const name = getGameValue("game_name");
@@ -73,7 +75,7 @@ const ProfilePreview = memo(
         <div className="text-center lg:text-left space-y-2">
           <div className="flex items-start gap-3 justify-center lg:justify-start group/name">
             <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
-              {profile.display_name || getGameValue("game_name") || "Summoner"}
+              {profile.display_name || getGameValue("game_name") || t('ProfilePage.editor.summoner')}
               <span className="text-slate-600 block text-2xl mt-1">
                 #{getGameValue("tag_line") || "EUW"}
               </span>
@@ -81,7 +83,7 @@ const ProfilePreview = memo(
             <button
               onClick={handleCopy}
               className="p-2 rounded-xl cursor-pointer text-zinc-500 hover:text-[rgb(var(--accent-color))] hover:border-[rgb(var(--accent-color)/0.2)] transition-all opacity-0 group-hover/name:opacity-100 mt-2"
-              title="Copy Riot ID"
+              title={t('ProfilePage.editor.copyId')}
             >
               {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
             </button>
@@ -109,7 +111,7 @@ const ProfilePreview = memo(
           {activeTab === "LOL" ? (
             <>
               <RankPanel
-                title="Solo Queue"
+                title={t('ProfilePage.ranks.solo')}
                 value={riotStats?.solo || profile.solo_rank}
                 isActive={selectedQueues.includes("Solo/Duo")}
                 isMain={true}
@@ -123,7 +125,7 @@ const ProfilePreview = memo(
                 }
               />
               <RankPanel
-                title="Flex Queue"
+                title={t('ProfilePage.ranks.flex')}
                 value={riotStats?.flex || profile.flex_rank}
                 isActive={selectedQueues.includes("Flex")}
                 isMain={false}
@@ -139,7 +141,7 @@ const ProfilePreview = memo(
             </>
           ) : activeTab === "TFT" ? (
             <RankPanel
-              title="TFT Ranked"
+              title={t('ProfilePage.ranks.tft')}
               value={tftStats ? `${tftStats.rank}` : profile.tft_rank}
               isActive={true}
               isMain={true}
@@ -154,7 +156,7 @@ const ProfilePreview = memo(
             />
           ) : (
             <RankPanel
-              title="VALORANT Rank"
+              title={t('ProfilePage.ranks.val')}
               value={valStats?.rankName || profile.val_rank}
               isActive={true}
               isMain={true}
@@ -169,12 +171,12 @@ const ProfilePreview = memo(
           {activeTab !== "TFT" && (
             <div className="p-5 bg-zinc-900/20 border border-white/5 rounded-2xl">
               <span className="text-[10px] font-black uppercase text-slate-500 block mb-2 tracking-widest">
-                Position
+                {t('LandingPage.profileEditor.preview.position')}
               </span>
               <div className="flex items-center gap-2">
                 <Sword size={14} className="text-[rgb(var(--accent-color))]" />
                 <span className="font-bold text-sm uppercase italic">
-                  {getGameValue("main_role") || "FILL"}
+                  {t(`Common.roles.${(getGameValue("main_role") || "FILL").toLowerCase()}`)}
                 </span>
               </div>
             </div>

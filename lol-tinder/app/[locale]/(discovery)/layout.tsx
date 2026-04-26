@@ -3,7 +3,8 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Compass, Gamepad, Zap } from 'lucide-react';
+import { Gamepad, Zap } from 'lucide-react';
+import { useTranslations, useLocale } from 'next-intl';
 
 export default function DiscoveryLayout({
   children,
@@ -11,10 +12,12 @@ export default function DiscoveryLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const t = useTranslations('Discovery');
+  const locale = useLocale();
   
-  const activeTab = pathname.startsWith('/tft') 
+  const activeTab = pathname.includes('/tft') 
     ? 'tft' 
-    : pathname.startsWith('/valorant') 
+    : pathname.includes('/valorant') 
       ? 'valorant' 
       : 'league';
 
@@ -29,25 +32,25 @@ export default function DiscoveryLayout({
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50 flex flex-col">
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-10">
         <div className="mb-12">
-          <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-8 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent transition-all duration-500">Discovery</h2>
+          <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-8 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent transition-all duration-500">{t('title')}</h2>
           <div className="flex gap-8 border-b border-white/5">
             <Link 
-              href="/league"
+              href={`/${locale}/league`}
               className={`pb-4 text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'league' ? 'text-[rgb(var(--accent-color))] border-b-2 border-[rgb(var(--accent-color))]' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              <Compass size={14} /> League of Legends
+              {t('tabs.league')}
             </Link>
             <Link 
-              href="/tft"
+              href={`/${locale}/tft`}
               className={`pb-4 text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'tft' ? 'text-[rgb(var(--accent-color))] border-b-2 border-[rgb(var(--accent-color))]' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              <Gamepad size={14} /> Teamfight Tactics
+              <Gamepad size={14} /> {t('tabs.tft')}
             </Link>
             <Link 
-              href="/valorant"
+              href={`/${locale}/valorant`}
               className={`pb-4 text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'valorant' ? 'text-[rgb(var(--accent-color))] border-b-2 border-[rgb(var(--accent-color))]' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              <Zap size={14} /> Valorant
+              <Zap size={14} /> {t('tabs.valorant')}
             </Link>
           </div>
         </div>

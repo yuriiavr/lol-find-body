@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
 import { Send, Loader2, User, X, AlertCircle, ArrowLeft } from 'lucide-react'
-import { sendMessage, getMessages, markMessagesAsRead } from '@/app/matches/actions'
+import { sendMessage, getMessages, markMessagesAsRead } from '@/app/[locale]/matches/actions'
+import { useTranslations } from 'next-intl'
 interface ChatMessage {
   id: string;
   sender_id: string;
@@ -17,6 +18,7 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const t = useTranslations('Chat')
   const supabase = createClient()
   useEffect(() => {
     const loadMessages = async () => {
@@ -100,7 +102,7 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
           <img src={targetProfile.avatar_url} className="w-8 h-8 rounded-full border border-[rgb(var(--accent-color)/0.3)]" alt="" />
           <div>
             <h4 className="text-sm font-bold text-white leading-none">{targetProfile.game_name}</h4>
-            <span className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">Secure Chat</span>
+            <span className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">{t('secureChat')}</span>
           </div>
         </div>
         {onClose && (
@@ -113,7 +115,7 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
         {loading ? (
           <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-[rgb(var(--accent-color))]" /></div>
         ) : messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-zinc-600 text-xs uppercase font-bold tracking-widest">Start the conversation...</div>
+          <div className="h-full flex items-center justify-center text-zinc-600 text-xs uppercase font-bold tracking-widest">{t('startConversation')}</div>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
@@ -137,7 +139,7 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
         <input 
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a message..."
+          placeholder={t('placeholder')}
           className="flex-1 bg-zinc-900 border border-white/5 rounded-xl px-4 py-2 text-sm outline-none focus:border-[rgb(var(--accent-color)/0.5)] transition-all"
         />
         <button 

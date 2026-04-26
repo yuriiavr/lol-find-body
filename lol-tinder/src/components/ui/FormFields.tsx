@@ -1,5 +1,6 @@
 import React from "react";
 import { LucideIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface BaseProps {
   label?: string;
@@ -39,7 +40,8 @@ export const FormTextArea = ({ label, className = "", ...props }: BaseProps & Re
   </div>
 );
 
-export const FormSwitch = ({ label, description, checked, onChange, name, className = "" }: BaseProps & { description?: string, checked: boolean, onChange: (e: any) => void, name?: string }) => (
+export const FormSwitch = ({ label, description, checked, onChange, name, className = "" }: BaseProps & { description?: string, checked: boolean, onChange: (e: any) => void, name?: string }) => {
+  return (
   <div className={`p-6 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between ${className}`}>
     <div className="space-y-1">
       {label && <h4 className="text-sm font-bold uppercase tracking-widest">{label}</h4>}
@@ -50,20 +52,23 @@ export const FormSwitch = ({ label, description, checked, onChange, name, classN
       <div className={`w-11 h-6 bg-zinc-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[rgb(var(--accent-color))]`}></div>
     </label>
   </div>
-);
+)};
 
-export const VoiceSwitch = ({ checked, onChange, name, label, icon: Icon }: BaseProps & { checked: boolean, onChange: (e: any) => void, name?: string }) => (
-  <div className="space-y-4">
+export const VoiceSwitch = ({ checked, onChange, name, label, icon: Icon }: BaseProps & { checked: boolean, onChange: (e: any) => void, name?: string }) => {
+  const t = useTranslations("Common");
+  
+  return (
+    <div className="space-y-4">
     <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-4">
       {Icon && <Icon size={14} />} {label}
     </label>
     <label className="relative inline-flex items-center cursor-pointer group">
       <input type="checkbox" name={name} checked={checked} onChange={onChange} className="sr-only peer" />
       <div className={`w-14 h-7 bg-zinc-800 rounded-full peer peer-checked:after:translate-x-7 peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:start-[4px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-[20px] after:w-[20px] after:transition-all peer-checked:bg-[rgb(var(--accent-color))] peer-checked:after:bg-white border border-white/5 group-hover:border-white/10`}></div>
-      <span className="ms-3 text-sm font-bold text-slate-400 group-hover:text-slate-200 transition-colors">I have a microphone</span>
+      <span className="ms-3 text-sm font-bold text-slate-400 group-hover:text-slate-200 transition-colors">{t("micStatus")}</span>
     </label>
   </div>
-);
+)};
 
 export const BadgeSelector = ({ items, selectedItems, onToggle, label, icon: Icon, className = "" }: BaseProps & { items: string[], selectedItems: string[], onToggle: (item: string) => void }) => (
   <div className={`space-y-4 ${className}`}>
