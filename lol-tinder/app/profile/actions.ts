@@ -2,8 +2,15 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { getAccountByRiotId, getSummonerByPuuid, getRanksByPuuid } from '@/src/lib/riot'
-import { getRiotTFTStats, getRiotValorantStats } from '@/app/matches/actions'
+import { 
+  getAccountByRiotId,
+  getRanksByPuuid,
+  getRiotTFTStats,
+  getRiotValorantStats,
+  getTopChampions
+} from '@/src/lib/riot'
+
+export { getRanksByPuuid, getRiotTFTStats, getRiotValorantStats, getTopChampions };
 
 export async function updateProfile(formData: FormData) {
   const cookieStore = await cookies()
@@ -67,17 +74,11 @@ export async function updateProfile(formData: FormData) {
     stats = { 
       solo_rank: ranks.solo || 'UNRANKED', 
       flex_rank: ranks.flex || 'UNRANKED',
-      solo_wins: ranks.solo_wins || 0,
-      solo_losses: ranks.solo_losses || 0,
-      flex_wins: ranks.flex_wins || 0,
-      flex_losses: ranks.flex_losses || 0
     };
   } else if (activeGame === 'TFT') {
     try {
       const tftStats = await getRiotTFTStats(account.puuid, region);
-      stats.tft_rank = tftStats && tftStats[0] ? `${tftStats[0].tier} ${tftStats[0].rank}` : 'UNRANKED';
-      stats.tft_wins = tftStats && tftStats[0] ? tftStats[0].wins : 0;
-      stats.tft_losses = tftStats && tftStats[0] ? tftStats[0].losses : 0;
+      stats.tft_rank = tftStats ? `${(tftStats as any).tier || ''} ${tftStats.rank || ''}`.trim() || 'UNRANKED' : 'UNRANKED';
     } catch (e) {
     }
   } else if (activeGame === 'VALORANT') {
@@ -118,14 +119,8 @@ export async function updateProfile(formData: FormData) {
   if (activeGame === 'LOL') {
     updateData.solo_rank = stats.solo_rank;
     updateData.flex_rank = stats.flex_rank;
-    updateData.solo_wins = stats.solo_wins;
-    updateData.solo_losses = stats.solo_losses;
-    updateData.flex_wins = stats.flex_wins;
-    updateData.flex_losses = stats.flex_losses;
   } else if (activeGame === 'TFT') {
     updateData.tft_rank = stats.tft_rank;
-    updateData.tft_wins = stats.tft_wins;
-    updateData.tft_losses = stats.tft_losses;
   } else if (activeGame === 'VALORANT') {
     updateData.val_rank = stats.val_rank;
   }
