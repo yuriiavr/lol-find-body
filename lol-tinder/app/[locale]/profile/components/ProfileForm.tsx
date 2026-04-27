@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   Loader2,
   Save,
+  Link as LinkIcon,
   Gamepad2,
   Zap,
 } from "lucide-react";
@@ -122,6 +123,27 @@ const ProfileForm = memo(
             onInputChange={onInputChange}
             popularLanguages={POPULAR_LANGUAGES}
           />
+
+          <div className="modern-panel p-6 border-[rgb(var(--accent-color)/0.3)] bg-[rgb(var(--accent-color)/0.02)]">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div>
+                <h4 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                  <LinkIcon size={18} className="text-[rgb(var(--accent-color))]" /> 
+                  Riot Games Account
+                </h4>
+                <p className="text-sm text-zinc-500">
+                  {profile.puuid ? "Ваш акаунт підключено. Ми автоматично оновлюємо статистику." : "Підключіть акаунт Riot для автоматичного імпорту статистики всіх ігор."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.location.href = `${window.location.origin}/api/auth/riot`}
+                className={`px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${profile.puuid ? 'bg-zinc-800 text-zinc-400' : 'bg-white text-black hover:scale-105 active:scale-95'}`}
+              >
+                {profile.puuid ? "Перепідключити" : "Підключити Riot ID"}
+              </button>
+            </div>
+          </div>
 
           <div className="flex border-b border-white/5 mb-8 overflow-x-auto no-scrollbar">
             {GAMES.map((game) => (

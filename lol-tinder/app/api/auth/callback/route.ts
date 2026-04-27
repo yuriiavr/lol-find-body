@@ -5,6 +5,11 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  
+  // Отримуємо шлях для повернення. 
+  // Якщо ми прийшли з /en/profile, то next буде /en/profile
+  let next = searchParams.get('next') ?? '/'
+  if (!next.startsWith('/')) next = '/'
 
   if (code) {
     const cookieStore = await cookies()
@@ -27,16 +32,16 @@ export async function GET(request: Request) {
     )
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}`)
+      return NextResponse.redirect(new URL(next, origin))
     }
 
-    return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${encodeURIComponent(error.message)}`)
+    return NextResponse.redirect(new URL(`/auth/auth-code-error?error=${encodeURIComponent(error.message)}`, origin))
   }
 
   const errorDescription = searchParams.get('error_description') || searchParams.get('error')
   if (errorDescription) {
-    return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${encodeURIComponent(errorDescription)}`)
+    return NextResponse.redirect(new URL(`/auth/auth-code-error?error=${encodeURIComponent(errorDescription)}`, origin))
   }
 
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  return NextResponse.redirect(new URL('/auth/auth-code-error', origin))
 }

@@ -217,7 +217,7 @@ export default function LandingPage() {
   const handleLogin = async () => {
     const redirectTo =
       typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback`
+        ? `${window.location.origin}/api/auth/callback?next=${window.location.pathname}`
         : undefined;
     await supabase.auth.signInWithOAuth({
       provider: "discord",
@@ -894,7 +894,7 @@ export default function LandingPage() {
                     {t('playerProfile.cta.button')}
                   </button>
                 </div>
-                <div className="modern-panel p-6 bg-[#111111]">
+                {/* <div className="modern-panel p-6 bg-[#111111]">
                   <div className="text-[10px] uppercase tracking-widest text-slate-600 font-black mb-4">
                     {t('playerProfile.reviews.title')}
                   </div>
@@ -907,7 +907,7 @@ export default function LandingPage() {
                       {t('playerProfile.reviews.empty.description')}
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             </motion.div>
           </div>
@@ -1124,10 +1124,10 @@ export default function LandingPage() {
             {t('footer.disclaimer')}
           </span>
           <div className="flex gap-6">
-            <a href="#" className="hover:text-white transition-colors">
+            <a href="/privacy" className="hover:text-white transition-colors">
               {t('footer.links.privacy')}
             </a>
-            <a href="#" className="hover:text-white transition-colors">
+            <a href="/terms" className="hover:text-white transition-colors">
               {t('footer.links.terms')}
             </a>
           </div>

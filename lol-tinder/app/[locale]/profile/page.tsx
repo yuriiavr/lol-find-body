@@ -294,12 +294,13 @@ export default function ProfilePage() {
           ).then((stats) => isMounted && setTftStats(stats));
         }
         if (initialProfile.val_puuid) {
-          getRiotValorantStats(
-            initialProfile.val_puuid,
-            initialProfile.val_region || initialProfile.region,
-          )
-            .then((stats) => isMounted && setValStats(stats))
-            .catch(() => {});
+          // Отримання статистики для Valorant тимчасово вимкнено
+          // getRiotValorantStats(
+          //   initialProfile.val_puuid,
+          //   initialProfile.val_region || initialProfile.region,
+          // )
+          //   .then((stats) => isMounted && setValStats(stats))
+          //   .catch(() => {});
         }
       }
 

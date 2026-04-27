@@ -15,7 +15,7 @@ import {
 import { useToast } from '@/src/components/ToastProvider'
 import { ProfileSidebar } from './components/ProfileSidebar'
 import { ProfileIntel } from './components/ProfileIntel'
-import { ProfileReviews } from './components/ProfileReviews'
+// import { ProfileReviews } from './components/ProfileReviews'
 import { useTranslations } from 'next-intl'
 
 const supabase = createClient()
@@ -31,17 +31,17 @@ export default function PublicProfilePage() {
   const [isRequesting, setIsRequesting] = useState(false)
   const [requestSent, setRequestStatus] = useState(false)
   const [isMatched, setIsMatched] = useState(false)
-  const [reviews, setReviews] = useState<any[]>([])
+  // const [reviews, setReviews] = useState<any[]>([])
   const [riotStats, setRiotStats] = useState<any>(null)
   const [tftStats, setTftStats] = useState<any>(null)
   const [valStats, setValStats] = useState<any>(null)
   const [topChamps, setTopChamps] = useState<any[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
   
-  const [reviewComment, setReviewComment] = useState('')
-  const [behaviorRating, setBehaviorRating] = useState(5)
-  const [skillRating, setSkillRating] = useState(5)
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  // const [reviewComment, setReviewComment] = useState('')
+  // const [behaviorRating, setBehaviorRating] = useState(5)
+  // const [skillRating, setSkillRating] = useState(5)
+  // const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   const { showToast } = useToast()
   const t = useTranslations('ProfilePage.public')
@@ -104,7 +104,6 @@ export default function PublicProfilePage() {
   useEffect(() => {
     if (!profile || !currentUser || !activeGame) return
     const fetchGameSpecificData = async () => {
-      // Очищаємо старі дані перед завантаженням нових
       setRiotStats(null)
       setTftStats(null)
       setValStats(null)
@@ -124,32 +123,33 @@ export default function PublicProfilePage() {
         const tft = await getRiotTFTStats(puuid, tftRegion)
         setTftStats(tft)
       } else if (activeGame === 'VALORANT' && profile.val_puuid) {
-        const valRegion = profile.val_region || profile.region;
-        const val = await getRiotValorantStats(profile.val_puuid, valRegion)
-        setValStats(val)
+        // Отримання статистики для Valorant тимчасово вимкнено
+        // const valRegion = profile.val_region || profile.region;
+        // const val = await getRiotValorantStats(profile.val_puuid, valRegion)
+        // setValStats(val)
       }
-      await refreshReviews(id, activeGame, currentUser.id)
+      // await refreshReviews(id, activeGame, currentUser.id)
     }
     fetchGameSpecificData()
   }, [activeGame, profile, currentUser, id])
 
-  const refreshReviews = async (targetId: string, gameType: 'LOL' | 'TFT' | 'VALORANT', authUserId: string) => {
-    const res = await getReviewsForUser(targetId, gameType)
-    if (res.data) {
-      setReviews(res.data)
-      const myReview = res.data.find((r: any) => r.reviewer_id === authUserId)
-      if (myReview && authUserId) {
-        setReviewComment(myReview.comment || '')
-        setBehaviorRating(myReview.behavior_rating)
-        setSkillRating(myReview.skill_rating)
-      } else {
-        setReviewComment('')
-        setBehaviorRating(5)
-        setSkillRating(5)
-      }
-    }
-    if (res.error) setReviews([])
-  }
+  // const refreshReviews = async (targetId: string, gameType: 'LOL' | 'TFT' | 'VALORANT', authUserId: string) => {
+  //   const res = await getReviewsForUser(targetId, gameType)
+  //   if (res.data) {
+  //     setReviews(res.data)
+  //     const myReview = res.data.find((r: any) => r.reviewer_id === authUserId)
+  //     if (myReview && authUserId) {
+  //       setReviewComment(myReview.comment || '')
+  //       setBehaviorRating(myReview.behavior_rating)
+  //       setSkillRating(myReview.skill_rating)
+  //     } else {
+  //       setReviewComment('')
+  //       setBehaviorRating(5)
+  //       setSkillRating(5)
+  //     }
+  //   }
+  //   if (res.error) setReviews([])
+  // }
   const handleMatch = async () => {
     setIsRequesting(true)
     const result = await sendMatchRequest(id)
@@ -162,27 +162,27 @@ export default function PublicProfilePage() {
       showToast(result.error || t('toasts.requestError'), 'error')
     }
   }
-  const handleSubmitReview = async () => {
-    if (!activeGame) return
-    setIsSubmittingReview(true)
-    const result = await upsertReview(id, reviewComment, behaviorRating, skillRating, activeGame)
-    setIsSubmittingReview(false)
+  // const handleSubmitReview = async () => {
+  //   if (!activeGame) return
+  //   setIsSubmittingReview(true)
+  //   const result = await upsertReview(id, reviewComment, behaviorRating, skillRating, activeGame)
+  //   setIsSubmittingReview(false)
 
-    if (result.success) {
-      showToast(t('toasts.reviewSaved'), 'success')
-      await refreshReviews(id, activeGame, currentUser.id)
-      localStorage.setItem('lastProfileGame', activeGame)
-    } else {
-      showToast(result.error || t('toasts.reviewError'), 'error')
-    }
-  }
-  const avgBehavior = useMemo(() => reviews.length > 0 
-    ? reviews.reduce((acc, r) => acc + r.behavior_rating, 0) / reviews.length 
-    : 0, [reviews])
-  const avgSkill = useMemo(() => reviews.length > 0 
-    ? reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length 
-    : 0, [reviews])
-  const totalAvg = useMemo(() => (avgBehavior + avgSkill) / 2, [avgBehavior, avgSkill])
+  //   if (result.success) {
+  //     showToast(t('toasts.reviewSaved'), 'success')
+  //     await refreshReviews(id, activeGame, currentUser.id)
+  //     localStorage.setItem('lastProfileGame', activeGame)
+  //   } else {
+  //     showToast(result.error || t('toasts.reviewError'), 'error')
+  //   }
+  // }
+  // const avgBehavior = useMemo(() => reviews.length > 0 
+  //   ? reviews.reduce((acc, r) => acc + r.behavior_rating, 0) / reviews.length 
+  //   : 0, [reviews])
+  // const avgSkill = useMemo(() => reviews.length > 0 
+  //   ? reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length 
+  //   : 0, [reviews])
+  // const totalAvg = useMemo(() => (avgBehavior + avgSkill) / 2, [avgBehavior, avgSkill])
 
   if (isLoading) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -214,9 +214,9 @@ export default function PublicProfilePage() {
             riotStats={riotStats}
             tftStats={tftStats}
             valStats={valStats}
-            avgBehavior={avgBehavior}
-            avgSkill={avgSkill}
-            totalReviews={reviews.length}
+            // avgBehavior={avgBehavior}
+            // avgSkill={avgSkill}
+            // totalReviews={reviews.length}
           />
 
           <section className="flex-1">
@@ -230,7 +230,7 @@ export default function PublicProfilePage() {
                 requestSent={requestSent}
                 handleMatch={handleMatch}
               />
-              <ProfileReviews 
+              {/* <ProfileReviews 
                 id={id}
                 isMatched={isMatched}
                 reviews={reviews}
@@ -242,7 +242,7 @@ export default function PublicProfilePage() {
                 setSkillRating={setSkillRating}
                 isSubmittingReview={isSubmittingReview}
                 handleSubmitReview={handleSubmitReview}
-              />
+              /> */}
             </div>
           </section>
         </div>

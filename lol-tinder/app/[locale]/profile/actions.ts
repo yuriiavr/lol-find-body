@@ -2,12 +2,13 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { 
   getAccountByRiotId,
   getRanksByPuuid,
   getRiotTFTStats,
   getRiotValorantStats,
-  getTopChampions
+  getTopChampions,
 } from '@/src/lib/riot'
 
 export { getRanksByPuuid, getRiotTFTStats, getRiotValorantStats, getTopChampions };
@@ -28,101 +29,131 @@ export async function updateProfile(formData: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  const { data: currentProf } = await supabase.from('profiles').select('val_puuid, val_region, region').eq('id', user.id).maybeSingle();
-  if (currentProf?.val_puuid) {
-    getRiotValorantStats(currentProf.val_puuid, currentProf.val_region || currentProf.region).catch(e => {});
-  }
+
+  const { data: currentProf } = await supabase
+    .from('profiles')
+    .select('puuid, val_puuid, tft_puuid, val_region, region')
+    .eq('id', user.id)
+    .maybeSingle()
 
   const display_name = (formData.get('display_name') as string)?.trim() || ''
-  const activeGame = formData.get('activeGame') as string
-  const gameName = (formData.get(`${activeGame.toLowerCase()}_gameName`) as string)?.trim() || ''
-  const tagLine = (formData.get(`${activeGame.toLowerCase()}_tagLine`) as string)?.trim().replace('#', '') || ''
-  const region = formData.get(`${activeGame.toLowerCase()}_region`) as string
-  
-  const bio = formData.get('bio') as string
-  const role = formData.get('role') as string
-  const languages = formData.getAll('languages') as string[]
-  const queues = formData.getAll('queues') as string[]
+  const activeGame   = formData.get('activeGame') as string
+  const region       = formData.get(`${activeGame.toLowerCase()}_region`) as string
+
+  const puuidColumn =
+    activeGame === 'LOL'
+      ? 'puuid'
+      : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_puuid'
+
+  const bio          = formData.get('bio') as string
+  const role         = formData.get('role') as string
+  const languages    = formData.getAll('languages') as string[]
+  const queues       = formData.getAll('queues') as string[]
   const enabledGames = formData.getAll('enabledGames') as string[]
-  const hasMic = formData.get('hasMic') === 'on'
-  const isPaused = formData.get('isPaused') === 'on'
+  const hasMic       = formData.get('hasMic') === 'on'
+  const isPaused     = formData.get('isPaused') === 'on'
   const isGameEnabled = formData.get('isGameEnabled') === 'on'
 
   if (!display_name) {
-    return { error: "Global Display Name is required." };
+    return { error: "Global Display Name is required." }
   }
-  const account = await getAccountByRiotId(gameName, tagLine, region)
-  if (!account || (account as any).error) {
-    const status = (account as any)?.status;
-    if (status === 401) return { error: "Riot API Key expired or not yet activated. Please wait 2 minutes." };
-    if (status === 403) return { error: "API Key forbidden. Check your Riot Dashboard." };
-    return { error: `Riot ID ${gameName}#${tagLine} not found in ${region}.` };
-  }
-  const puuidColumn = activeGame === 'LOL' ? 'puuid' : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_puuid';
-  const { data: existingProfile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq(puuidColumn, account.puuid)
-    .neq('id', user.id)
-    .maybeSingle()
-  if (existingProfile) {
-    return { error: "This Riot account is already linked to another user's profile." };
-  }
-  let stats: any = {};
-  if (activeGame === 'LOL') {
-    const ranks = (await getRanksByPuuid(account.puuid, region) || {}) as any;
-    stats = { 
-      solo_rank: ranks.solo || 'UNRANKED', 
-      flex_rank: ranks.flex || 'UNRANKED',
-    };
-  } else if (activeGame === 'TFT') {
-    try {
-      const tftStats = await getRiotTFTStats(account.puuid, region);
-      stats.tft_rank = tftStats ? `${(tftStats as any).tier || ''} ${tftStats.rank || ''}`.trim() || 'UNRANKED' : 'UNRANKED';
-    } catch (e) {
-    }
-  } else if (activeGame === 'VALORANT') {
-    try {
-      const valData = await getRiotValorantStats(account.puuid, region);
-      stats.val_rank = valData?.rankName || 'UNRANKED';
-    } catch (e) {
-      stats.val_rank = 'UNRANKED';
+
+  let puuid: string | null = (currentProf as any)?.[puuidColumn] || null
+  let account: any = null
+
+  if (!puuid) {
+    const gameName = (formData.get(`${activeGame.toLowerCase()}_gameName`) as string)?.trim() || ''
+    const tagLine  = (formData.get(`${activeGame.toLowerCase()}_tagLine`) as string)?.trim().replace('#', '') || ''
+    account = await getAccountByRiotId(gameName, tagLine, region)
+
+    if (account && !(account as any).error) {
+      puuid = account.puuid
     }
   }
-  let finalEnabledGames = [...enabledGames];
+
+  if (puuid) {
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq(puuidColumn, puuid)
+      .neq('id', user.id)
+      .maybeSingle()
+
+    if (existingProfile) {
+      return { error: "This Riot account is already linked to another user's profile." }
+    }
+  }
+
+  let stats: any = {}
+  if (puuid) {
+    if (activeGame === 'LOL') {
+      const ranks = (await getRanksByPuuid(puuid, region) || {}) as any
+      stats = {
+        solo_rank: ranks.solo || 'UNRANKED',
+        flex_rank: ranks.flex || 'UNRANKED',
+      }
+    } else if (activeGame === 'TFT') {
+      try {
+        const tftStats = await getRiotTFTStats(puuid, region)
+        stats.tft_rank = tftStats
+          ? `${(tftStats as any).tier || ''} ${tftStats.rank || ''}`.trim() || 'UNRANKED'
+          : 'UNRANKED'
+      } catch
+      } catch {
+        stats.tft_rank = 'UNRANKED'
+      }
+    } else if (activeGame === 'VALORANT') {
+      try {
+        const valData = await getRiotValorantStats(puuid, region)
+        stats.val_rank = valData?.rankName || 'UNRANKED'
+      } catch {
+        stats.val_rank = 'UNRANKED'
+      }
+    }
+  }
+
+  let finalEnabledGames = [...enabledGames]
   if (isGameEnabled && !finalEnabledGames.includes(activeGame)) {
-    finalEnabledGames.push(activeGame);
+    finalEnabledGames.push(activeGame)
   } else if (!isGameEnabled) {
-    finalEnabledGames = finalEnabledGames.filter(g => g !== activeGame);
+    finalEnabledGames = finalEnabledGames.filter(g => g !== activeGame)
   }
+
+  const prefix =
+    activeGame === 'LOL'
+      ? ''
+      : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_'
+
   const updateData: any = {
-    id: user.id,
-    display_name: display_name,
-    has_mic: hasMic,
-    is_paused: isPaused,
-    enabled_games: finalEnabledGames.join(','),
-    language: languages.join(','),
-    updated_at: new Date().toISOString(),
-    discord_id: user.user_metadata.provider_id || user.identities?.[0]?.id || user.id,
+    id:               user.id,
+    display_name,
+    has_mic:          hasMic,
+    is_paused:        isPaused,
+    enabled_games:    finalEnabledGames.join(','),
+    language:         languages.join(','),
+    updated_at:       new Date().toISOString(),
+    discord_id:       user.user_metadata.provider_id || user.identities?.[0]?.id || user.id,
     discord_username: user.user_metadata.full_name || user.user_metadata.name,
-    avatar_url: user.user_metadata.avatar_url,
-  };
-  const prefix = activeGame === 'LOL' ? '' : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_';
-  updateData[`${prefix}game_name`] = account.gameName;
-  updateData[`${prefix}tag_line`] = account.tagLine;
-  updateData[`${prefix}puuid`] = account.puuid;
-  updateData[`${prefix}region`] = region;
-  updateData[`${prefix}bio`] = bio;
-  updateData[`${prefix}main_role`] = role;
-  updateData[`${prefix}preferred_queue`] = queues.join(',');
+    avatar_url:       user.user_metadata.avatar_url,
+    [`${prefix}game_name`]:       account?.gameName  || (formData.get(`${activeGame.toLowerCase()}_gameName`) as string)?.trim(),
+    [`${prefix}tag_line`]:        account?.tagLine   || (formData.get(`${activeGame.toLowerCase()}_tagLine`)  as string)?.trim().replace('#', ''),
+    [`${prefix}region`]:          region,
+    [`${prefix}bio`]:             bio,
+    [`${prefix}main_role`]:       role,
+    [`${prefix}preferred_queue`]: queues.join(','),
+  }
+
+  if (puuid) {
+    updateData[`${prefix}puuid`] = puuid
+  }
 
   if (activeGame === 'LOL') {
-    updateData.solo_rank = stats.solo_rank;
-    updateData.flex_rank = stats.flex_rank;
+    updateData.solo_rank = stats.solo_rank
+    updateData.flex_rank = stats.flex_rank
   } else if (activeGame === 'TFT') {
-    updateData.tft_rank = stats.tft_rank;
+    updateData.tft_rank = stats.tft_rank
   } else if (activeGame === 'VALORANT') {
-    updateData.val_rank = stats.val_rank;
+    updateData.val_rank = stats.val_rank
   }
 
   const { error } = await supabase
@@ -130,5 +161,16 @@ export async function updateProfile(formData: FormData) {
     .upsert(updateData, { onConflict: 'id' })
 
   if (error) return { error: error.message }
+
+  if (puuid) {
+    revalidateTag('ranks')
+    revalidateTag('tft-stats')
+    revalidateTag('valorant-stats')
+    revalidateTag('top-champions')
+  }
+
+  revalidatePath(`/profile/${user.id}`)
+  revalidatePath(`/profile/${user.id}`, 'page')
+
   return { success: true }
 }

@@ -46,8 +46,6 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ToastProvider>
-            {/* Якщо ти додаси або маєш бібліотеку для прогрес-бару, 
-                використовуй значення з CSS змінної */}
             <ThemeInitializer />
             <Navbar />
             {children}

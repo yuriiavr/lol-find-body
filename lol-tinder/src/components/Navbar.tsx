@@ -94,7 +94,7 @@ export function Navbar() {
   }, [pathname, currentLocale]);
   const handleLogin = async () => {
     const redirectTo = typeof window !== 'undefined' 
-      ? `${window.location.origin}/auth/callback`
+      ? `${window.location.origin}/api/auth/callback?next=${window.location.pathname}`
       : undefined;
 
     await supabase.auth.signInWithOAuth({

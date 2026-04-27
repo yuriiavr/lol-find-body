@@ -12,9 +12,9 @@ interface ProfileSidebarProps {
   riotStats: any
   tftStats: any
   valStats: any
-  avgBehavior: number
-  avgSkill: number
-  totalReviews: number
+  // avgBehavior: number
+  // avgSkill: number
+  // totalReviews: number
 }
 
 export const ProfileSidebar = memo(({
@@ -25,9 +25,9 @@ export const ProfileSidebar = memo(({
   riotStats,
   tftStats,
   valStats,
-  avgBehavior,
-  avgSkill,
-  totalReviews
+  // avgBehavior,
+  // avgSkill,
+  // totalReviews
 }: ProfileSidebarProps) => {
   const [copied, setCopied] = useState(false)
 
@@ -38,8 +38,6 @@ export const ProfileSidebar = memo(({
     setTimeout(() => setCopied(false), 2000)
   }, [profile.game_name, profile.tag_line])
 
-  const totalAvg = (avgBehavior + avgSkill) / 2
-  console.log(tftStats)
   return (
     <section className="w-full lg:w-96 flex flex-col items-center lg:items-start text-center lg:text-left">
       <div className="relative mb-10 group">
@@ -77,12 +75,12 @@ export const ProfileSidebar = memo(({
           </button>
         </div>
 
-        {totalAvg > 4.5 && totalReviews >= 1 && (
+        {/* {totalAvg > 4.5 && totalReviews >= 1 && (
           <div className="flex items-center gap-1.5 px-3 py-1 bg-[rgb(var(--accent-color)/0.1)] border border-[rgb(var(--accent-color)/0.2)] rounded-full w-fit mx-auto lg:mx-0 mt-4">
             <ShieldCheck size={14} className="text-[rgb(var(--accent-color))]" />
             <span className="text-[10px] font-black uppercase tracking-widest text-[rgb(var(--accent-color))]">Verified Teammate</span>
           </div>
-        )}
+        )} */}
       </div>
 
       <div className="flex flex-wrap gap-4 mt-6 justify-center lg:justify-start">
@@ -96,7 +94,7 @@ export const ProfileSidebar = memo(({
         )}
       </div>
 
-      {totalReviews > 0 && (
+      {/* {totalReviews > 0 && (
         <div className="mt-10 w-full flex flex-col gap-2">
           <div className="flex items-center justify-between bg-zinc-900/40 px-5 py-4 rounded-2xl border border-white/5">
             <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Behavior</span>
@@ -113,7 +111,7 @@ export const ProfileSidebar = memo(({
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {enabledGamesList.length > 1 && (
         <div className="mt-10 w-full flex bg-zinc-950 rounded-2xl p-1 border border-white/5">

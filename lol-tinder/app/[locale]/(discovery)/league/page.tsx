@@ -116,17 +116,6 @@ export default function Home() {
     }
   }, [user, isLoading, filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline, supabase]);
 
-  const handleLogin = async () => {
-    const redirectTo = typeof window !== 'undefined' 
-      ? `${window.location.origin}/auth/callback`
-      : undefined;
-
-    await supabase.auth.signInWithOAuth({
-      provider: "discord",
-      options: { redirectTo },
-    });
-  };
-
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">

@@ -259,5 +259,174 @@
   "notifications": {
     "newRequest": "New team request received!"
   }
-}
+  },
+  "PrivacyPage": {
+    "title": "Privacy Policy — ReMatch",
+    "description": "How ReMatch collects, uses, and protects your data.",
+    "backToApp": "Back to ReMatch",
+    "header": {
+      "title": "Privacy Policy",
+      "lastUpdated": "Last updated: {date}",
+      "intro": "ReMatch (\"we\", \"us\", or \"our\") is committed to protecting your privacy. This policy explains what data we collect, why we collect it, and how we use it when you use our platform to find League of Legends, TFT, and Valorant teammates."
+    },
+    "sections": {
+      "collection": {
+        "title": "1. Information We Collect",
+        "discord": { "title": "Discord Account Data.", "text": "When you sign in with Discord, we receive your Discord user ID, username, avatar, and email address. This data is provided directly by Discord via OAuth2 and is used solely to create and identify your ReMatch account." },
+        "riot": { "title": "Riot Games Account Data.", "text": "If you choose to connect your Riot account, we retrieve your PUUID, Riot ID (game name + tagline), summoner information, ranked statistics (Solo/Duo, Flex, TFT, Valorant), and champion mastery data via the official Riot Games API. This data is fetched on demand and cached temporarily to reduce API load." },
+        "profile": { "title": "Profile Data You Provide.", "text": "This includes your display name, bio/description, preferred roles, languages spoken, microphone availability, preferred queues, and visibility preferences for each game." },
+        "usage": { "title": "Usage Data.", "text": "We store your last active timestamp (\"last seen\") to power the Live Online filter. We do not collect IP addresses, device fingerprints, or detailed behavioral analytics." },
+        "messages": { "title": "Messages.", "text": "Direct messages between matched players are stored in our database to enable the in-app chat feature. Messages are associated with your user ID and the match they belong to." }
+      },
+      "usage": {
+        "title": "2. How We Use Your Data",
+        "intro": "We use the data we collect exclusively to operate and improve ReMatch:",
+        "list": [
+          "Display your profile card in the Discovery section to other users",
+          "Enable other players to find and send you team requests",
+          "Verify your rank and game statistics via the Riot Games API",
+          "Power the in-app messaging system between matched players",
+          "Show real-time online status in the Live Online filter",
+          "Send in-app notifications about new match requests and messages"
+        ],
+        "noSell": "We do not sell, rent, or share your personal data with third parties for advertising or marketing purposes. We do not build advertising profiles."
+      },
+      "storage": {
+        "title": "3. Data Storage & Security",
+        "p1": "Your data is stored in a Supabase PostgreSQL database hosted in the EU region. We use row-level security (RLS) policies to ensure users can only access data they are authorized to view.",
+        "p2": "Authentication is handled via Supabase Auth with Discord OAuth2. We never store your Discord password. Session tokens are stored in secure HTTP-only cookies.",
+        "p3": "Riot API keys are stored exclusively as server-side environment variables and are never exposed to the client. All API communication occurs server-side.",
+        "p4": "While we implement industry-standard security measures, no system is 100% secure. In the event of a data breach affecting your personal information, we will notify you as required by applicable law."
+      },
+      "visibility": {
+        "title": "4. Data Visibility",
+        "p1": "Your profile information — including game name, rank, role, bio, and avatar — is visible to all authenticated users of ReMatch when your profile is active (not paused).",
+        "p2": "You can hide your profile from Discovery at any time by enabling the Pause toggle in your profile settings. When paused, your profile will not appear in Discovery but your account and data are retained.",
+        "p3": "Messages are only visible to the two participants in a match. Reviews left by other players are visible on your public profile page."
+      },
+      "retention": {
+        "title": "5. Data Retention & Deletion",
+        "p1": "We retain your data for as long as your account is active. You may request deletion of your account and all associated data at any time by contacting us at the email below.",
+        "p2": "Upon deletion request, we will permanently remove your profile, messages, match history, and reviews within 30 days. Some anonymized, aggregated data (e.g. total platform user counts) may be retained for statistical purposes.",
+        "p3": "Riot API data (ranks, champion mastery) is not stored permanently — it is fetched live and cached briefly. Deleting your account removes any cached Riot data associated with your user ID."
+      },
+      "thirdParty": {
+        "title": "6. Third-Party Services",
+        "services": {
+          "riot": { "name": "Riot Games API", "desc": "Used to verify and display your in-game statistics. Subject to Riot Games' Privacy Notice." },
+          "discord": { "name": "Discord OAuth2", "desc": "Used for authentication. Subject to Discord's Privacy Policy." },
+          "supabase": { "name": "Supabase", "desc": "Database, authentication, and real-time infrastructure. Subject to Supabase's Privacy Policy." },
+          "vercel": { "name": "Vercel", "desc": "Hosting and edge network. Subject to Vercel's Privacy Policy." }
+        },
+        "policyLink": "Privacy Policy",
+        "disclaimer": "ReMatch is not affiliated with Riot Games. League of Legends, Teamfight Tactics, and Valorant are trademarks of Riot Games, Inc."
+      },
+      "contact": {
+        "title": "7. Contact Us",
+        "p1": "If you have any questions about this Privacy Policy, wish to exercise your data rights, or request account deletion, please contact us:",
+        "support": "ReMatch Support",
+        "p2": "We aim to respond to all privacy-related inquiries within 72 hours."
+      }
+    },
+    "footer": {
+      "copyright": "© {year} ReMatch. All rights reserved.",
+      "terms": "Terms of Service",
+      "backToApp": "Back to App"
+    }
+  },
+  "TermsPage": {
+    "title": "Terms of Service — ReMatch",
+    "description": "Terms and conditions for using the ReMatch platform.",
+    "backToApp": "Back to ReMatch",
+    "header": {
+      "title": "Terms of Service",
+      "lastUpdated": "Last updated: {date}",
+      "intro": "By accessing or using ReMatch (\"the Platform\"), you agree to be bound by these Terms of Service. Please read them carefully. If you do not agree with any part of these terms, you may not use our platform."
+    },
+    "sections": {
+      "eligibility": {
+        "title": "1. Eligibility & Account",
+        "p1": "You must be at least <white>13 years of age</white> to use ReMatch. By using the platform, you represent that you meet this requirement.",
+        "p2": "You must sign in using a valid Discord account. You are responsible for maintaining the security of your account and for all activity that occurs under it.",
+        "p3": "One person may only maintain one active ReMatch account. Creating duplicate accounts to circumvent bans or restrictions is prohibited.",
+        "p4": "You agree to provide accurate information when setting up your profile, including your correct Riot ID and region. Intentionally providing false game statistics or impersonating another player is a violation of these terms."
+      },
+      "acceptableUse": {
+        "title": "2. Acceptable Use",
+        "p1": "ReMatch is a platform for finding gaming teammates. You agree to use it in good faith. The following behaviors are permitted:",
+        "rules": [
+          "Setting up an honest profile representing your actual skill level and game preferences",
+          "Sending team requests to players whose playstyle matches yours",
+          "Communicating respectfully with matched players via in-app chat",
+          "Leaving honest reviews of players you have played with"
+        ]
+      },
+      "prohibitedConduct": {
+        "title": "3. Prohibited Conduct",
+        "p1": "The following actions are strictly prohibited on ReMatch:",
+        "rules": [
+          "Harassment, hate speech, threats, or abusive language toward other users",
+          "Impersonating other players, streamers, or public figures",
+          "Sharing another user's personal information without their consent (doxxing)",
+          "Sending unsolicited promotional messages or spam",
+          "Attempting to deceive other players about your rank, skill level, or identity",
+          "Using the platform to facilitate account boosting, elo boosting, or other activities that violate Riot Games' Terms of Service",
+          "Attempting to scrape, crawl, or systematically collect data from the platform",
+          "Attempting to reverse engineer, decompile, or otherwise access the platform's source code or infrastructure",
+          "Any activity that interferes with or disrupts the normal operation of the platform"
+        ],
+        "banNotice": "Violation of these rules may result in <white>immediate account suspension or permanent ban</white> without prior notice."
+      },
+      "riotData": {
+        "title": "4. Riot Games API & Data",
+        "p1": "ReMatch uses the <white>official Riot Games API</white> to display game statistics. By using our platform, you acknowledge that:",
+        "rules": [
+          "ReMatch is not affiliated with, endorsed by, or sponsored by Riot Games",
+          "Game data (ranks, champion mastery, match history) is provided by Riot Games and may be subject to delays or inaccuracies",
+          "Your use of game data displayed on ReMatch is also subject to Riot Games' Terms of Service",
+          "We may be required to modify or remove features if our Riot API access changes"
+        ],
+        "notice": {
+          "title": "Important Notice",
+          "text": "ReMatch is not affiliated with Riot Games. League of Legends™, Teamfight Tactics™, and VALORANT™ are trademarks of Riot Games, Inc. All game data is retrieved via the official Riot Games Developer API."
+        }
+      },
+      "userContent": {
+        "title": "5. User Content",
+        "p1": "You retain ownership of the content you post on ReMatch (profile bio, messages, reviews). By posting content, you grant ReMatch a non-exclusive, royalty-free license to display that content as part of operating the platform.",
+        "p2": "You are solely responsible for content you post. You must not post content that is:",
+        "rules": [
+          "Defamatory, obscene, or hateful",
+          "Infringing on the intellectual property rights of others",
+          "Containing personal information of other individuals without consent",
+          "False, misleading, or deceptive"
+        ],
+        "removalNotice": "We reserve the right to remove any content that violates these terms or that we determine, in our sole discretion, to be harmful to the platform or its users."
+      },
+      "liability": {
+        "title": "6. Disclaimers & Limitation of Liability",
+        "p1": "ReMatch is provided <white>\"as is\" and \"as available\"</white> without warranties of any kind. We do not guarantee that the platform will be uninterrupted, error-free, or free of harmful components.",
+        "p2": "We are not responsible for the conduct of other users on the platform, including in-game behavior after players have connected. ReMatch is a matchmaking discovery tool — we do not moderate in-game play.",
+        "p3": "To the maximum extent permitted by applicable law, ReMatch shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the platform.",
+        "p4": "Our total liability to you for any claims arising from use of the platform shall not exceed the amount you paid us in the 12 months preceding the claim (which, as ReMatch is currently free, is zero)."
+      },
+      "changes": {
+        "title": "7. Changes to These Terms",
+        "p1": "We may update these Terms of Service from time to time. When we do, we will update the \"Last updated\" date at the top of this page.",
+        "p2": "For significant changes, we will make reasonable efforts to notify you (for example, via an in-app notification). Your continued use of ReMatch after changes are posted constitutes your acceptance of the revised terms.",
+        "p3": "If you do not agree to the updated terms, you must stop using the platform and may request account deletion."
+      },
+      "contact": {
+        "title": "8. Contact & Disputes",
+        "p1": "If you have questions about these Terms, believe another user has violated them, or wish to report a concern, please contact us:",
+        "support": "ReMatch Support",
+        "p2": "These Terms shall be governed by and construed in accordance with applicable law. Any disputes shall first be attempted to be resolved through good-faith negotiation."
+      }
+    },
+    "footer": {
+      "copyright": "© {year} ReMatch. All rights reserved.",
+      "privacy": "Privacy Policy",
+      "backToApp": "Back to App"
+    }
+  }
 }
