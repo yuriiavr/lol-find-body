@@ -76,6 +76,7 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
   }
 
   const langs = player.language ? player.language.split(',').filter(Boolean) : [];
+  const agents = player.val_top_agents ? player.val_top_agents.split(',').filter(Boolean) : [];
   const queueField = game === 'LOL' ? 'preferred_queue' : game === 'TFT' ? 'tft_preferred_queue' : 'val_preferred_queue';
   const queues = player[queueField] ? player[queueField].split(',').filter(Boolean) : [];
 
@@ -132,6 +133,15 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
       </div>
 
       <div className="space-y-4 mb-6">
+        {game === 'VALORANT' && agents.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {agents.map((agent: string) => (
+              <span key={agent} className="px-2 py-1 rounded bg-red-500/10 border border-red-500/20 text-[9px] font-black uppercase tracking-tighter text-red-400">
+                {agent}
+              </span>
+            ))}
+          </div>
+        )}
         {queues.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {queues.map((q: string) => (

@@ -36,20 +36,23 @@ export async function updateProfile(formData: FormData) {
     .eq('id', user.id)
     .maybeSingle()
 
-  const display_name = (formData.get('display_name') as string)?.trim() || ''
   const activeGame   = formData.get('activeGame') as string
-  const region       = formData.get(`${activeGame.toLowerCase()}_region`) as string
+  const prefix = activeGame === 'LOL' ? '' : (activeGame === 'VALORANT' ? 'val_' : 'tft_');
+
+  const display_name = (formData.get('display_name') as string)?.trim() || ''
+  const region       = formData.get(`${prefix}region`) as string
 
   const puuidColumn =
     activeGame === 'LOL'
       ? 'puuid'
-      : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_puuid'
+      : (activeGame === 'VALORANT' ? 'val_' : 'tft_') + 'puuid'
 
-  const bio          = formData.get('bio') as string
-  const role         = formData.get('role') as string
-  const languages    = formData.getAll('languages') as string[]
-  const queues       = formData.getAll('queues') as string[]
-  const enabledGames = formData.getAll('enabledGames') as string[]
+  const bio          = formData.get(`${prefix}bio`) as string
+  const role         = formData.get(`${prefix}main_role`) as string
+  const manualRank   = formData.get(`${prefix}rank`) as string
+  const language     = formData.get('language') as string
+  const preferred_queue = formData.get(`${prefix}preferred_queue`) as string
+  const enabled_games = formData.get('enabled_games') as string
   const hasMic       = formData.get('hasMic') === 'on'
   const isPaused     = formData.get('isPaused') === 'on'
   const isGameEnabled = formData.get('isGameEnabled') === 'on'
@@ -62,8 +65,8 @@ export async function updateProfile(formData: FormData) {
   let account: any = null
 
   if (!puuid) {
-    const gameName = (formData.get(`${activeGame.toLowerCase()}_gameName`) as string)?.trim() || ''
-    const tagLine  = (formData.get(`${activeGame.toLowerCase()}_tagLine`) as string)?.trim().replace('#', '') || ''
+    const gameName = (formData.get(`${prefix}game_name`) as string)?.trim() || ''
+    const tagLine  = (formData.get(`${prefix}tag_line`) as string)?.trim().replace('#', '') || ''
     account = await getAccountByRiotId(gameName, tagLine, region)
 
     if (account && !(account as any).error) {
@@ -98,7 +101,6 @@ export async function updateProfile(formData: FormData) {
         stats.tft_rank = tftStats
           ? `${(tftStats as any).tier || ''} ${tftStats.rank || ''}`.trim() || 'UNRANKED'
           : 'UNRANKED'
-      } catch
       } catch {
         stats.tft_rank = 'UNRANKED'
       }
@@ -112,17 +114,18 @@ export async function updateProfile(formData: FormData) {
     }
   }
 
-  let finalEnabledGames = [...enabledGames]
+  // Логування для відладки (можна прибрати після перевірки)
+  console.log("Processing update for:", activeGame);
+  console.log("Prefix:", prefix);
+  console.log("FormData Rank:", manualRank);
+  console.log("FormData Role:", role);
+
+  let finalEnabledGames = (enabled_games || "").split(",").filter(Boolean)
   if (isGameEnabled && !finalEnabledGames.includes(activeGame)) {
     finalEnabledGames.push(activeGame)
   } else if (!isGameEnabled) {
     finalEnabledGames = finalEnabledGames.filter(g => g !== activeGame)
   }
-
-  const prefix =
-    activeGame === 'LOL'
-      ? ''
-      : (activeGame === 'VALORANT' ? 'val' : activeGame.toLowerCase()) + '_'
 
   const updateData: any = {
     id:               user.id,
@@ -130,30 +133,34 @@ export async function updateProfile(formData: FormData) {
     has_mic:          hasMic,
     is_paused:        isPaused,
     enabled_games:    finalEnabledGames.join(','),
-    language:         languages.join(','),
+    language:         language,
     updated_at:       new Date().toISOString(),
     discord_id:       user.user_metadata.provider_id || user.identities?.[0]?.id || user.id,
     discord_username: user.user_metadata.full_name || user.user_metadata.name,
     avatar_url:       user.user_metadata.avatar_url,
-    [`${prefix}game_name`]:       account?.gameName  || (formData.get(`${activeGame.toLowerCase()}_gameName`) as string)?.trim(),
-    [`${prefix}tag_line`]:        account?.tagLine   || (formData.get(`${activeGame.toLowerCase()}_tagLine`)  as string)?.trim().replace('#', ''),
+    [`${prefix}game_name`]:       account?.gameName  || (formData.get(`${prefix}game_name`) as string)?.trim(),
+    [`${prefix}tag_line`]:        account?.tagLine   || (formData.get(`${prefix}tag_line`)  as string)?.trim().replace('#', ''),
     [`${prefix}region`]:          region,
     [`${prefix}bio`]:             bio,
     [`${prefix}main_role`]:       role,
-    [`${prefix}preferred_queue`]: queues.join(','),
+    [`${prefix}preferred_queue`]: preferred_queue,
+  }
+
+  if (activeGame === 'VALORANT') {
+    updateData.val_top_agents = formData.get('val_top_agents');
+  }
+  
+  if (activeGame === 'LOL') {
+    updateData.solo_rank = (stats.solo_rank && stats.solo_rank.toUpperCase() !== 'UNRANKED') ? stats.solo_rank : (formData.get('solo_rank') as string || 'Unranked');
+    updateData.flex_rank = (stats.flex_rank && stats.flex_rank.toUpperCase() !== 'UNRANKED') ? stats.flex_rank : (formData.get('flex_rank') as string || 'Unranked');
+  } else if (activeGame === 'TFT') {
+    updateData.tft_rank = (stats.tft_rank && stats.tft_rank.toUpperCase() !== 'UNRANKED') ? stats.tft_rank : (formData.get('tft_rank') as string || 'Unranked');
+  } else if (activeGame === 'VALORANT') {
+    updateData.val_rank = (stats.val_rank && stats.val_rank.toUpperCase() !== 'UNRANKED') ? stats.val_rank : (manualRank || 'Unranked');
   }
 
   if (puuid) {
     updateData[`${prefix}puuid`] = puuid
-  }
-
-  if (activeGame === 'LOL') {
-    updateData.solo_rank = stats.solo_rank
-    updateData.flex_rank = stats.flex_rank
-  } else if (activeGame === 'TFT') {
-    updateData.tft_rank = stats.tft_rank
-  } else if (activeGame === 'VALORANT') {
-    updateData.val_rank = stats.val_rank
   }
 
   const { error } = await supabase
@@ -163,13 +170,10 @@ export async function updateProfile(formData: FormData) {
   if (error) return { error: error.message }
 
   if (puuid) {
-    revalidateTag('ranks')
-    revalidateTag('tft-stats')
-    revalidateTag('valorant-stats')
-    revalidateTag('top-champions')
+    const tags = ['ranks', 'tft-stats', 'valorant-stats', 'top-champions'];
+    tags.forEach((tag) => revalidateTag(tag, 'max'))
   }
 
-  revalidatePath(`/profile/${user.id}`)
   revalidatePath(`/profile/${user.id}`, 'page')
 
   return { success: true }

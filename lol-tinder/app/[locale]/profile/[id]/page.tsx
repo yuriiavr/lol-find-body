@@ -109,25 +109,27 @@ export default function PublicProfilePage() {
       setValStats(null)
       setTopChamps([])
 
-      if (activeGame === 'LOL' && profile.puuid) {
-        const [ranks, champs] = await Promise.all([
-          getRanksByPuuid(profile.puuid, profile.region),
-          getTopChampions(profile.puuid, profile.region)
-        ])
-
-        setRiotStats(ranks)
-        setTopChamps(champs)
-      } else if (activeGame === 'TFT' && (profile.tft_puuid || profile.puuid)) {
-        const tftRegion = profile.tft_region || profile.region;
-        const puuid = profile.tft_puuid || profile.puuid;
-        const tft = await getRiotTFTStats(puuid, tftRegion)
-        setTftStats(tft)
-      } else if (activeGame === 'VALORANT' && profile.val_puuid) {
-        // Отримання статистики для Valorant тимчасово вимкнено
-        // const valRegion = profile.val_region || profile.region;
-        // const val = await getRiotValorantStats(profile.val_puuid, valRegion)
-        // setValStats(val)
-      }
+      /**
+       * Тимчасово вимкнено запити до Riot API (RSO не активний)
+       * 
+       * if (activeGame === 'LOL' && profile.puuid) {
+       *   const [ranks, champs] = await Promise.all([
+       *     getRanksByPuuid(profile.puuid, profile.region),
+       *     getTopChampions(profile.puuid, profile.region)
+       *   ])
+       *   setRiotStats(ranks)
+       *   setTopChamps(champs)
+       * } else if (activeGame === 'TFT' && (profile.tft_puuid || profile.puuid)) {
+       *   const tftRegion = profile.tft_region || profile.region;
+       *   const puuid = profile.tft_puuid || profile.puuid;
+       *   const tft = await getRiotTFTStats(puuid, tftRegion)
+       *   setTftStats(tft)
+       * } else if (activeGame === 'VALORANT' && profile.val_puuid) {
+       *   const valRegion = profile.val_region || profile.region;
+       *   const val = await getRiotValorantStats(profile.val_puuid, valRegion)
+       *   setValStats(val)
+       * }
+       */
       // await refreshReviews(id, activeGame, currentUser.id)
     }
     fetchGameSpecificData()

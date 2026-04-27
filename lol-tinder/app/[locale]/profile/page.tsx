@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [isDirty, setIsDirty] = useState(false);
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
   const [selectedQueues, setSelectedQueues] = useState<string[]>([]);
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState<"LOL" | "TFT" | "VALORANT">("LOL");
@@ -129,24 +130,13 @@ export default function ProfilePage() {
       const { name, value, type } = e.target;
       const isCheckbox = type === "checkbox";
       const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
-      const prefix =
-        activeTab === "LOL"
-          ? ""
-          : (activeTab === "VALORANT" ? "val" : activeTab.toLowerCase()) + "_";
 
-      setProfile((prev: any) => {
-        const next = { ...prev };
-        if (name === "role") next[`${prefix}main_role`] = val;
-        else if (name === "bio") next[`${prefix}bio`] = val;
-        else if (name === "hasMic") next.has_mic = val;
-        else if (name === "isPaused") next.is_paused = val;
-        else if (name.endsWith("_gameName")) next[`${prefix}game_name`] = val;
-        else if (name.endsWith("_tagLine")) next[`${prefix}tag_line`] = val;
-        else if (name.endsWith("_region")) next[`${prefix}region`] = val;
-        return next;
-      });
+      setProfile((prev: any) => ({
+        ...prev,
+        [name]: val
+      }));
     },
-    [activeTab],
+    [],
   );
 
   const toggleLang = useCallback((lang: string) => {
@@ -180,6 +170,17 @@ export default function ProfilePage() {
     [activeTab],
   );
 
+  const toggleAgent = useCallback((agent: string) => {
+    setSelectedAgents((prev) => {
+      const next = prev.includes(agent)
+        ? prev.filter((a) => a !== agent)
+        : [...prev, agent];
+      
+      setProfile((p: any) => ({ ...p, val_top_agents: next.join(",") }));
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     if (!profile) return;
     const prefix =
@@ -189,6 +190,11 @@ export default function ProfilePage() {
     const queueStr = profile[`${prefix}preferred_queue`] || "";
     setSelectedQueues(queueStr ? queueStr.split(",").filter(Boolean) : []);
   }, [activeTab, !!profile]);
+
+  useEffect(() => {
+    if (!profile?.val_top_agents) { setSelectedAgents([]); return; }
+    setSelectedAgents(profile.val_top_agents.split(",").filter(Boolean));
+  }, [activeTab, profile?.val_top_agents]);
 
   const toggleGame = useCallback((game: string) => {
     setEnabledGames((prev) => {
@@ -251,6 +257,7 @@ export default function ProfilePage() {
         tft_rank: "Unranked",
         val_rank: "Unranked",
         enabled_games: "LOL",
+        val_top_agents: "",
         language: "",
         preferred_queue: "",
         tft_preferred_queue: "",
@@ -278,30 +285,35 @@ export default function ProfilePage() {
         const qStr = initialProfile[`${prefix}preferred_queue`] || "";
         setSelectedQueues(qStr.split(",").filter(Boolean));
 
+        if (initialProfile.val_top_agents)
+          setSelectedAgents(initialProfile.val_top_agents.split(","));
+
         if (initialProfile.enabled_games)
           setEnabledGames(initialProfile.enabled_games.split(","));
 
-        // Fetch background stats
-        if (initialProfile.puuid) {
-          getRanksByPuuid(initialProfile.puuid, initialProfile.region).then(
-            (stats) => isMounted && setRiotStats(stats),
-          );
-        }
-        if (initialProfile.tft_puuid) {
-          getRiotTFTStats(
-            initialProfile.tft_puuid,
-            initialProfile.tft_region || initialProfile.region,
-          ).then((stats) => isMounted && setTftStats(stats));
-        }
-        if (initialProfile.val_puuid) {
-          // Отримання статистики для Valorant тимчасово вимкнено
-          // getRiotValorantStats(
-          //   initialProfile.val_puuid,
-          //   initialProfile.val_region || initialProfile.region,
-          // )
-          //   .then((stats) => isMounted && setValStats(stats))
-          //   .catch(() => {});
-        }
+        /** 
+         * Тимчасово вимкнено через відсутність доступу до RSO / Riot API Production
+         * 
+         * if (initialProfile.puuid) {
+         *   getRanksByPuuid(initialProfile.puuid, initialProfile.region).then(
+         *     (stats) => isMounted && setRiotStats(stats),
+         *   );
+         * }
+         * if (initialProfile.tft_puuid) {
+         *   getRiotTFTStats(
+         *     initialProfile.tft_puuid,
+         *     initialProfile.tft_region || initialProfile.region,
+         *   ).then((stats) => isMounted && setTftStats(stats));
+         * }
+         * if (initialProfile.val_puuid) {
+         *   getRiotValorantStats(
+         *     initialProfile.val_puuid,
+         *     initialProfile.val_region || initialProfile.region,
+         *   )
+         *     .then((stats) => isMounted && setValStats(stats))
+         *     .catch(() => {});
+         * }
+         */
       }
 
       const savedFormData = localStorage.getItem(
@@ -335,10 +347,19 @@ export default function ProfilePage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    
+    console.log("--- SUBMITTING PROFILE FORM DATA ---");
+    for (let [key, value] of formData.entries()) {
+      console.log(`${key}: ${value}`);
+    }
+
+    const gamePrefix = activeTab === "LOL" ? "" : (activeTab === "VALORANT" ? "val_" : "tft_");
+
     formData.append("activeGame", activeTab);
-    selectedLangs.forEach((lang) => formData.append("languages", lang));
-    selectedQueues.forEach((q) => formData.append("queues", q));
-    enabledGames.forEach((g) => formData.append("enabledGames", g));
+    formData.set("language", selectedLangs.join(","));
+    formData.set(`${gamePrefix}preferred_queue`, selectedQueues.join(","));
+    if (activeTab === "VALORANT") formData.set("val_top_agents", selectedAgents.join(","));
+    formData.set("enabled_games", enabledGames.join(","));
 
     const result = await updateProfile(formData);
 
@@ -394,6 +415,8 @@ export default function ProfilePage() {
             handleGameInputChange={handleGameInputChange}
             toggleQueue={toggleQueue}
             toggleGame={toggleGame}
+            selectedAgents={selectedAgents}
+            onToggleAgent={toggleAgent}
             activeTab={activeTab}
             enabledGames={enabledGames}
             selectedQueues={selectedQueues}

@@ -101,7 +101,7 @@ export const getRanksByPuuid = unstable_cache(
     }
   },
   ['ranks'],
-  { revalidate: 300 },
+  { revalidate: 300, tags: ['ranks'] },
 );
 
 export const getRiotTFTStats = unstable_cache(
@@ -127,7 +127,7 @@ export const getRiotTFTStats = unstable_cache(
     }
   },
   ['tft-stats'],
-  { revalidate: 300 },
+  { revalidate: 300, tags: ['tft-stats'] },
 );
 
 export const getRiotValorantStats = unstable_cache(
@@ -152,7 +152,7 @@ export const getRiotValorantStats = unstable_cache(
     }
   },
   ['valorant-stats'],
-  { revalidate: 3600 },
+  { revalidate: 3600, tags: ['valorant-stats'] },
 );
 
 export const getTopChampions = unstable_cache(
@@ -194,7 +194,7 @@ export const getTopChampions = unstable_cache(
     });
   },
   ['top-champions'],
-  { revalidate: 3600 },
+  { revalidate: 3600, tags: ['top-champions'] },
 );
 
 export async function getSummonerRank(

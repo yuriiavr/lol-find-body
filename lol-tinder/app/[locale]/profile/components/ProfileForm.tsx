@@ -10,6 +10,7 @@ import {
   Save,
   Link as LinkIcon,
   Gamepad2,
+  Trophy,
   Zap,
 } from "lucide-react";
 import {
@@ -34,6 +35,19 @@ const POPULAR_LANGUAGES = [
   "Dutch",
   "Hungarian",
   "Czech",
+];
+
+const VALORANT_RANKS = [
+  "Unranked", "Iron 1", "Iron 2", "Iron 3", "Bronze 1", "Bronze 2", "Bronze 3", 
+  "Silver 1", "Silver 2", "Silver 3", "Gold 1", "Gold 2", "Gold 3", 
+  "Platinum 1", "Platinum 2", "Platinum 3", "Diamond 1", "Diamond 2", "Diamond 3", 
+  "Ascendant 1", "Ascendant 2", "Ascendant 3", "Immortal 1", "Immortal 2", "Immortal 3", "Radiant"
+];
+
+const VALORANT_AGENTS = [
+  "Astra", "Breach", "Brimstone", "Chamber", "Clove", "Cypher", "Deadlock", 
+  "Fade", "Gekko", "Harbor", "Iso", "Jett", "KAY/O", "Killjoy", "Neon", 
+  "Omen", "Phoenix", "Raze", "Reyna", "Sage", "Skye", "Sova", "Viper", "Vyse", "Yoru"
 ];
 
 const QUEUES_BY_GAME: Record<string, string[]> = {
@@ -74,6 +88,8 @@ interface ProfileFormProps {
   activeTab: "LOL" | "TFT" | "VALORANT";
   enabledGames: string[];
   selectedQueues: string[];
+  selectedAgents?: string[];
+  onToggleAgent?: (agent: string) => void;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
   onSetActiveTab: (tab: "LOL" | "TFT" | "VALORANT") => void;
   loading: boolean;
@@ -91,18 +107,18 @@ const ProfileForm = memo(
     activeTab,
     enabledGames,
     selectedQueues,
+    selectedAgents = [],
+    onToggleAgent,
     handleSubmit,
     onSetActiveTab,
     loading,
   }: ProfileFormProps) => {
     const t = useTranslations();
 
+    const prefix = activeTab === "LOL" ? "" : (activeTab === "VALORANT" ? "val_" : "tft_");
+
     const getGameValue = (field: string) => {
       if (!profile) return "";
-      const prefix =
-        activeTab === "LOL"
-          ? ""
-          : (activeTab === "VALORANT" ? "val" : activeTab.toLowerCase()) + "_";
       return profile[`${prefix}${field}`] ?? "";
     };
 
@@ -123,27 +139,6 @@ const ProfileForm = memo(
             onInputChange={onInputChange}
             popularLanguages={POPULAR_LANGUAGES}
           />
-
-          <div className="modern-panel p-6 border-[rgb(var(--accent-color)/0.3)] bg-[rgb(var(--accent-color)/0.02)]">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div>
-                <h4 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-                  <LinkIcon size={18} className="text-[rgb(var(--accent-color))]" /> 
-                  Riot Games Account
-                </h4>
-                <p className="text-sm text-zinc-500">
-                  {profile.puuid ? "Ваш акаунт підключено. Ми автоматично оновлюємо статистику." : "Підключіть акаунт Riot для автоматичного імпорту статистики всіх ігор."}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => window.location.href = `${window.location.origin}/api/auth/riot`}
-                className={`px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all ${profile.puuid ? 'bg-zinc-800 text-zinc-400' : 'bg-white text-black hover:scale-105 active:scale-95'}`}
-              >
-                {profile.puuid ? "Перепідключити" : "Підключити Riot ID"}
-              </button>
-            </div>
-          </div>
 
           <div className="flex border-b border-white/5 mb-8 overflow-x-auto no-scrollbar">
             {GAMES.map((game) => (
@@ -176,7 +171,7 @@ const ProfileForm = memo(
               className="flex-1"
               label={t('ProfilePage.editor.riotId')}
               icon={UserIcon}
-              name={`${activeTab.toLowerCase()}_gameName`}
+              name={`${prefix}game_name`}
               value={getGameValue("game_name")}
               onChange={handleGameInputChange}
               placeholder="e.g. Faker"
@@ -186,7 +181,7 @@ const ProfileForm = memo(
               className="flex-1"
               label={t('ProfilePage.editor.tagline')}
               icon={Tag}
-              name={`${activeTab.toLowerCase()}_tagLine`}
+              name={`${prefix}tag_line`}
               value={getGameValue("tag_line")}
               onChange={handleGameInputChange}
               placeholder="e.g. EUW"
@@ -199,7 +194,7 @@ const ProfileForm = memo(
               className="flex-1"
               label={t('LandingPage.discovery.filters.region.label')}
               icon={Globe}
-              name={`${activeTab.toLowerCase()}_region`}
+              name={`${prefix}region`}
               value={getGameValue("region") || "EUW"}
               onChange={handleGameInputChange}
             >
@@ -208,12 +203,26 @@ const ProfileForm = memo(
               <option value="NA">{t('Common.regions.NA')}</option>
               <option value="KR">{t('Common.regions.KR')}</option>
             </FormSelect>
+            {activeTab === "VALORANT" && (
+              <FormSelect
+                className="flex-1"
+                label={t('ProfilePage.editor.rank')}
+                icon={Trophy}
+                name={`${prefix}rank`}
+                value={getGameValue("rank") || "Unranked"}
+                onChange={handleGameInputChange}
+              >
+                {VALORANT_RANKS.map(rank => (
+                  <option key={rank} value={rank}>{rank}</option>
+                ))}
+              </FormSelect>
+            )}
             {activeTab !== "TFT" && (
               <FormSelect
                 className="flex-1"
                 label={t('LandingPage.discovery.filters.role.label')}
                 icon={Sword}
-                name="role"
+                name={`${prefix}main_role`}
                 value={getGameValue("main_role") || "FILL"}
                 onChange={handleGameInputChange}
               >
@@ -246,9 +255,19 @@ const ProfileForm = memo(
             onToggle={toggleQueue}
           />
 
+          {activeTab === "VALORANT" && onToggleAgent && (
+            <BadgeSelector
+              label={t('ProfilePage.editor.agents')}
+              icon={UserIcon}
+              items={VALORANT_AGENTS}
+              selectedItems={selectedAgents}
+              onToggle={onToggleAgent}
+            />
+          )}
+
           <FormTextArea
             label={t('ProfilePage.editor.bio')}
-            name="bio"
+            name={`${prefix}bio`}
             value={getGameValue("bio")}
             onChange={handleGameInputChange}
             placeholder="Looking for competitive duo..."
