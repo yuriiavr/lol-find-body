@@ -259,7 +259,7 @@ export default function ProfilePage() {
         tft_losses: 0,
         val_wins: 0,
         val_losses: 0,
-        enabled_games: "LOL",
+        enabled_games: "",
         val_top_agents: "",
         language: "",
         preferred_queue: "",
