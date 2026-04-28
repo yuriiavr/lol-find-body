@@ -4,9 +4,8 @@ import { useState, useEffect, memo, useCallback } from "react";
 import { createClient } from "@/src/utils/supabase/client";
 import {
   updateProfile,
-  getRanksByPuuid,
-  getRiotTFTStats,
-  getRiotValorantStats,
+  getRanksByPuuidAction,
+  getRiotTFTStatsAction,
 } from "./actions";
 import ProfilePreview from "./components/ProfilePreview";
 import ProfileForm from "./components/ProfileForm";
@@ -53,6 +52,14 @@ export default function ProfilePage() {
 
   const getGameValue = useCallback((field: string) => {
     if (!profile) return "";
+
+    // Mapping for LOL/TFT which use the global Riot Account columns
+    if (activeTab === "LOL" || activeTab === "TFT") {
+      if (field === "game_name") return profile.riot_game_name ?? "";
+      if (field === "tag_line") return profile.riot_tag_line ?? "";
+      if (field === "region") return profile.riot_region ?? "";
+    }
+
     const prefix =
       activeTab === "LOL"
         ? ""
@@ -235,14 +242,11 @@ export default function ProfilePage() {
       const defaultProfile = {
         id: authUser.id,
         display_name: "",
-        game_name: "",
-        tag_line: "",
-        region: "EUW",
+        riot_game_name: "",
+        riot_tag_line: "",
+        riot_region: "EUW",
         main_role: "FILL",
         bio: "",
-        tft_game_name: "",
-        tft_tag_line: "",
-        tft_region: "EUW",
         tft_main_role: "FILL",
         tft_bio: "",
         val_game_name: "",
@@ -256,6 +260,14 @@ export default function ProfilePage() {
         flex_rank: "Unranked",
         tft_rank: "Unranked",
         val_rank: "Unranked",
+        solo_wins: 0,
+        solo_losses: 0,
+        flex_wins: 0,
+        flex_losses: 0,
+        tft_wins: 0,
+        tft_losses: 0,
+        val_wins: 0,
+        val_losses: 0,
         enabled_games: "LOL",
         val_top_agents: "",
         language: "",
@@ -291,29 +303,19 @@ export default function ProfilePage() {
         if (initialProfile.enabled_games)
           setEnabledGames(initialProfile.enabled_games.split(","));
 
-        /** 
-         * Тимчасово вимкнено через відсутність доступу до RSO / Riot API Production
-         * 
-         * if (initialProfile.puuid) {
-         *   getRanksByPuuid(initialProfile.puuid, initialProfile.region).then(
-         *     (stats) => isMounted && setRiotStats(stats),
-         *   );
-         * }
-         * if (initialProfile.tft_puuid) {
-         *   getRiotTFTStats(
-         *     initialProfile.tft_puuid,
-         *     initialProfile.tft_region || initialProfile.region,
-         *   ).then((stats) => isMounted && setTftStats(stats));
-         * }
-         * if (initialProfile.val_puuid) {
-         *   getRiotValorantStats(
-         *     initialProfile.val_puuid,
-         *     initialProfile.val_region || initialProfile.region,
-         *   )
-         *     .then((stats) => isMounted && setValStats(stats))
-         *     .catch(() => {});
-         * }
-         */
+        if (initialProfile.puuid) {
+          getRanksByPuuidAction(initialProfile.puuid, initialProfile.riot_region).then(
+            (stats) => isMounted && setRiotStats(stats),
+          );
+        }
+
+        const initialGames = initialProfile.enabled_games ? initialProfile.enabled_games.split(",") : [];
+        if (initialProfile.puuid && (initialGames.includes("TFT") || activeTab === "TFT")) {
+          getRiotTFTStatsAction(
+            initialProfile.puuid,
+            initialProfile.riot_region,
+          ).then((stats) => isMounted && setTftStats(stats));
+        }
       }
 
       const savedFormData = localStorage.getItem(
@@ -361,13 +363,40 @@ export default function ProfilePage() {
     if (activeTab === "VALORANT") formData.set("val_top_agents", selectedAgents.join(","));
     formData.set("enabled_games", enabledGames.join(","));
 
+    // Ensure shared Riot Account data is passed
+    formData.set("riot_game_name", profile.riot_game_name || "");
+    formData.set("riot_tag_line", profile.riot_tag_line || "");
+    formData.set("riot_region", profile.riot_region || "EUW");
+
     const result = await updateProfile(formData);
 
     if (result?.error) {
       showToast(result.error || t("toasts.error"), "error");
       setLoading(false);
     } else {
-      setLastSavedProfile(JSON.parse(JSON.stringify(profile)));
+      // Якщо повернуто новий puuid, оновлюємо статистику для RankPanel
+      if (result.puuid) {
+        const region = (formData.get('riot_region') as string) || profile.riot_region;
+        
+        // Запускаємо оновлення статистики паралельно
+        const [stats, tft] = await Promise.all([
+          getRanksByPuuidAction(result.puuid, region),
+          getRiotTFTStatsAction(result.puuid, region)
+        ]);
+
+        setRiotStats(stats);
+        setTftStats(tft);
+
+        // Синхронізуємо локальний стан профілю з новим PUUID
+        setProfile((prev: any) => {
+          const updated = { ...prev, puuid: result.puuid };
+          setLastSavedProfile(JSON.parse(JSON.stringify(updated)));
+          return updated;
+        });
+      } else {
+        setLastSavedProfile(JSON.parse(JSON.stringify(profile)));
+      }
+
       showToast(t("toasts.success"), "success");
       setLoading(false);
     }

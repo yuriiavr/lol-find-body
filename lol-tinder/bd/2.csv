@@ -1,0 +1,7 @@
+column_name,data_type,is_nullable,column_default
+id,uuid,NO,gen_random_uuid()
+match_id,uuid,NO,null
+sender_id,uuid,NO,null
+content,text,NO,null
+created_at,timestamp with time zone,NO,now()
+is_read,boolean,YES,false

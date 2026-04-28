@@ -84,7 +84,13 @@
         "displayName": { "label": "Глобальний нікнейм" },
         "languages": { "label": "Мови, якими ви розмовляєте" },
         "voice": { "label": "Голосовий зв'язок", "status": "У мене є мікрофон" },
-        "games": { "label": "Ігри" }
+        "games": { "label": "Ігри" },
+        "riotAccount": {
+          "title": "Riot Account",
+          "description": "Спільний ігровий акаунт для League of Legends та Teamfight Tactics.",
+          "button": "Прив'язати Riot Account",
+          "status": "{name}#{tag}"
+        }
       }
     },
     "playerProfile": {

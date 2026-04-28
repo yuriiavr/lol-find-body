@@ -51,8 +51,9 @@ export async function getAccountByRiotId(
   const route = REGION_MAP[regionKey]?.regional || "europe";
   const url = `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}?api_key=${RIOT_API_KEY}`;
 
+  console.log(`[Riot API] Fetching account: ${url}`);
   const res = await fetch(url, { next: { revalidate: 86400 } });
-  if (!res.ok) return null;
+  if (!res.ok) { console.error(`[Riot API] Account not found: ${res.status}`); return null; }
   return res.json();
 }
 
@@ -63,8 +64,9 @@ export async function getSummonerByPuuid(
   const platform = REGION_MAP[regionKey]?.platform || "eun1";
   const url = `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}?api_key=${RIOT_API_KEY}`;
 
+  console.log(`[Riot API] Fetching summoner: ${url}`);
   const res = await fetch(url, { next: { revalidate: 86400 } });
-  if (!res.ok) return null;
+  if (!res.ok) { console.error(`[Riot API] Summoner not found: ${res.status}`); return null; }
   return res.json();
 }
 
@@ -75,9 +77,14 @@ export const getRanksByPuuid = unstable_cache(
 
     try {
       const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) return { solo: 'UNRANKED', solo_wins: 0, solo_losses: 0, flex: 'UNRANKED', flex_wins: 0, flex_losses: 0 };
+      console.log(`[Riot API] Fetching ranks: ${url}`);
+      if (!res.ok) {
+        console.error(`[Riot API] Ranks error: ${res.status}`);
+        return { solo: 'UNRANKED', solo_wins: 0, solo_losses: 0, flex: 'UNRANKED', flex_wins: 0, flex_losses: 0 };
+      }
 
       const data: LeagueEntry[] = await res.json();
+      console.log(`[Riot API] Ranks data received:`, JSON.stringify(data));
 
       const findRank = (qType: string) => {
         const entry = data.find((e) => e.queueType === qType);
@@ -96,7 +103,8 @@ export const getRanksByPuuid = unstable_cache(
         flex_wins:   data.find(e => e.queueType === 'RANKED_FLEX_SR')?.wins    || 0,
         flex_losses: data.find(e => e.queueType === 'RANKED_FLEX_SR')?.losses  || 0,
       };
-    } catch {
+    } catch (err) {
+      console.error(`[Riot API] Exception in getRanksByPuuid:`, err);
       return { solo: 'UNRANKED', solo_wins: 0, solo_losses: 0, flex: 'UNRANKED', flex_wins: 0, flex_losses: 0 };
     }
   },
@@ -114,6 +122,8 @@ export const getRiotTFTStats = unstable_cache(
       if (!res.ok) return { rank: 'UNRANKED', wins: 0, losses: 0 };
 
       const data = await res.json();
+      console.log(`[Riot API] TFT Stats received:`, JSON.stringify(data));
+      
       const entry = data.find((e: any) => e.queueType === 'RANKED_TFT');
       if (!entry) return { rank: 'UNRANKED', wins: 0, losses: 0 };
 
@@ -130,30 +140,31 @@ export const getRiotTFTStats = unstable_cache(
   { revalidate: 300, tags: ['tft-stats'] },
 );
 
-export const getRiotValorantStats = unstable_cache(
-  async (puuid: string, regionKey: string) => {
-    const regionGroup = REGION_MAP[regionKey]?.regional || "europe";
+// export const getRiotValorantStats = unstable_cache(
+//   async (puuid: string, regionKey: string) => {
+//     const regionGroup = REGION_MAP[regionKey]?.regional || "europe";
 
-    try {
-      const accountUrl = `https://${regionGroup}.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
-      const accountRes = await fetch(accountUrl, { cache: 'no-store' });
-      if (!accountRes.ok) return null;
+//     try {
+//       const accountUrl = `https://${regionGroup}.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}?api_key=${RIOT_API_KEY}`;
+//       const accountRes = await fetch(accountUrl, { cache: 'no-store' });
+//       if (!accountRes.ok) return null;
 
-      const accountData = await accountRes.json();
+//       const accountData = await accountRes.json();
+//       console.log(`[Riot API] Valorant account data:`, JSON.stringify(accountData));
 
-      return {
-        ...accountData,
-        rankName: 'Unranked',
-        wins:     0,
-        losses:   0,
-      };
-    } catch {
-      return null;
-    }
-  },
-  ['valorant-stats'],
-  { revalidate: 3600, tags: ['valorant-stats'] },
-);
+//       return {
+//         ...accountData,
+//         rankName: 'Unranked',
+//         wins:     0,
+//         losses:   0,
+//       };
+//     } catch {
+//       return null;
+//     }
+//   },
+//   ['valorant-stats'],
+//   { revalidate: 3600, tags: ['valorant-stats'] },
+// );
 
 export const getTopChampions = unstable_cache(
   async (puuid: string, regionKey: string) => {

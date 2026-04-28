@@ -75,10 +75,12 @@ const ProfilePreview = memo(
         <div className="text-center lg:text-left space-y-2">
           <div className="flex items-start gap-3 justify-center lg:justify-start group/name">
             <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
-              {profile.display_name || getGameValue("game_name") || t('ProfilePage.editor.summoner')}
-              <span className="text-slate-600 block text-2xl mt-1">
-                #{getGameValue("tag_line") || "EUW"}
-              </span>
+              {getGameValue("game_name") || t('ProfilePage.editor.summoner')}
+              {getGameValue("tag_line") && (
+                <span className="text-slate-600 block text-2xl mt-1">
+                  #{getGameValue("tag_line")}
+                </span>
+              )}
             </h1>
             <button
               onClick={handleCopy}
@@ -116,7 +118,7 @@ const ProfilePreview = memo(
                 isActive={selectedQueues.includes("Solo/Duo")}
                 isMain={true}
                 stats={
-                  riotStats && riotStats.solo_wins + riotStats.solo_losses > 0
+                  ((riotStats?.solo_wins ?? 0) + (riotStats?.solo_losses ?? 0)) > 0
                     ? {
                         wins: riotStats.solo_wins,
                         losses: riotStats.solo_losses,
@@ -130,7 +132,7 @@ const ProfilePreview = memo(
                 isActive={selectedQueues.includes("Flex")}
                 isMain={false}
                 stats={
-                  riotStats && riotStats.flex_wins + riotStats.flex_losses > 0
+                  ((riotStats?.flex_wins ?? 0) + (riotStats?.flex_losses ?? 0)) > 0
                     ? {
                         wins: riotStats.flex_wins,
                         losses: riotStats.flex_losses,
@@ -146,10 +148,10 @@ const ProfilePreview = memo(
               isActive={true}
               isMain={true}
               stats={
-                (tftStats?.wins ?? profile.tft_wins) + (tftStats?.losses ?? profile.tft_losses) > 0
+                ((tftStats?.wins ?? 0) + (tftStats?.losses ?? 0)) > 0
                   ? { 
-                      wins: tftStats?.wins ?? profile.tft_wins, 
-                      losses: tftStats?.losses ?? profile.tft_losses 
+                      wins: tftStats.wins, 
+                      losses: tftStats.losses 
                     }
                   : null
               }
@@ -161,8 +163,11 @@ const ProfilePreview = memo(
               isActive={true}
               isMain={true}
               stats={
-                valStats && valStats.wins + valStats.losses > 0
-                  ? { wins: valStats.wins, losses: valStats.losses }
+                ((valStats?.wins ?? 0) + (valStats?.losses ?? 0)) > 0
+                  ? { 
+                      wins: valStats.wins, 
+                      losses: valStats.losses 
+                    }
                   : null
               }
             />

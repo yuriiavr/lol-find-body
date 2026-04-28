@@ -1,3 +1,5 @@
+// --- Enums ---
+
 enum Role {
   TOP
   JUNGLE
@@ -21,37 +23,103 @@ enum Rank {
   CHALLENGER
 }
 
+// Статуси для системи друзів/запитів (з 3.csv)
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+// --- Models ---
+
 model User {
-  id            String    @id @default(cuid())
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String?
   email         String?   @unique
-  image         String?   // Discord avatar
+  image         String?
   
-  // Riot data
-  riotId        String?   // Game Name
-  riotTag       String?   // Tagline
-  puuid         String?   @unique // ID Riot
+  // Riot data (з Supabase Snippet)
+  riotId        String?   @map("riot_game_name")
+  riotTag       String?   @map("riot_tag_line")
+  puuid         String?   @unique
   region        String    @default("EUW")
   rank          Rank      @default(UNRANKED)
   mainRole      Role      @default(FILL)
   secondaryRole Role      @default(FILL)
-  
   bio           String?   @db.Text
-  
-  // Система свайпів
-  likesSent     Like[]    @relation("LikesSent")
-  likesReceived Like[]    @relation("LikesReceived")
+  updatedAt     DateTime? @updatedAt @map("updated_at")
+
+  // Відносини зі свайпами
+  likesSent      Like[]    @relation("LikesSent")
+  likesReceived  Like[]    @relation("LikesReceived")
+
+  // Нові відносини з файлу 1.csv (Відгуки)
+  reviewsGiven    Review[] @relation("Reviewer")
+  reviewsReceived Review[] @relation("ReviewTarget")
+
+  // Нові відносини з файлу 2.csv (Повідомлення)
+  messages SentMessage[]
+
+  // Нові відносини з файлу 3.csv (Друзі/Запити)
+  friendRequestsSent     FriendRequest[] @relation("FriendRequestSender")
+  friendRequestsReceived FriendRequest[] @relation("FriendRequestTarget")
+
+  @@map("profiles")
 }
 
-model Like {
-  id          String   @id @default(cuid())
-  fromId      String
-  toId        String
-  isMatch     Boolean  @default(false)
-  createdAt   DateTime @default(now())
+// Модель з файлу 1.csv (Система відгуків/поведінки)
+model Review {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reviewerId     String   @map("reviewer_id") @db.Uuid
+  targetId       String   @map("target_id") @db.Uuid
+  comment        String?  @db.Text
+  behaviorRating Int      @map("behavior_rating")
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  from        User     @relation("LikesSent", fields: [fromId], references: [id])
-  to          User     @relation("LikesReceived", fields: [toId], references: [id])
+  reviewer User @relation("Reviewer", fields: [reviewerId], references: [id])
+  target   User @relation("ReviewTarget", fields: [targetId], references: [id])
+
+  @@map("reviews")
+}
+
+// Модель з файлу 2.csv (Повідомлення в метчах)
+model SentMessage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  matchId   String   @map("match_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sender User @relation(fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+// Модель з файлу 3.csv (Запити на дружбу/гру)
+model FriendRequest {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  targetId  String        @map("target_id") @db.Uuid
+  status    RequestStatus @default(PENDING)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  sender User @relation("FriendRequestSender", fields: [userId], references: [id])
+  target User @relation("FriendRequestTarget", fields: [targetId], references: [id])
+
+  @@map("friend_requests")
+}
+
+// Оригінальна модель Like
+model Like {
+  id        String   @id @default(cuid())
+  fromId    String   @map("from_id")
+  toId      String   @map("to_id")
+  isMatch   Boolean  @default(false) @map("is_match")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  from User @relation("LikesSent", fields: [fromId], references: [id])
+  to   User @relation("LikesReceived", fields: [toId], references: [id])
 
   @@unique([fromId, toId])
+  @@map("likes")
 }

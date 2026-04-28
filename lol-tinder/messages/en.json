@@ -84,7 +84,13 @@
         "displayName": { "label": "Global Display Name" },
         "languages": { "label": "Languages You Speak" },
         "voice": { "label": "Voice Comms", "status": "I have a microphone" },
-        "games": { "label": "Games" }
+        "games": { "label": "Games" },
+        "riotAccount": {
+          "title": "Riot Account",
+          "description": "Shared identity for League of Legends and Teamfight Tactics.",
+          "button": "Configure Riot Account",
+          "status": "{name}#{tag}"
+        }
       }
     },
     "playerProfile": {

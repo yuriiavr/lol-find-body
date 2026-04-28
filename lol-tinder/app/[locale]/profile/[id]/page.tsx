@@ -7,10 +7,9 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { sendMatchRequest, upsertReview, getReviewsForUser } from '@/app/[locale]/matches/actions'
 import { 
-  getRanksByPuuid, 
-  getTopChampions, 
-  getRiotTFTStats, 
-  getRiotValorantStats 
+  getRanksByPuuidAction, 
+  getTopChampionsAction, 
+  getRiotTFTStatsAction
 } from '@/app/[locale]/profile/actions'
 import { useToast } from '@/src/components/ToastProvider'
 import { ProfileSidebar } from './components/ProfileSidebar'
@@ -109,27 +108,18 @@ export default function PublicProfilePage() {
       setValStats(null)
       setTopChamps([])
 
-      /**
-       * Тимчасово вимкнено запити до Riot API (RSO не активний)
-       * 
-       * if (activeGame === 'LOL' && profile.puuid) {
-       *   const [ranks, champs] = await Promise.all([
-       *     getRanksByPuuid(profile.puuid, profile.region),
-       *     getTopChampions(profile.puuid, profile.region)
-       *   ])
-       *   setRiotStats(ranks)
-       *   setTopChamps(champs)
-       * } else if (activeGame === 'TFT' && (profile.tft_puuid || profile.puuid)) {
-       *   const tftRegion = profile.tft_region || profile.region;
-       *   const puuid = profile.tft_puuid || profile.puuid;
-       *   const tft = await getRiotTFTStats(puuid, tftRegion)
-       *   setTftStats(tft)
-       * } else if (activeGame === 'VALORANT' && profile.val_puuid) {
-       *   const valRegion = profile.val_region || profile.region;
-       *   const val = await getRiotValorantStats(profile.val_puuid, valRegion)
-       *   setValStats(val)
-       * }
-       */
+      if (activeGame === 'LOL' && profile.puuid) {
+        const [ranks, champs] = await Promise.all([
+          getRanksByPuuidAction(profile.puuid, profile.region),
+          getTopChampionsAction(profile.puuid, profile.region)
+        ])
+        setRiotStats(ranks)
+        setTopChamps(champs)
+      } else if (activeGame === 'TFT' && profile.puuid) {
+        const tft = await getRiotTFTStatsAction(profile.puuid, profile.region)
+        setTftStats(tft)
+      }
+
       // await refreshReviews(id, activeGame, currentUser.id)
     }
     fetchGameSpecificData()

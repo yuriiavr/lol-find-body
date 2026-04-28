@@ -38,16 +38,60 @@ const POPULAR_LANGUAGES = [
 ];
 
 const VALORANT_RANKS = [
-  "Unranked", "Iron 1", "Iron 2", "Iron 3", "Bronze 1", "Bronze 2", "Bronze 3", 
-  "Silver 1", "Silver 2", "Silver 3", "Gold 1", "Gold 2", "Gold 3", 
-  "Platinum 1", "Platinum 2", "Platinum 3", "Diamond 1", "Diamond 2", "Diamond 3", 
-  "Ascendant 1", "Ascendant 2", "Ascendant 3", "Immortal 1", "Immortal 2", "Immortal 3", "Radiant"
+  "Unranked",
+  "Iron 1",
+  "Iron 2",
+  "Iron 3",
+  "Bronze 1",
+  "Bronze 2",
+  "Bronze 3",
+  "Silver 1",
+  "Silver 2",
+  "Silver 3",
+  "Gold 1",
+  "Gold 2",
+  "Gold 3",
+  "Platinum 1",
+  "Platinum 2",
+  "Platinum 3",
+  "Diamond 1",
+  "Diamond 2",
+  "Diamond 3",
+  "Ascendant 1",
+  "Ascendant 2",
+  "Ascendant 3",
+  "Immortal 1",
+  "Immortal 2",
+  "Immortal 3",
+  "Radiant",
 ];
 
 const VALORANT_AGENTS = [
-  "Astra", "Breach", "Brimstone", "Chamber", "Clove", "Cypher", "Deadlock", 
-  "Fade", "Gekko", "Harbor", "Iso", "Jett", "KAY/O", "Killjoy", "Neon", 
-  "Omen", "Phoenix", "Raze", "Reyna", "Sage", "Skye", "Sova", "Viper", "Vyse", "Yoru"
+  "Astra",
+  "Breach",
+  "Brimstone",
+  "Chamber",
+  "Clove",
+  "Cypher",
+  "Deadlock",
+  "Fade",
+  "Gekko",
+  "Harbor",
+  "Iso",
+  "Jett",
+  "KAY/O",
+  "Killjoy",
+  "Neon",
+  "Omen",
+  "Phoenix",
+  "Raze",
+  "Reyna",
+  "Sage",
+  "Skye",
+  "Sova",
+  "Viper",
+  "Vyse",
+  "Yoru",
 ];
 
 const QUEUES_BY_GAME: Record<string, string[]> = {
@@ -115,7 +159,8 @@ const ProfileForm = memo(
   }: ProfileFormProps) => {
     const t = useTranslations();
 
-    const prefix = activeTab === "LOL" ? "" : (activeTab === "VALORANT" ? "val_" : "tft_");
+    const prefix =
+      activeTab === "LOL" ? "" : activeTab === "VALORANT" ? "val_" : "tft_";
 
     const getGameValue = (field: string) => {
       if (!profile) return "";
@@ -127,7 +172,7 @@ const ProfileForm = memo(
         <div className="flex items-center gap-3 mb-10">
           <Settings size={24} className="text-[rgb(var(--accent-color))]" />
           <h3 className="text-2xl font-black uppercase tracking-tighter italic">
-            {t('LandingPage.profileEditor.header.title')}
+            {t("LandingPage.profileEditor.header.title")}
           </h3>
         </div>
 
@@ -159,68 +204,76 @@ const ProfileForm = memo(
 
           <FormSwitch
             className="md:col-span-2"
-            label={t('ProfilePage.editor.postCard')}
-            description={t('ProfilePage.editor.postCardDesc', { game: activeTab })}
+            label={t("ProfilePage.editor.postCard")}
+            description={t("ProfilePage.editor.postCardDesc", {
+              game: activeTab,
+            })}
             checked={enabledGames.includes(activeTab)}
             onChange={() => toggleGame(activeTab)}
             name="isGameEnabled"
           />
 
-          <div className="flex flex-col md:flex-row gap-6">
-            <FormInput
-              className="flex-1"
-              label={t('ProfilePage.editor.riotId')}
-              icon={UserIcon}
-              name={`${prefix}game_name`}
-              value={getGameValue("game_name")}
-              onChange={handleGameInputChange}
-              placeholder="e.g. Faker"
-              required
-            />
-            <FormInput
-              className="flex-1"
-              label={t('ProfilePage.editor.tagline')}
-              icon={Tag}
-              name={`${prefix}tag_line`}
-              value={getGameValue("tag_line")}
-              onChange={handleGameInputChange}
-              placeholder="e.g. EUW"
-              required
-            />
-          </div>
+          {activeTab === "VALORANT" && (
+            <div className="flex flex-col md:flex-row gap-6">
+              <FormInput
+                className="flex-1"
+                label={t("ProfilePage.editor.riotId")}
+                icon={UserIcon}
+                name={`${prefix}game_name`}
+                value={getGameValue("game_name")}
+                onChange={handleGameInputChange}
+                placeholder="e.g. Faker"
+                required
+              />
+              <FormInput
+                className="flex-1"
+                label={t("ProfilePage.editor.tagline")}
+                icon={Tag}
+                name={`${prefix}tag_line`}
+                value={getGameValue("tag_line")}
+                onChange={handleGameInputChange}
+                placeholder="e.g. EUW"
+                required
+              />
+            </div>
+          )}
 
           <div className="flex flex-col md:flex-row gap-6">
-            <FormSelect
-              className="flex-1"
-              label={t('LandingPage.discovery.filters.region.label')}
-              icon={Globe}
-              name={`${prefix}region`}
-              value={getGameValue("region") || "EUW"}
-              onChange={handleGameInputChange}
-            >
-              <option value="EUW">{t('Common.regions.EUW')}</option>
-              <option value="EUNE">{t('Common.regions.EUNE')}</option>
-              <option value="NA">{t('Common.regions.NA')}</option>
-              <option value="KR">{t('Common.regions.KR')}</option>
-            </FormSelect>
             {activeTab === "VALORANT" && (
               <FormSelect
                 className="flex-1"
-                label={t('ProfilePage.editor.rank')}
+                label={t("LandingPage.discovery.filters.region.label")}
+                icon={Globe}
+                name={`${prefix}region`}
+                value={getGameValue("region") || "EUW"}
+                onChange={handleGameInputChange}
+              >
+                <option value="EUW">{t("Common.regions.EUW")}</option>
+                <option value="EUNE">{t("Common.regions.EUNE")}</option>
+                <option value="NA">{t("Common.regions.NA")}</option>
+                <option value="KR">{t("Common.regions.KR")}</option>
+              </FormSelect>
+            )}
+            {activeTab === "VALORANT" && (
+              <FormSelect
+                className="flex-1"
+                label={t("ProfilePage.editor.rank")}
                 icon={Trophy}
                 name={`${prefix}rank`}
                 value={getGameValue("rank") || "Unranked"}
                 onChange={handleGameInputChange}
               >
-                {VALORANT_RANKS.map(rank => (
-                  <option key={rank} value={rank}>{rank}</option>
+                {VALORANT_RANKS.map((rank) => (
+                  <option key={rank} value={rank}>
+                    {rank}
+                  </option>
                 ))}
               </FormSelect>
             )}
             {activeTab !== "TFT" && (
               <FormSelect
                 className="flex-1"
-                label={t('LandingPage.discovery.filters.role.label')}
+                label={t("LandingPage.discovery.filters.role.label")}
                 icon={Sword}
                 name={`${prefix}main_role`}
                 value={getGameValue("main_role") || "FILL"}
@@ -228,19 +281,25 @@ const ProfileForm = memo(
               >
                 {activeTab === "VALORANT" ? (
                   <>
-                    <option value="DUELIST">{t('Common.roles.duelist')}</option>
-                    <option value="INITIATOR">{t('Common.roles.initiator')}</option>
-                    <option value="CONTROLLER">{t('Common.roles.controller')}</option>
-                    <option value="SENTINEL">{t('Common.roles.sentinel')}</option>
+                    <option value="DUELIST">{t("Common.roles.duelist")}</option>
+                    <option value="INITIATOR">
+                      {t("Common.roles.initiator")}
+                    </option>
+                    <option value="CONTROLLER">
+                      {t("Common.roles.controller")}
+                    </option>
+                    <option value="SENTINEL">
+                      {t("Common.roles.sentinel")}
+                    </option>
                   </>
                 ) : (
                   <>
-                    <option value="FILL">{t('Common.roles.fill')}</option>
-                    <option value="TOP">{t('Common.roles.top')}</option>
-                    <option value="JUNGLE">{t('Common.roles.jungle')}</option>
-                    <option value="MID">{t('Common.roles.mid')}</option>
-                    <option value="ADC">{t('Common.roles.adc')}</option>
-                    <option value="SUPPORT">{t('Common.roles.support')}</option>
+                    <option value="FILL">{t("Common.roles.fill")}</option>
+                    <option value="TOP">{t("Common.roles.top")}</option>
+                    <option value="JUNGLE">{t("Common.roles.jungle")}</option>
+                    <option value="MID">{t("Common.roles.mid")}</option>
+                    <option value="ADC">{t("Common.roles.adc")}</option>
+                    <option value="SUPPORT">{t("Common.roles.support")}</option>
                   </>
                 )}
               </FormSelect>
@@ -248,7 +307,7 @@ const ProfileForm = memo(
           </div>
 
           <BadgeSelector
-            label={t('LandingPage.discovery.filters.queue.label')}
+            label={t("LandingPage.discovery.filters.queue.label")}
             icon={LayoutGrid}
             items={QUEUES_BY_GAME[activeTab] || []}
             selectedItems={selectedQueues}
@@ -257,7 +316,7 @@ const ProfileForm = memo(
 
           {activeTab === "VALORANT" && onToggleAgent && (
             <BadgeSelector
-              label={t('ProfilePage.editor.agents')}
+              label={t("ProfilePage.editor.agents")}
               icon={UserIcon}
               items={VALORANT_AGENTS}
               selectedItems={selectedAgents}
@@ -266,7 +325,7 @@ const ProfileForm = memo(
           )}
 
           <FormTextArea
-            label={t('ProfilePage.editor.bio')}
+            label={t("ProfilePage.editor.bio")}
             name={`${prefix}bio`}
             value={getGameValue("bio")}
             onChange={handleGameInputChange}
@@ -282,12 +341,12 @@ const ProfileForm = memo(
               {loading ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
-                  {t('ProfilePage.editor.saving')}
+                  {t("ProfilePage.editor.saving")}
                 </>
               ) : (
                 <>
                   <Save size={20} />
-                  {t('ProfilePage.editor.save')}
+                  {t("ProfilePage.editor.save")}
                 </>
               )}
             </button>
