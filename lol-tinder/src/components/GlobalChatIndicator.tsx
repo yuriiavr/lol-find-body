@@ -153,7 +153,7 @@ export function GlobalChatIndicator() {
                              )}
                            </div>
                            <div className="text-left">
-                             <p className="text-sm font-bold text-zinc-200 group-hover:text-[rgb(var(--accent-color))] transition-colors">{m.profile.game_name}</p>
+                             <p className="text-sm font-bold text-zinc-200 group-hover:text-[rgb(var(--accent-color))] transition-colors">{m.profile.display_name}</p>
                              {m.last_message && (
                                <p className="text-[10px] text-zinc-500 truncate max-w-[180px]">
                                  {m.last_message.sender_id === user.id && <span className="text-[rgb(var(--accent-color))] font-black mr-1">{t('you')}:</span>}

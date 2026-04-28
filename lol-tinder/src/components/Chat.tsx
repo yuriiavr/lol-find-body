@@ -101,7 +101,7 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
           )}
           <img src={targetProfile.avatar_url} className="w-8 h-8 rounded-full border border-[rgb(var(--accent-color)/0.3)]" alt="" />
           <div>
-            <h4 className="text-sm font-bold text-white leading-none">{targetProfile.game_name}</h4>
+            <h4 className="text-sm font-bold text-white leading-none">{targetProfile.display_name}</h4>
             <span className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">{t('secureChat')}</span>
           </div>
         </div>

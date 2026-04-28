@@ -149,15 +149,15 @@ export default function MatchesPage() {
                                         </div>
                                         <div className="min-w-0">
                                             <h4 className="text-lg font-bold text-white group-hover:text-[rgb(var(--accent-color))] transition-colors truncate">
-                                              {m.profile.display_name || m.profile.riot_game_name} 
+                                              {m.profile.display_name || m.profile.riot_game_name || m.profile.val_game_name} 
                                               {!m.profile.display_name && (
                                                 <span className="text-zinc-600 text-sm font-medium ml-1">
-                                                  #{m.profile.tag_line}
+                                                  #{m.profile.riot_tag_line || m.profile.val_tag_line}
                                                 </span>
                                               )}
                                             </h4>
                                             <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter">{m.profile.region}</span>
+                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter">{m.profile.enabled_games}</span>
                                                 {m.profile.language && (
                                                     <>
                                                         <span className="text-zinc-800">•</span>

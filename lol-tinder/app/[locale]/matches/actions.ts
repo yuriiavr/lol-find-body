@@ -63,8 +63,8 @@ export async function getMatches() {
       user_id,
       target_id,
       status,
-      sender:profiles!user_id (id, display_name, game_name, tag_line, avatar_url, main_role, last_seen, bio, region, language),
-      receiver:profiles!target_id (id, display_name, game_name, tag_line, avatar_url, main_role, last_seen, bio, region, language),
+      sender:profiles!user_id (id, display_name, riot_game_name, riot_tag_line, val_game_name, val_tag_line, avatar_url, main_role, last_seen, bio, riot_region, val_region, language, enabled_games),
+      receiver:profiles!target_id (id, display_name, riot_game_name, riot_tag_line, val_game_name, val_tag_line, avatar_url, main_role, last_seen, bio, riot_region, val_region, language),
       messages (content, sender_id, created_at)
     `)
     .or(`user_id.eq.${user.id},target_id.eq.${user.id}`)
@@ -161,7 +161,7 @@ export async function getReviewsForUser(targetId: string, gameType: 'LOL' | 'TFT
 
   const { data, error } = await supabase
     .from('reviews')
-    .select('*, reviewer:profiles!reviewer_id(game_name, avatar_url)')
+    .select('*, reviewer:profiles!reviewer_id(display_name, riot_game_name, avatar_url)')
     .eq('target_id', targetId)
     .eq('game_type', gameType)
 
