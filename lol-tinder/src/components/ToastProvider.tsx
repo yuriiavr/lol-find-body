@@ -5,16 +5,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Check, AlertCircle, X } from 'lucide-react'
 
 type ToastType = 'success' | 'error'
-interface Toast { message: string; type: ToastType }
-interface ToastContextType { showToast: (message: string, type?: ToastType) => void }
+interface ToastAction { label: string; onClick: () => void }
+interface Toast { message: string; type: ToastType; action?: ToastAction }
+interface ToastContextType { showToast: (message: string, type?: ToastType, action?: ToastAction) => void }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined)
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<Toast | null>(null)
 
-  const showToast = useCallback((message: string, type: ToastType = 'success') => {
-    setToast({ message, type })
+  const showToast = useCallback((message: string, type: ToastType = 'success', action?: ToastAction) => {
+    setToast({ message, type, action })
     setTimeout(() => setToast(null), 4000)
   }, [])
 
@@ -35,6 +36,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <div className="flex-1">
               <p className="text-sm font-bold text-white tracking-tight leading-none">{toast.message}</p>
             </div>
+            {toast.action && (
+              <button 
+                onClick={() => {
+                  toast.action?.onClick();
+                  setToast(null);
+                }}
+                className="px-3 py-1.5 bg-[rgb(var(--accent-color))] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:brightness-110 transition-all active:scale-95 whitespace-nowrap"
+              >
+                {toast.action.label}
+              </button>
+            )}
             <button onClick={() => setToast(null)} className="text-zinc-500 hover:text-white transition-colors">
               <X size={14} />
             </button>

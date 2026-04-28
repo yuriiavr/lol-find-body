@@ -29,8 +29,15 @@ export function GlobalChatIndicator() {
   const fetchMatchesAndUnread = async (userId: string) => {
     const res = await getMatches()
     if (res.data) {
-      const acceptedMatches = res.data.filter((m: any) => m.status === 'ACCEPTED')
-      setMatches(acceptedMatches)
+      const acceptedMatches = res.data.filter((m: any) => m.status === 'ACCEPTED');
+
+      const sortedMatches = [...acceptedMatches].sort((a: any, b: any) => {
+        const timeA = new Date(a.last_message?.created_at || a.created_at).getTime();
+        const timeB = new Date(b.last_message?.created_at || b.created_at).getTime();
+        return timeB - timeA;
+      });
+
+      setMatches(sortedMatches);
       const pendingIncoming = res.data.filter((m: any) => m.status === 'PENDING' && m.isIncoming)
       setPendingMatchesCount(pendingIncoming.length)
       const matchIds = acceptedMatches.map((m: any) => m.id)

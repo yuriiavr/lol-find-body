@@ -36,6 +36,7 @@ export default function PublicProfilePage() {
   const [valStats, setValStats] = useState<any>(null)
   const [topChamps, setTopChamps] = useState<any[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
   
   // const [reviewComment, setReviewComment] = useState('')
   // const [behaviorRating, setBehaviorRating] = useState(5)
@@ -53,19 +54,19 @@ export default function PublicProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (!authUser) {
-        router.push('/login-required')
-        return
-      }
-
       setCurrentUser(authUser)
 
-      const [profileRes, matchRes] = await Promise.all([
+      const [profileRes, matchRes, authProfRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
-        supabase.from('matches')
-          .select('status')
-          .or(`and(user_id.eq.${authUser.id},target_id.eq.${id}),and(user_id.eq.${id},target_id.eq.${authUser.id})`)
-          .maybeSingle()
+        authUser 
+          ? supabase.from('matches')
+              .select('status')
+              .or(`and(user_id.eq.${authUser.id},target_id.eq.${id}),and(user_id.eq.${id},target_id.eq.${authUser.id})`)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        authUser
+          ? supabase.from('profiles').select('display_name').eq('id', authUser.id).maybeSingle()
+          : Promise.resolve({ data: null, error: null })
       ])
 
       if (profileRes.data) {
@@ -86,6 +87,10 @@ export default function PublicProfilePage() {
 
         setActiveGame(initialGame);
         setProfile(prof);
+      }
+
+      if (authProfRes?.data) {
+        setCurrentUserProfile(authProfRes.data)
       }
 
       if (matchRes.data) {
@@ -144,7 +149,35 @@ export default function PublicProfilePage() {
   //   }
   //   if (res.error) setReviews([])
   // }
+
+  const handleLogin = async () => {
+    const redirectTo = typeof window !== 'undefined' 
+      ? `${window.location.origin}/api/auth/callback?next=${window.location.pathname}`
+      : undefined;
+
+    await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: { redirectTo },
+    });
+  };
+
   const handleMatch = async () => {
+    if (!currentUser) {
+      showToast(t('toasts.loginRequired'), 'error', {
+        label: t('toasts.loginButton'),
+        onClick: handleLogin
+      })
+      return
+    }
+
+    if (!currentUserProfile?.display_name) {
+      showToast(t('toasts.setupRequired'), 'error', {
+        label: t('toasts.setupButton'),
+        onClick: () => router.push(`/${params.locale}/profile`)
+      })
+      return
+    }
+
     setIsRequesting(true)
     const result = await sendMatchRequest(id)
     setIsRequesting(false)

@@ -9,6 +9,7 @@ import { createClient } from "@/src/utils/supabase/client";
 import { ProfileButton } from "./ui/ProfileButton";
 import { useToast } from "@/src/components/ToastProvider";
 import { useTranslations } from "next-intl";
+import { useGameTheme } from "@/src/context/GameThemeContext";
 
 const supabase = createClient();
 
@@ -26,7 +27,8 @@ export function Navbar() {
   const params = useParams();
   const currentLocale = (params?.locale as string) || "en";
   const router = useRouter();
-  const [discoveryHref, setDiscoveryHref] = useState(`/${currentLocale}/league`);
+  const { activeGame } = useGameTheme();
+  
   const t = useTranslations('Navbar');
 
   useEffect(() => {
@@ -86,12 +88,9 @@ export function Navbar() {
       supabase.removeChannel(channel);
     };
   }, [user?.id, pathname, fetchNotifications, showToast]);
-  useEffect(() => {
-    const lastTab = localStorage.getItem('lastDiscoveryTab');
-    if (lastTab) {
-      setDiscoveryHref(`/${currentLocale}/${lastTab}`);
-    }
-  }, [pathname, currentLocale]);
+  
+   const discoveryPath = `/${currentLocale}/${activeGame === 'lol' ? 'league' : activeGame}`;
+  
   const handleLogin = async () => {
     const redirectTo = typeof window !== 'undefined' 
       ? `${window.location.origin}/api/auth/callback?next=${window.location.pathname}`
@@ -106,7 +105,7 @@ export function Navbar() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setIsMenuOpen(false);
-    router.push("/");
+    window.location.href = "/";
   };
 
   const handleLanguageChange = (newLocale: string) => {
@@ -117,7 +116,7 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { id: "discovery", label: t('discovery'), href: discoveryHref, icon: Compass },
+    { id: "discovery", label: t('discovery'), href: discoveryPath, icon: Compass },
     { id: "matches", label: t('matches'), href: `/${currentLocale}/matches`, icon: MessageSquare },
   ];
 

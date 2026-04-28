@@ -51,7 +51,6 @@ export async function getAccountByRiotId(
   const route = REGION_MAP[regionKey]?.regional || "europe";
   const url = `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}?api_key=${RIOT_API_KEY}`;
 
-  console.log(`[Riot API] Fetching account: ${url}`);
   const res = await fetch(url, { next: { revalidate: 86400 } });
   if (!res.ok) { console.error(`[Riot API] Account not found: ${res.status}`); return null; }
   return res.json();
@@ -64,7 +63,6 @@ export async function getSummonerByPuuid(
   const platform = REGION_MAP[regionKey]?.platform || "eun1";
   const url = `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}?api_key=${RIOT_API_KEY}`;
 
-  console.log(`[Riot API] Fetching summoner: ${url}`);
   const res = await fetch(url, { next: { revalidate: 86400 } });
   if (!res.ok) { console.error(`[Riot API] Summoner not found: ${res.status}`); return null; }
   return res.json();
@@ -77,14 +75,12 @@ export const getRanksByPuuid = unstable_cache(
 
     try {
       const res = await fetch(url, { cache: 'no-store' });
-      console.log(`[Riot API] Fetching ranks: ${url}`);
       if (!res.ok) {
         console.error(`[Riot API] Ranks error: ${res.status}`);
         return { solo: 'UNRANKED', solo_wins: 0, solo_losses: 0, flex: 'UNRANKED', flex_wins: 0, flex_losses: 0 };
       }
 
       const data: LeagueEntry[] = await res.json();
-      console.log(`[Riot API] Ranks data received:`, JSON.stringify(data));
 
       const findRank = (qType: string) => {
         const entry = data.find((e) => e.queueType === qType);
@@ -122,7 +118,6 @@ export const getRiotTFTStats = unstable_cache(
       if (!res.ok) return { rank: 'UNRANKED', wins: 0, losses: 0 };
 
       const data = await res.json();
-      console.log(`[Riot API] TFT Stats received:`, JSON.stringify(data));
       
       const entry = data.find((e: any) => e.queueType === 'RANKED_TFT');
       if (!entry) return { rank: 'UNRANKED', wins: 0, losses: 0 };

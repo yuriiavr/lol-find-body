@@ -28,6 +28,7 @@ import {
 import { createClient } from "@/src/utils/supabase/client";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
+import { useGameTheme } from "@/src/context/GameThemeContext";
 
 /* ─────────────────────────── types ─────────────────────────── */
 interface StatProps {
@@ -133,10 +134,10 @@ const MOCK_MATCHES = [
 ];
 
 const GAMES = [
-  { id: "lol", label: "League of Legends", icon: "", color: "200 155 60" }, // #C89B3C
-  { id: "tft", label: "Teamfight Tactics", icon: "", color: "11 196 227" }, // #0BC4E3
-  { id: "valorant", label: "Valorant", icon: "", color: "255 70 85" }, // #FF4655
-];
+  { id: "lol", label: "League of Legends", icon: "", color: "200 155 60" },
+  { id: "tft", label: "Teamfight Tactics", icon: "", color: "11 196 227" },
+  { id: "valorant", label: "Valorant", icon: "", color: "255 70 85" },
+] as const;
 
 const TOP_CHAMPS_DATA = [
   {
@@ -193,7 +194,7 @@ export default function LandingPage() {
   const supabase = createClient();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeGame, setActiveGame] = useState("lol");
+  const { activeGame, setActiveGame } = useGameTheme();
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -202,17 +203,17 @@ export default function LandingPage() {
   const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
+  // Helper to get correct path based on active game
+  const getDiscoveryPath = (game: string) => {
+    return `/${locale}/${game === 'lol' ? 'league' : game}`;
+  };
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setLoading(false);
     });
   }, [supabase]);
-
-  // Sync with global theme system
-  useEffect(() => {
-    document.documentElement.setAttribute("data-game-theme", activeGame);
-  }, [activeGame]);
 
   const handleLogin = async () => {
     const redirectTo =
@@ -251,7 +252,7 @@ export default function LandingPage() {
         </div>
         {!loading &&
           (user ? (
-            <Link href={`/${locale}/league`}>
+            <Link href={getDiscoveryPath(activeGame)}>
               <button className="btn-modern px-5 py-2 text-sm">
                 {t('nav.openApp')} →
               </button>
@@ -322,12 +323,12 @@ export default function LandingPage() {
             {!loading &&
               (user ? (
                 <>
-                  <Link href={`/${locale}/registration`}>
+                  <Link href={`/${locale}/profile`}>
                     <button className="btn-modern px-10 py-4 text-base flex items-center gap-2">
                       <Swords size={18} /> {t('hero.buttons.findTeammates')}
                     </button>
                   </Link>
-                  <Link href={`/${locale}/league`}>
+                  <Link href={getDiscoveryPath(activeGame)}>
                     <button className="btn-modern-ghost px-10 py-4 text-base flex items-center gap-2">
                       <Users size={18} /> {t('hero.buttons.seeWhoIsLooking')}
                     </button>
@@ -1091,13 +1092,13 @@ export default function LandingPage() {
             {!loading &&
               (user ? (
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/league">
+                  <Link href={`/${locale}/profile`}>
                     <button className="btn-modern px-10 py-4 text-base flex items-center gap-2 mx-auto">
                       <Swords size={18} /> {t('cta.buttons.findTeammates')}
                     </button>
                   </Link>
-                  <Link href="/tft">
-                    <button className="btn-modern-ghost px-10 py-4 text-base flex items-center gap-2 mx-auto">
+                  <Link href={getDiscoveryPath(activeGame)}>
+                    <button className="btn-modern-ghost px-10 py-4 text-base flex items-center gap-2">
                       <Gamepad size={18} /> {t('cta.buttons.seeWhoIsLooking')}
                     </button>
                   </Link>

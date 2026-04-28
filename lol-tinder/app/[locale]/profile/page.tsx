@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, memo, useCallback } from "react";
+import { useState, useEffect, memo, useCallback, useRef } from "react";
 import { createClient } from "@/src/utils/supabase/client";
 import {
   updateProfile,
@@ -15,12 +15,14 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/src/components/ToastProvider";
 import { useTranslations } from "next-intl";
+import { useGameTheme, type GameType } from "@/src/context/GameThemeContext";
 
 const supabase = createClient();
 
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { activeGame, setActiveGame } = useGameTheme();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [lastSavedProfile, setLastSavedProfile] = useState<any>(null);
@@ -34,8 +36,6 @@ export default function ProfilePage() {
   const [selectedQueues, setSelectedQueues] = useState<string[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
-
-  const [activeTab, setActiveTab] = useState<"LOL" | "TFT" | "VALORANT">("LOL");
 
   const t = useTranslations("ProfilePage.editor");
 
@@ -54,27 +54,18 @@ export default function ProfilePage() {
     if (!profile) return "";
 
     // Mapping for LOL/TFT which use the global Riot Account columns
-    if (activeTab === "LOL" || activeTab === "TFT") {
+    if (activeGame === "lol" || activeGame === "tft") {
       if (field === "game_name") return profile.riot_game_name ?? "";
       if (field === "tag_line") return profile.riot_tag_line ?? "";
       if (field === "region") return profile.riot_region ?? "";
     }
 
     const prefix =
-      activeTab === "LOL"
+      activeGame === "lol"
         ? ""
-        : (activeTab === "VALORANT" ? "val" : activeTab.toLowerCase()) + "_";
+        : (activeGame === "valorant" ? "val" : activeGame) + "_";
     return profile[`${prefix}${field}`] ?? "";
-  }, [profile, activeTab]);
-
-  useEffect(() => {
-    if (!activeTab) return;
-    localStorage.setItem("site-game-theme", activeTab);
-    document.documentElement.setAttribute(
-      "data-game-theme",
-      activeTab.toLowerCase(),
-    );
-  }, [activeTab]);
+  }, [profile, activeGame]);
 
   useEffect(() => {
     if (!user || isInitialLoading) return;
@@ -85,7 +76,7 @@ export default function ProfilePage() {
         selectedLangs,
         selectedQueues,
         enabledGames,
-        activeTab,
+        activeGame,
       };
 
       try {
@@ -104,7 +95,7 @@ export default function ProfilePage() {
     enabledGames,
     user,
     isInitialLoading,
-    activeTab,
+    activeGame,
   ]);
 
   const handleInputChange = useCallback(
@@ -163,9 +154,9 @@ export default function ProfilePage() {
           ? prev.filter((q) => q !== queue)
           : [...prev, queue];
         const prefix =
-          activeTab === "LOL"
+          activeGame === "lol"
             ? ""
-            : (activeTab === "VALORANT" ? "val" : activeTab.toLowerCase()) +
+            : (activeGame === "valorant" ? "val" : activeGame) +
               "_";
         setProfile((p: any) => ({
           ...p,
@@ -174,7 +165,7 @@ export default function ProfilePage() {
         return next;
       });
     },
-    [activeTab],
+    [activeGame],
   );
 
   const toggleAgent = useCallback((agent: string) => {
@@ -191,17 +182,17 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!profile) return;
     const prefix =
-      activeTab === "LOL"
+      activeGame === "lol"
         ? ""
-        : (activeTab === "VALORANT" ? "val" : activeTab.toLowerCase()) + "_";
+        : (activeGame === "valorant" ? "val" : activeGame) + "_";
     const queueStr = profile[`${prefix}preferred_queue`] || "";
     setSelectedQueues(queueStr ? queueStr.split(",").filter(Boolean) : []);
-  }, [activeTab, !!profile]);
+  }, [activeGame, !!profile]);
 
   useEffect(() => {
     if (!profile?.val_top_agents) { setSelectedAgents([]); return; }
     setSelectedAgents(profile.val_top_agents.split(",").filter(Boolean));
-  }, [activeTab, profile?.val_top_agents]);
+  }, [activeGame, profile?.val_top_agents]);
 
   const toggleGame = useCallback((game: string) => {
     setEnabledGames((prev) => {
@@ -290,9 +281,9 @@ export default function ProfilePage() {
           setSelectedLangs(initialProfile.language.split(","));
 
         const prefix =
-          activeTab === "LOL"
+          activeGame === "lol"
             ? ""
-            : (activeTab === "VALORANT" ? "val" : activeTab.toLowerCase()) +
+            : (activeGame === "valorant" ? "val" : activeGame) +
               "_";
         const qStr = initialProfile[`${prefix}preferred_queue`] || "";
         setSelectedQueues(qStr.split(",").filter(Boolean));
@@ -310,7 +301,7 @@ export default function ProfilePage() {
         }
 
         const initialGames = initialProfile.enabled_games ? initialProfile.enabled_games.split(",") : [];
-        if (initialProfile.puuid && (initialGames.includes("TFT") || activeTab === "TFT")) {
+        if (initialProfile.puuid && (initialGames.includes("TFT") || activeGame === "tft")) {
           getRiotTFTStatsAction(
             initialProfile.puuid,
             initialProfile.riot_region,
@@ -318,25 +309,7 @@ export default function ProfilePage() {
         }
       }
 
-      const savedFormData = localStorage.getItem(
-        `profileFormData_${authUser.id}`,
-      );
-      if (savedFormData) {
-        try {
-          const parsed = JSON.parse(savedFormData);
-          if (parsed.activeTab && isMounted) {
-            setActiveTab(parsed.activeTab);
-          }
-        } catch (e) {}
-      } else {
-        const globalTheme = localStorage.getItem("site-game-theme") as any;
-        if (globalTheme) {
-          setActiveTab(globalTheme);
-        }
-      }
-      requestAnimationFrame(() => {
-        if (isMounted) setIsInitialLoading(false);
-      });
+      if (isMounted) setIsInitialLoading(false);
     };
     getProfile();
     return () => {
@@ -349,18 +322,13 @@ export default function ProfilePage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    
-    console.log("--- SUBMITTING PROFILE FORM DATA ---");
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}: ${value}`);
-    }
 
-    const gamePrefix = activeTab === "LOL" ? "" : (activeTab === "VALORANT" ? "val_" : "tft_");
+    const gamePrefix = activeGame === "lol" ? "" : (activeGame === "valorant" ? "val_" : "tft_");
 
-    formData.append("activeGame", activeTab);
+    formData.append("activeGame", activeGame.toUpperCase());
     formData.set("language", selectedLangs.join(","));
     formData.set(`${gamePrefix}preferred_queue`, selectedQueues.join(","));
-    if (activeTab === "VALORANT") formData.set("val_top_agents", selectedAgents.join(","));
+    if (activeGame === "valorant") formData.set("val_top_agents", selectedAgents.join(","));
     formData.set("enabled_games", enabledGames.join(","));
 
     // Ensure shared Riot Account data is passed
@@ -428,7 +396,7 @@ export default function ProfilePage() {
             profile={profile}
             user={user}
             selectedLangs={selectedLangs}
-            activeTab={activeTab}
+            activeTab={activeGame.toUpperCase() as any}
             riotStats={riotStats}
             tftStats={tftStats}
             valStats={valStats}
@@ -446,11 +414,11 @@ export default function ProfilePage() {
             toggleGame={toggleGame}
             selectedAgents={selectedAgents}
             onToggleAgent={toggleAgent}
-            activeTab={activeTab}
+            activeTab={activeGame.toUpperCase() as any}
             enabledGames={enabledGames}
             selectedQueues={selectedQueues}
             handleSubmit={handleSubmit}
-            onSetActiveTab={setActiveTab}
+            onSetActiveTab={(tab) => setActiveGame(tab.toLowerCase() as GameType)}
             loading={loading}
           />
         </div>

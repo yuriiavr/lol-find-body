@@ -8,6 +8,7 @@ import { ThemeInitializer } from "@/src/components/ThemeInitializer";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { GameThemeProvider } from "@/src/context/GameThemeContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,10 +47,12 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ToastProvider>
-            <ThemeInitializer />
-            <Navbar />
-            {children}
-            <GlobalChatIndicator />
+            <GameThemeProvider>
+              <ThemeInitializer />
+              <Navbar />
+              {children}
+              <GlobalChatIndicator />
+            </GameThemeProvider>
           </ToastProvider>
         </NextIntlClientProvider>
       </body>

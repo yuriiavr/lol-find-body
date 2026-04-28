@@ -109,8 +109,6 @@ export async function updateProfile(formData: FormData) {
     }
   }
 
-  console.log(`[Action] Calculated apiRank: ${apiRank}`);
-
   let finalEnabledGames = (enabled_games || "").split(",").filter(Boolean)
   if (isGameEnabled && !finalEnabledGames.includes(activeGame)) {
     finalEnabledGames.push(activeGame)
@@ -152,7 +150,6 @@ export async function updateProfile(formData: FormData) {
   } else if (activeGame === 'TFT') {
     updateData.tft_bio = bio;
     updateData.tft_preferred_queue = preferred_queue;
-    // tft_main_role не існує в схемі, тому ігноруємо або використовуємо загальну main_role
     updateData.main_role = role; 
   }
 
@@ -165,13 +162,12 @@ export async function updateProfile(formData: FormData) {
     updateData.val_rank = manualRank || currentProf?.val_rank || 'Unranked';
   }
 
-  console.log(`[Action] Upserting data to Supabase:`, JSON.stringify(updateData));
 
   const { error } = await supabase
     .from('profiles')
     .upsert(updateData, { onConflict: 'id' })
 
-  if (error) { console.error(`[Action] Supabase error:`, error); return { error: error.message }; }
+  if (error) {return { error: error.message }; }
 
   if (puuid) {
     revalidateTag('ranks', 'max');
