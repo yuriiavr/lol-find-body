@@ -149,7 +149,7 @@ export default function MatchesPage() {
                                         </div>
                                         <div className="min-w-0">
                                             <h4 className="text-lg font-bold text-white group-hover:text-[rgb(var(--accent-color))] transition-colors truncate">
-                                              {m.profile.display_name || m.profile.game_name} 
+                                              {m.profile.display_name || m.profile.riot_game_name} 
                                               {!m.profile.display_name && (
                                                 <span className="text-zinc-600 text-sm font-medium ml-1">
                                                   #{m.profile.tag_line}

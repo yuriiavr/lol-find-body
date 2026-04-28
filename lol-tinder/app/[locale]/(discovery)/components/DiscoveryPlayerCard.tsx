@@ -53,7 +53,7 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
   let winRate = null;
 
   if (game === 'LOL') {
-    displayName = player.display_name || player.riot_game_name;
+    displayName = player.riot_game_name;
     tagLine = player.riot_tag_line;
     const soloWeight = getRankWeight(player.solo_rank);
     const flexWeight = getRankWeight(player.flex_rank);
@@ -65,13 +65,13 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
     }
     role = player.main_role;
   } else if (game === 'TFT') {
-    displayName = player.display_name || player.riot_game_name;
+    displayName = player.riot_game_name;
     tagLine = player.riot_tag_line;
     displayedRank = player.tft_rank || 'UNRANKED';
     queueLabel = 'Ranked';
     profileUrl = `/${locale}/profile/${player.id}?game=TFT`;
   } else if (game === 'VALORANT') {
-    displayName = player.display_name || player.val_game_name;
+    displayName = player.val_game_name;
     tagLine = player.val_tag_line;
     displayedRank = player.val_rank || 'Unranked';
     queueLabel = 'Competitive';

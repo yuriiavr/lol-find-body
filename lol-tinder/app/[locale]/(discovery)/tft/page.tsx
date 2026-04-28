@@ -41,9 +41,9 @@ export default function TFTDiscoveryPage() {
       
       let query = supabase
         .from('profiles')
-        .select('id, display_name, game_name, tag_line, avatar_url, tft_rank, tft_preferred_queue, bio, region, enabled_games, last_seen')
+        .select('id, display_name, riot_game_name, riot_tag_line, avatar_url, tft_rank, tft_preferred_queue, tft_bio, riot_region, enabled_games, last_seen')
         .eq('is_paused', false)
-        .eq('region', filterRegion)
+        .eq('riot_region', filterRegion)
         .ilike('enabled_games', '%TFT%');
 
       if (user) {

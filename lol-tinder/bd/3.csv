@@ -1,6 +1,0 @@
-column_name,data_type,is_nullable,column_default
-id,uuid,NO,gen_random_uuid()
-user_id,uuid,NO,null
-target_id,uuid,NO,null
-status,text,NO,'PENDING'::text
-created_at,timestamp with time zone,NO,now()
