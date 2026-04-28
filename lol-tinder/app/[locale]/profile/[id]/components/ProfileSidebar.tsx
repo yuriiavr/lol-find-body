@@ -32,11 +32,11 @@ export const ProfileSidebar = memo(({
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(() => {
-    const text = `${profile.game_name}#${profile.tag_line}`
+    const text = `${profile.riot_game_name}#${profile.riot_tag_line}`
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [profile.game_name, profile.tag_line])
+  }, [profile.riot_game_name, profile.riot_tag_line])
 
   return (
     <section className="w-full lg:w-96 flex flex-col items-center lg:items-start text-center lg:text-left">
@@ -63,8 +63,8 @@ export const ProfileSidebar = memo(({
       <div className="space-y-2">
         <div className="flex items-start gap-3 justify-center lg:justify-start group/name">
           <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
-            {profile.game_name}
-            <span className="text-slate-600 block text-2xl mt-1">#{profile.tag_line}</span>
+            {profile.riot_game_name}
+            <span className="text-slate-600 block text-2xl mt-1">#{profile.riot_tag_line}</span>
           </h1>
           <button 
             onClick={handleCopy}

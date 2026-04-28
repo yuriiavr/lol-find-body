@@ -36,8 +36,8 @@ export const ProfileIntel = memo(({
         <div className="mt-10 border-t border-white/5 pt-8">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Top Champions Mastery</p>
-            <a 
-              href={`https://www.op.gg/summoners/${profile.region.toLowerCase()}/${encodeURIComponent(profile.game_name)}-${encodeURIComponent(profile.tag_line)}`}
+            <a
+              href={`https://www.op.gg/summoners/${profile.riot_region.toLowerCase()}/${encodeURIComponent(profile.riot_game_name)}-${encodeURIComponent(profile.riot_tag_line)}`}
               target="_blank"
               className="flex items-center gap-2 px-4 py-2 bg-[#5383e8] hover:bg-[#4066b8] text-white rounded-lg text-[10px] font-black uppercase transition-all shadow-lg shadow-blue-500/10"
             >

@@ -126,6 +126,7 @@ export async function updateProfile(formData: FormData) {
     enabled_games:    finalEnabledGames.join(','),
     language:         language,
     updated_at:       new Date().toISOString(),
+    last_seen:        new Date().toISOString(), // Додано оновлення last_seen
     discord_id:       user.user_metadata.provider_id || user.identities?.[0]?.id || user.id,
     discord_username: (user.user_metadata.full_name || user.user_metadata.name) as string,
     avatar_url:       user.user_metadata.avatar_url,
@@ -136,15 +137,25 @@ export async function updateProfile(formData: FormData) {
     val_game_name:    val_game_name,
     val_tag_line:     val_tag_line,
     val_region:       val_region,
-    [`${prefix}bio`]:             bio,
-    [`${prefix}main_role`]:       role,
-    [`${prefix}preferred_queue`]: preferred_queue,
   }
 
-  if (activeGame === 'VALORANT') {
+  // Призначаємо поля відповідно до існуючих колонок у вашій БД
+  if (activeGame === 'LOL') {
+    updateData.bio = bio;
+    updateData.main_role = role;
+    updateData.preferred_queue = preferred_queue;
+  } else if (activeGame === 'VALORANT') {
+    updateData.val_bio = bio;
+    updateData.val_main_role = role;
+    updateData.val_preferred_queue = preferred_queue;
     updateData.val_top_agents = (formData.get('val_top_agents') as string) || '';
+  } else if (activeGame === 'TFT') {
+    updateData.tft_bio = bio;
+    updateData.tft_preferred_queue = preferred_queue;
+    // tft_main_role не існує в схемі, тому ігноруємо або використовуємо загальну main_role
+    updateData.main_role = role; 
   }
-  
+
   if (activeGame === 'LOL') {
     updateData.solo_rank = (apiRank && apiRank !== 'UNRANKED') ? apiRank : (formData.get('solo_rank') as string || currentProf?.solo_rank || 'Unranked');
     updateData.flex_rank = formData.get('flex_rank') as string || currentProf?.flex_rank || 'Unranked';

@@ -109,14 +109,16 @@ export default function PublicProfilePage() {
       setTopChamps([])
 
       if (activeGame === 'LOL' && profile.puuid) {
+        const region = profile.riot_region || 'EUW';
         const [ranks, champs] = await Promise.all([
-          getRanksByPuuidAction(profile.puuid, profile.region),
-          getTopChampionsAction(profile.puuid, profile.region)
+          getRanksByPuuidAction(profile.puuid, region),
+          getTopChampionsAction(profile.puuid, region)
         ])
         setRiotStats(ranks)
         setTopChamps(champs)
       } else if (activeGame === 'TFT' && profile.puuid) {
-        const tft = await getRiotTFTStatsAction(profile.puuid, profile.region)
+        const region = profile.riot_region || 'EUW';
+        const tft = await getRiotTFTStatsAction(profile.puuid, region)
         setTftStats(tft)
       }
 

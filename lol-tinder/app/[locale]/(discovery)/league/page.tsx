@@ -69,9 +69,9 @@ export default function Home() {
       setIsFetching(true);
       let query = supabase
         .from('profiles')
-        .select('id, display_name, game_name, tag_line, avatar_url, solo_rank, flex_rank, main_role, bio, language, preferred_queue, last_seen, has_mic, region, enabled_games')
+        .select('id, display_name, riot_game_name, riot_tag_line, avatar_url, solo_rank, flex_rank, main_role, bio, language, preferred_queue, last_seen, has_mic, riot_region, enabled_games')
         .eq('is_paused', false)
-        .eq('region', filterRegion)
+        .eq('riot_region', filterRegion)
         .ilike('enabled_games', '%LOL%');
       if (user) {
         const { data: existingMatches } = await supabase

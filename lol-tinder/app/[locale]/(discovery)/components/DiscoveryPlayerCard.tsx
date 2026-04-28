@@ -45,13 +45,16 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
 
   let displayedRank = 'UNRANKED';
   let queueLabel = '';
-  let displayName = player.display_name || player.game_name;
+  let displayName = player.display_name;
+  let tagLine = '';
   let role = '';
   let bio = player.bio;
   let profileUrl = `/${locale}/profile/${player.id}`;
   let winRate = null;
 
   if (game === 'LOL') {
+    displayName = player.display_name || player.riot_game_name;
+    tagLine = player.riot_tag_line;
     const soloWeight = getRankWeight(player.solo_rank);
     const flexWeight = getRankWeight(player.flex_rank);
     displayedRank = player.solo_rank || 'UNRANKED';
@@ -62,11 +65,14 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
     }
     role = player.main_role;
   } else if (game === 'TFT') {
+    displayName = player.display_name || player.riot_game_name;
+    tagLine = player.riot_tag_line;
     displayedRank = player.tft_rank || 'UNRANKED';
     queueLabel = 'Ranked';
     profileUrl = `/${locale}/profile/${player.id}?game=TFT`;
   } else if (game === 'VALORANT') {
-    displayName = player.val_game_name || player.game_name;
+    displayName = player.display_name || player.val_game_name;
+    tagLine = player.val_tag_line;
     displayedRank = player.val_rank || 'Unranked';
     queueLabel = 'Competitive';
     role = player.val_main_role || 'AGENT';
@@ -106,7 +112,7 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
           <div className="min-w-0 flex flex-col justify-center">
             <h4 className={`text-lg font-black text-white ${textColors[accentColor]} transition-colors truncate`}>
               {displayName}
-              {player.tag_line && <span className="text-zinc-600 text-sm font-medium ml-1">#{player.tag_line}</span>}
+              {tagLine && <span className="text-zinc-600 text-sm font-medium ml-1">#{tagLine}</span>}
             </h4>
             <div className="flex flex-col mt-0.5">
               <div className="flex items-center gap-1.5">
