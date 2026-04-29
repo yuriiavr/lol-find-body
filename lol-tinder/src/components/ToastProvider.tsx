@@ -1,22 +1,24 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, AlertCircle, X } from 'lucide-react'
 
 type ToastType = 'success' | 'error'
 interface ToastAction { label: string; onClick: () => void }
 interface Toast { message: string; type: ToastType; action?: ToastAction }
-interface ToastContextType { showToast: (message: string, type?: ToastType, action?: ToastAction) => void }
+interface ToastContextType { showToast: (message: string, type?: ToastType, action?: ToastAction, duration?: number) => void }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined)
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<Toast | null>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const showToast = useCallback((message: string, type: ToastType = 'success', action?: ToastAction) => {
+  const showToast = useCallback((message: string, type: ToastType = 'success', action?: ToastAction, duration: number = 4000) => {
+    if (timerRef.current) clearTimeout(timerRef.current)
     setToast({ message, type, action })
-    setTimeout(() => setToast(null), 4000)
+    timerRef.current = setTimeout(() => setToast(null), duration)
   }, [])
 
   return (

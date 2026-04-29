@@ -89,7 +89,9 @@ export function Navbar() {
     };
   }, [user?.id, pathname, fetchNotifications, showToast]);
   
-   const discoveryPath = `/${currentLocale}/${activeGame === 'lol' ? 'league' : activeGame}`;
+  const gameSlug = activeGame === 'lol' ? 'league' : activeGame;
+  const discoveryPath = `/${currentLocale}/${gameSlug}`;
+  const roomsPath = `/${currentLocale}/rooms/${gameSlug}`;
   
   const handleLogin = async () => {
     const redirectTo = typeof window !== 'undefined' 
@@ -117,13 +119,12 @@ export function Navbar() {
 
   const navLinks = [
     { id: "discovery", label: t('discovery'), href: discoveryPath, icon: Compass },
+    { id: "rooms", label: t('rooms'), href: roomsPath, icon: UserIcon },
     { id: "matches", label: t('matches'), href: `/${currentLocale}/matches`, icon: MessageSquare },
   ];
 
   return (
-    <nav className={`w-full border-b border-white/5 bg-[rgb(var(--bg-secondary)/0.8)] sticky top-0 z-[100] px-6 ${
-      pathname === "/" ? "" : "backdrop-blur-lg"
-    }`}>
+    <nav className="w-full border-b border-white/5 bg-[rgb(var(--bg-secondary))] sticky top-0 z-[100] px-6">
       <div className="max-w-[1600px] mx-auto h-20 flex justify-between items-center">
         <div className="flex items-center gap-10">
           <Link href="/">
@@ -138,7 +139,9 @@ export function Navbar() {
                   key={link.href} 
                   href={link.href} 
                   className={`transition-colors hover:text-white ${ 
-                    (link.id === 'discovery' && (pathname.startsWith('/league') || pathname.startsWith('/tft') || pathname.startsWith('/valorant'))) || pathname === link.href
+                    (link.id === 'discovery' && !pathname.includes('/rooms/') && (pathname.includes('/league') || pathname.includes('/tft') || pathname.includes('/valorant'))) || 
+                    (link.id === 'rooms' && pathname.includes('/rooms/')) ||
+                    pathname === link.href
                       ? "text-white border-b-2 border-[rgb(var(--accent-color))] pb-1" 
                       : ""
                   }`}
@@ -239,7 +242,9 @@ export function Navbar() {
                   href={link.href} 
                   onClick={() => setIsMenuOpen(false)}
                   className={`flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest ${
-                    (link.id === 'discovery' && (pathname.startsWith('/league') || pathname.startsWith('/tft') || pathname.startsWith('/valorant'))) || pathname === link.href
+                    (link.id === 'discovery' && !pathname.includes('/rooms/') && (pathname.includes('/league') || pathname.includes('/tft') || pathname.includes('/valorant'))) || 
+                    (link.id === 'rooms' && pathname.includes('/rooms/')) ||
+                    pathname === link.href
                       ? "bg-[rgb(var(--accent-color)/0.1)] text-[rgb(var(--accent-color))]" : "text-slate-400"
                   }`}
                 >

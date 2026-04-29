@@ -63,6 +63,9 @@ model User {
   // Нові відносини з файлу 3.csv (Друзі/Запити)
   friendRequestsSent     FriendRequest[] @relation("FriendRequestSender")
   friendRequestsReceived FriendRequest[] @relation("FriendRequestTarget")
+  
+  // Відносини з кімнатами
+  roomParticipants       RoomParticipant[]
 
   @@map("profiles")
 }
@@ -122,4 +125,31 @@ model Like {
 
   @@unique([fromId, toId])
   @@map("likes")
+}
+
+model Room {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId      String   @map("owner_id") @db.Uuid
+  gameType     String   @map("game_type")
+  mode         String
+  maxPlayers   Int      @map("max_players")
+  description  String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  participants RoomParticipant[]
+
+  @@map("rooms")
+}
+
+model RoomParticipant {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roomId    String   @map("room_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@map("room_participants")
 }

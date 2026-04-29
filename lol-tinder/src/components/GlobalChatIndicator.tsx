@@ -118,7 +118,7 @@ export function GlobalChatIndicator() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-24 right-6 z-[100] w-[350px] max-w-[calc(100vw-3rem)] shadow-2xl"
+            className="fixed bottom-24 right-6 z-[100] w-[380px] h-[550px] max-w-[calc(100vw-3rem)] max-h-[calc(100vh-8rem)] shadow-2xl bg-[#0d0d0d]/95 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden flex flex-col"
           >
             {activeChat ? (
               <Chat 
@@ -129,9 +129,9 @@ export function GlobalChatIndicator() {
                 onBack={() => setActiveChat(null)}
               />
             ) : (
-              <div className="flex flex-col h-[500px] w-full bg-zinc-900 shadow-2xl border border-white/10 rounded-2xl overflow-hidden">
-                <div className="p-4 bg-white/5 border-b border-white/5 flex items-center justify-between">
-                   <h4 className="text-sm font-bold text-white">{t('title')}</h4>
+              <>
+                <div className="p-4 bg-white/[0.03] border-b border-white/5 flex items-center justify-between">
+                   <h4 className="text-[11px] font-black uppercase tracking-tight text-white leading-none">{t('title')}</h4>
                    <button onClick={() => setIsWindowOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
                      <X size={18} />
                    </button>
@@ -174,7 +174,7 @@ export function GlobalChatIndicator() {
                      ))
                    )}
                 </div>
-              </div>
+              </>
             )}
           </motion.div>
         )}

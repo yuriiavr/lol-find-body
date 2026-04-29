@@ -166,6 +166,32 @@
     }
   }
 },
+"Rooms": {
+  "title": "Live Rooms",
+  "createRoom": "Create Room",
+  "noRooms": "No rooms found. Be the first one!",
+  "filterMode": "Game Mode",
+  "filterSpots": "Free Spots",
+  "emptySlot": "Empty",
+  "kick": "Kick",
+  "close": "Close Room",
+  "roomDescription": "Room Name",
+  "roomDescriptionPlaceholder": "e.g. Looking for a support for duo",
+  "roomDescriptionRequired": "Room description is required",
+  "minRank": "Min. Rank",
+  "maxRank": "Max. Rank",
+  "rankLow": "Your rank is too low for this room",
+  "rankHigh": "Your rank is too high for this room",
+  "maxPlayers": "Maximum Players",
+  "maxPlayersRange": "Players count must be between 2 and 10",
+  "playerPage": "players",
+  "loginRequired": "Login required to create a room",
+  "createRoomError": "Failed to create room: {message}",
+  "join": "Join",
+  "leave": "Leave",
+  "chatPlaceholder": "Type in room chat...",
+  "roomOwner": "Owner"
+},
   "Common": {
     "micStatus": "I have a microphone",
     "regions": {
@@ -259,6 +285,7 @@
 "Navbar": {
   "discovery": "Discovery",
   "matches": "Matches",
+  "rooms": "Rooms",
   "profile": "My Profile",
   "logout": "Logout",
   "login": "Login",

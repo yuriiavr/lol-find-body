@@ -5,6 +5,7 @@
       "matchCenter": "Метч Центр",
       "profile": "Профіль",
       "playerPage": "Сторінка Гравця",
+      "rooms": "Кімнати",
       "messages": "Повідомлення",
       "openApp": "Відкрити Додаток",
       "login": "Вхід через Discord"
@@ -166,6 +167,32 @@
     }
   }
 },
+"Rooms": {
+  "title": "Live Кімнати",
+  "createRoom": "Створити Кімнату",
+  "noRooms": "Кімнат не знайдено. Будьте першим!",
+  "filterMode": "Режим гри",
+  "filterSpots": "Вільні місця",
+  "emptySlot": "Empty",
+  "kick": "Кікнути",
+  "close": "Закрити кімнату",
+  "roomDescription": "Назва кімнати",
+  "roomDescriptionPlaceholder": "Наприклад: Шукаю сапорта для дуо",
+  "roomDescriptionRequired": "Опис кімнати обов'язковий",
+  "minRank": "Мін. ранг",
+  "maxRank": "Макс. ранг",
+  "rankLow": "Ваш ранг занизький для цієї кімнати",
+  "rankHigh": "Ваш ранг занадто високий для цієї кімнати",
+  "maxPlayers": "Макс. гравців",
+  "maxPlayersRange": "Кількість гравців має бути від 2 до 10",
+  "playerPage": "гравців",
+  "loginRequired": "Ви повинні увійти, щоб створити кімнату",
+  "createRoomError": "Не вдалося створити кімнату: {message}",
+  "join": "Доєднатись",
+  "leave": "Покинути",
+  "chatPlaceholder": "Напишіть у чат кімнати...",
+  "roomOwner": "Власник"
+},
   "Common": {
     "micStatus": "У мене є мікрофон",
     "regions": {
@@ -265,6 +292,7 @@
 "Navbar": {
   "discovery": "Пошук",
   "matches": "Метчі",
+  "rooms": "Кімнати",
   "profile": "Мій Профіль",
   "logout": "Вихід",
   "login": "Увійти",
