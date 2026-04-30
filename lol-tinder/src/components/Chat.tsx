@@ -22,7 +22,9 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [sending, setSending] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const t = useTranslations('Chat')
   const supabase = createClient()
@@ -40,12 +42,22 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
         .from(tableName)
         .select('*, sender:profiles(display_name, avatar_url)')
         .eq(idColumn, actualId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      if (data) setMessages(data as any)
+      if (data) {
+        const reversed = (data as any).reverse();
+        setMessages(reversed);
+        setHasMore(data.length === 50);
+      }
       setLoading(false)
       markMessagesAsRead(matchId)
-      scrollToBottom()
+      // Скролимо вниз лише при першому завантаженні
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 100);
     }
 
     loadMessages()
@@ -91,13 +103,34 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
     return () => { supabase.removeChannel(channel) }
   }, [matchId, currentUser.id, supabase])
 
-  useEffect(() => { scrollToBottom() }, [messages])
+  const loadMoreMessages = async () => {
+    if (loadingMore || !hasMore || messages.length === 0) return;
+    setLoadingMore(true);
+
+    const oldestMessage = messages[0];
+
+    const { data } = await supabase
+      .from(tableName)
+      .select('*, sender:profiles(display_name, avatar_url)')
+      .eq(idColumn, actualId)
+      .lt('created_at', oldestMessage.created_at) // Знайти ті, що створені раніше за найстаріше в поточному списку
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (data && data.length > 0) {
+      setMessages(prev => [...(data as any).reverse(), ...prev]);
+      setHasMore(data.length === 50);
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
+  };
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -129,6 +162,9 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
           msg.id === tempId ? { ...msg, status: 'failed' } : msg
         )
       );
+    } else {
+      // Скролимо вниз, якщо ми успішно відправили повідомлення
+      setTimeout(scrollToBottom, 50);
     }
     setSending(false);
   }
@@ -159,34 +195,47 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
         ) : messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-zinc-600 text-xs uppercase font-bold tracking-widest">{t('startConversation')}</div>
         ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={`flex gap-2 ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
-              {isRoomChat && msg.sender_id !== currentUser.id && (
-                <img 
-                  src={msg.sender?.avatar_url || ''} 
-                  className="w-8 h-8 rounded-full mt-auto mb-1 border border-white/10" 
-                  alt="" 
-                />
-              )}
-              <div className={`max-w-[80%] flex flex-col ${msg.sender_id === currentUser.id ? 'items-end' : 'items-start'}`}>
+          <>
+            {hasMore && (
+              <div className="flex justify-center pb-2">
+                <button 
+                  onClick={loadMoreMessages}
+                  disabled={loadingMore}
+                  className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-[rgb(var(--accent-color))] transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? <Loader2 size={12} className="animate-spin" /> : 'Load older messages'}
+                </button>
+              </div>
+            )}
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex gap-2 ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
                 {isRoomChat && msg.sender_id !== currentUser.id && (
-                  <span className="text-[9px] font-black text-zinc-500 ml-1 mb-1 uppercase tracking-tight">{msg.sender?.display_name}</span>
+                  <img 
+                    src={msg.sender?.avatar_url || ''} 
+                    className="w-8 h-8 rounded-full mt-auto mb-1 border border-white/10" 
+                    alt="" 
+                  />
                 )}
-                <div className={`px-3 py-2 rounded-xl text-[13px] leading-relaxed ${
-                  msg.sender_id === currentUser.id 
-                    ? 'bg-[rgb(var(--accent-color))] text-white shadow-lg shadow-[rgb(var(--accent-color)/0.15)]' 
-                    : 'bg-white/5 text-zinc-200 border border-white/5'
-                } ${msg.status === 'failed' ? 'bg-red-500/50' : ''}`}>
-                  {msg.content}
-                  <span className="block text-[8px] opacity-40 mt-1 text-right flex items-center justify-end gap-1">
-                  {msg.status === 'sending' && <Loader2 size={8} className="animate-spin" />}
-                  {msg.status === 'failed' && <AlertCircle size={10} className="text-red-300" />}
-                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                <div className={`max-w-[80%] flex flex-col ${msg.sender_id === currentUser.id ? 'items-end' : 'items-start'}`}>
+                  {isRoomChat && msg.sender_id !== currentUser.id && (
+                    <span className="text-[9px] font-black text-zinc-500 ml-1 mb-1 uppercase tracking-tight">{msg.sender?.display_name}</span>
+                  )}
+                  <div className={`px-3 py-2 rounded-xl text-[13px] leading-relaxed ${
+                    msg.sender_id === currentUser.id 
+                      ? 'bg-[rgb(var(--accent-color))] text-white shadow-lg shadow-[rgb(var(--accent-color)/0.15)]' 
+                      : 'bg-white/5 text-zinc-200 border border-white/5'
+                  } ${msg.status === 'failed' ? 'bg-red-500/50' : ''}`}>
+                    {msg.content}
+                    <span className="block text-[8px] opacity-40 mt-1 text-right flex items-center justify-end gap-1">
+                      {msg.status === 'sending' && <Loader2 size={8} className="animate-spin" />}
+                      {msg.status === 'failed' && <AlertCircle size={10} className="text-red-300" />}
+                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </>
         )}
       </div>
       <form onSubmit={handleSend} className="p-4 bg-white/[0.02] border-t border-white/5 flex gap-2">

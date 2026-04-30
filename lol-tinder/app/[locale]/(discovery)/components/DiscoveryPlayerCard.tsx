@@ -5,6 +5,16 @@ import { motion } from "framer-motion";
 import { User, Trophy, MicOff, Globe } from "lucide-react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
+import {
+  getGameName,
+  getTagLine,
+  getRank,
+  getRole,
+  getBio,
+  getExtra,
+  getQueues,
+  type GameKey,
+} from "@/src/lib/profile";
 
 const RANK_PRIORITY = ['CHALLENGER', 'GRANDMASTER', 'MASTER', 'DIAMOND', 'EMERALD', 'PLATINUM', 'GOLD', 'SILVER', 'BRONZE', 'IRON', 'UNRANKED'];
 const getRankWeight = (r: string | null) => {
@@ -24,67 +34,67 @@ interface DiscoveryPlayerCardProps {
 export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = 'ALL' }: DiscoveryPlayerCardProps) {
   const t = useTranslations('Discovery.card');
   const locale = useLocale();
+  const gameKey = game.toLowerCase() as GameKey;
 
-  const borderColors = { 
-    orange: 'hover:border-orange-500/20', 
-    blue: 'border-blue-500/10', 
-    red: 'border-red-500/5 hover:border-red-500/20' 
+  const borderColors = {
+    orange: 'hover:border-orange-500/20',
+    blue: 'border-blue-500/10',
+    red: 'border-red-500/5 hover:border-red-500/20',
   };
-  // Вказуємо повні назви класів для коректної роботи Tailwind JIT
-  const textColors = { 
-    orange: 'text-orange-400 group-hover:text-orange-400', 
-    blue: 'text-blue-400 group-hover:text-blue-400', 
-    red: 'text-red-400 group-hover:text-red-400' 
+  const textColors = {
+    orange: 'text-orange-400 group-hover:text-orange-400',
+    blue: 'text-blue-400 group-hover:text-blue-400',
+    red: 'text-red-400 group-hover:text-red-400',
   };
   const iconColors = {
     orange: 'text-orange-400',
     blue: 'text-blue-400',
-    red: 'text-red-400'
+    red: 'text-red-400',
   };
-  const avatarHover = { orange: 'group-hover/avatar:bg-orange-500/50', blue: 'group-hover:bg-blue-500/50', red: 'group-hover/avatar:bg-red-500/50' };
+  const avatarHover = {
+    orange: 'group-hover/avatar:bg-orange-500/50',
+    blue: 'group-hover:bg-blue-500/50',
+    red: 'group-hover/avatar:bg-red-500/50',
+  };
+
+  // Читаємо всі дані через profile helpers
+  const displayName = getGameName(player, gameKey) || player.display_name;
+  const tagLine     = getTagLine(player, gameKey);
+  const bio         = getBio(player, gameKey);
+  const role        = game !== 'TFT' ? getRole(player, gameKey) : '';
+  const queues      = getQueues(player, gameKey);
+  const agents      = game === 'VALORANT' ? (getExtra(player, 'valorant', 'agents') || '').split(',').filter(Boolean) : [];
 
   let displayedRank = 'UNRANKED';
   let queueLabel = '';
-  let displayName = player.display_name;
-  let tagLine = '';
-  let role = '';
-  let bio = player.bio;
-  let profileUrl = `/${locale}/profile/${player.id}`;
-  let winRate = null;
 
   if (game === 'LOL') {
-    displayName = player.riot_game_name;
-    tagLine = player.riot_tag_line;
-    const soloWeight = getRankWeight(player.solo_rank);
-    const flexWeight = getRankWeight(player.flex_rank);
-    displayedRank = player.solo_rank || 'UNRANKED';
+    const soloRank  = getRank(player, 'lol');
+    const flexRank  = getExtra(player, 'lol', 'flex_rank') || 'UNRANKED';
+    const soloWeight = getRankWeight(soloRank);
+    const flexWeight = getRankWeight(flexRank);
+    displayedRank = soloRank || 'UNRANKED';
     queueLabel = 'Solo';
     if (filterQueue === 'Flex' || (filterQueue === 'ALL' && flexWeight < soloWeight)) {
-      displayedRank = player.flex_rank || 'UNRANKED';
+      displayedRank = flexRank;
       queueLabel = 'Flex';
     }
-    role = player.main_role;
   } else if (game === 'TFT') {
-    displayName = player.riot_game_name;
-    tagLine = player.riot_tag_line;
-    displayedRank = player.tft_rank || 'UNRANKED';
+    displayedRank = getRank(player, 'tft') || 'UNRANKED';
     queueLabel = 'Ranked';
-    profileUrl = `/${locale}/profile/${player.id}?game=TFT`;
   } else if (game === 'VALORANT') {
-    displayName = player.val_game_name;
-    tagLine = player.val_tag_line;
-    displayedRank = player.val_rank || 'Unranked';
+    displayedRank = getRank(player, 'valorant') || 'Unranked';
     queueLabel = 'Competitive';
-    role = player.val_main_role || 'AGENT';
-    bio = player.val_bio || player.bio;
-    profileUrl = `/${locale}/profile/${player.id}?game=VALORANT`;
-    if (player.val_wins > 0) winRate = Math.round((player.val_wins / (player.val_wins + player.val_losses)) * 100);
   }
 
+  const profileUrl =
+    game === 'TFT'
+      ? `/${locale}/profile/${player.id}?game=TFT`
+      : game === 'VALORANT'
+      ? `/${locale}/profile/${player.id}?game=VALORANT`
+      : `/${locale}/profile/${player.id}`;
+
   const langs = player.language ? player.language.split(',').filter(Boolean) : [];
-  const agents = player.val_top_agents ? player.val_top_agents.split(',').filter(Boolean) : [];
-  const queueField = game === 'LOL' ? 'preferred_queue' : game === 'TFT' ? 'tft_preferred_queue' : 'val_preferred_queue';
-  const queues = player[queueField] ? player[queueField].split(',').filter(Boolean) : [];
 
   return (
     <motion.div
@@ -99,14 +109,18 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
           <div className="relative flex-shrink-0 group/avatar">
             <div className={`w-14 h-14 rounded-xl bg-zinc-800 p-[1px] transition-colors ${avatarHover[accentColor]}`}>
               <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center overflow-hidden">
-                {player.avatar_url ? <img src={player.avatar_url} className="w-full h-full object-cover" alt="" /> : <User size={28} className="text-slate-700" />}
+                {player.avatar_url
+                  ? <img src={player.avatar_url} className="w-full h-full object-cover" alt="" />
+                  : <User size={28} className="text-slate-700" />}
               </div>
             </div>
             {new Date(player.last_seen).getTime() > Date.now() - 10 * 60 * 1000 && (
               <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-lg shadow-emerald-500/50" />
             )}
             {player.has_mic === false && (
-              <div className="absolute -bottom-1 -left-1 text-red-500 bg-[#0a0a0a] rounded-full p-0.5 shadow-lg border border-red-500/20"><MicOff size={14} /></div>
+              <div className="absolute -bottom-1 -left-1 text-red-500 bg-[#0a0a0a] rounded-full p-0.5 shadow-lg border border-red-500/20">
+                <MicOff size={14} />
+              </div>
             )}
           </div>
           <div className="min-w-0 flex flex-col justify-center">
@@ -114,19 +128,22 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
               {displayName}
               {tagLine && <span className="text-zinc-600 text-sm font-medium ml-1">#{tagLine}</span>}
             </h4>
-            <div className="flex flex-col mt-0.5">
-              <div className="flex items-center gap-1.5">
-                <Trophy size={12} className={iconColors[accentColor]} />
-                <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">{displayedRank}</span>
-                <span className="text-zinc-800 text-[10px]">•</span>
-                <span className={`text-[10px] font-bold uppercase opacity-60 ${iconColors[accentColor]}`}>{queueLabel}</span>
-              </div>
-              {winRate !== null && <div className="text-[10px] font-bold text-emerald-500 mt-0.5">{winRate}% WR</div>}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Trophy size={12} className={iconColors[accentColor]} />
+              <span className="text-[10px] font-black uppercase text-zinc-500 tracking-tighter">{displayedRank}</span>
+              <span className="text-zinc-800 text-[10px]">•</span>
+              <span className={`text-[10px] font-bold uppercase opacity-60 ${iconColors[accentColor]}`}>{queueLabel}</span>
             </div>
           </div>
         </div>
         {role && (
-          <div className={`absolute top-0 right-0 ${accentColor === 'orange' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : accentColor === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20' : ''} px-2 py-1 rounded text-[9px] font-black border uppercase tracking-widest`}>
+          <div className={`absolute top-0 right-0 px-2 py-1 rounded text-[9px] font-black border uppercase tracking-widest ${
+            accentColor === 'red'
+              ? 'bg-red-500/10 text-red-400 border-red-500/20'
+              : accentColor === 'blue'
+              ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+              : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+          }`}>
             {role}
           </div>
         )}
@@ -151,7 +168,11 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
         {queues.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {queues.map((q: string) => (
-              <span key={q} className={`px-2 py-1 rounded ${accentColor === 'orange' ? 'bg-orange-500/5 border-orange-500/10 text-orange-400/70' : accentColor === 'blue' ? 'bg-blue-500/5 border-blue-500/10 text-blue-400/70' : 'bg-red-500/5 border-red-500/10 text-red-400/70'} text-[9px] font-black uppercase tracking-tighter`}>
+              <span key={q} className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-tighter border ${
+                accentColor === 'orange' ? 'bg-orange-500/5 border-orange-500/10 text-orange-400/70'
+                : accentColor === 'blue' ? 'bg-blue-500/5 border-blue-500/10 text-blue-400/70'
+                : 'bg-red-500/5 border-red-500/10 text-red-400/70'
+              }`}>
                 {q}
               </span>
             ))}
@@ -169,7 +190,11 @@ export function DiscoveryPlayerCard({ player, game, accentColor, filterQueue = '
       </div>
 
       <Link href={profileUrl} className="w-full">
-        <button className={`btn-modern w-full text-[10px] font-black uppercase tracking-widest py-3 hover:${accentColor === 'orange' ? 'bg-orange-500/5' : accentColor === 'blue' ? 'bg-blue-500/10' : 'bg-red-600/20'} transition-all ${accentColor === 'blue' ? 'border-blue-500/20' : accentColor === 'red' ? 'bg-red-600/10 border-red-600/20 text-red-400' : ''}`}>
+        <button className={`btn-modern w-full text-[10px] font-black uppercase tracking-widest py-3 transition-all ${
+          accentColor === 'blue' ? 'border-blue-500/20 hover:bg-blue-500/10'
+          : accentColor === 'red' ? 'bg-red-600/10 border-red-600/20 text-red-400 hover:bg-red-600/20'
+          : 'hover:bg-orange-500/5'
+        }`}>
           {t(game === 'TFT' ? 'viewTactician' : game === 'VALORANT' ? 'viewAgent' : 'viewProfile')}
         </button>
       </Link>

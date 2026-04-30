@@ -8,7 +8,6 @@ import {
   LayoutGrid,
   Loader2,
   Save,
-  Link as LinkIcon,
   Gamepad2,
   Trophy,
   Zap,
@@ -22,6 +21,16 @@ import {
 } from "@/src/components/ui/FormFields";
 import GlobalSettingsSection from "./GlobalSettingsSection";
 import { useTranslations } from "next-intl";
+import {
+  getGameName,
+  getTagLine,
+  getRegion,
+  getRank,
+  getBio,
+  getRole,
+  getExtra,
+  type GameKey,
+} from "@/src/lib/profile";
 
 const POPULAR_LANGUAGES = [
   "Ukrainian",
@@ -39,72 +48,28 @@ const POPULAR_LANGUAGES = [
 
 const VALORANT_RANKS = [
   "Unranked",
-  "Iron 1",
-  "Iron 2",
-  "Iron 3",
-  "Bronze 1",
-  "Bronze 2",
-  "Bronze 3",
-  "Silver 1",
-  "Silver 2",
-  "Silver 3",
-  "Gold 1",
-  "Gold 2",
-  "Gold 3",
-  "Platinum 1",
-  "Platinum 2",
-  "Platinum 3",
-  "Diamond 1",
-  "Diamond 2",
-  "Diamond 3",
-  "Ascendant 1",
-  "Ascendant 2",
-  "Ascendant 3",
-  "Immortal 1",
-  "Immortal 2",
-  "Immortal 3",
+  "Iron 1", "Iron 2", "Iron 3",
+  "Bronze 1", "Bronze 2", "Bronze 3",
+  "Silver 1", "Silver 2", "Silver 3",
+  "Gold 1", "Gold 2", "Gold 3",
+  "Platinum 1", "Platinum 2", "Platinum 3",
+  "Diamond 1", "Diamond 2", "Diamond 3",
+  "Ascendant 1", "Ascendant 2", "Ascendant 3",
+  "Immortal 1", "Immortal 2", "Immortal 3",
   "Radiant",
 ];
 
 const VALORANT_AGENTS = [
-  "Astra",
-  "Breach",
-  "Brimstone",
-  "Chamber",
-  "Clove",
-  "Cypher",
-  "Deadlock",
-  "Fade",
-  "Gekko",
-  "Harbor",
-  "Iso",
-  "Jett",
-  "KAY/O",
-  "Killjoy",
-  "Neon",
-  "Omen",
-  "Phoenix",
-  "Raze",
-  "Reyna",
-  "Sage",
-  "Skye",
-  "Sova",
-  "Viper",
-  "Vyse",
-  "Yoru",
+  "Astra", "Breach", "Brimstone", "Chamber", "Clove", "Cypher",
+  "Deadlock", "Fade", "Gekko", "Harbor", "Iso", "Jett", "KAY/O",
+  "Killjoy", "Neon", "Omen", "Phoenix", "Raze", "Reyna", "Sage",
+  "Skye", "Sova", "Viper", "Vyse", "Yoru",
 ];
 
 const QUEUES_BY_GAME: Record<string, string[]> = {
   LOL: ["Solo/Duo", "Flex", "Draft", "ARAM", "Arena", "Quick Play", "Clash"],
   TFT: ["Ranked", "Normal", "Hyper Roll", "Double Up"],
-  VALORANT: [
-    "Competitive",
-    "Unrated",
-    "Swiftplay",
-    "Spike Rush",
-    "Deathmatch",
-    "Premier",
-  ],
+  VALORANT: ["Competitive", "Unrated", "Swiftplay", "Spike Rush", "Deathmatch", "Premier"],
 };
 
 const GAMES = [
@@ -118,14 +83,10 @@ interface ProfileFormProps {
   selectedLangs: string[];
   onToggleLang: (lang: string) => void;
   onInputChange: (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => void;
   handleGameInputChange: (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => void;
   toggleQueue: (queue: string) => void;
   toggleGame: (game: string) => void;
@@ -159,12 +120,21 @@ const ProfileForm = memo(
   }: ProfileFormProps) => {
     const t = useTranslations();
 
-    const prefix =
-      activeTab === "LOL" ? "" : activeTab === "VALORANT" ? "val_" : "tft_";
+    const gameKey = activeTab.toLowerCase() as GameKey;
 
-    const getGameValue = (field: string) => {
+    // Усі значення тягнемо через хелпери з profile.ts
+    const getGameValue = (field: string): string => {
       if (!profile) return "";
-      return profile[`${prefix}${field}`] ?? "";
+      switch (field) {
+        case "game_name": return getGameName(profile, gameKey);
+        case "tag_line":  return getTagLine(profile, gameKey);
+        case "region":    return getRegion(profile, gameKey);
+        case "bio":       return getBio(profile, gameKey);
+        case "main_role":
+        case "role":      return getRole(profile, gameKey);
+        case "rank":      return getRank(profile, gameKey);
+        default:          return getExtra(profile, gameKey, field) ?? "";
+      }
     };
 
     return (
@@ -185,6 +155,7 @@ const ProfileForm = memo(
             popularLanguages={POPULAR_LANGUAGES}
           />
 
+          {/* Game tabs */}
           <div className="flex border-b border-white/5 mb-8 overflow-x-auto no-scrollbar">
             {GAMES.map((game) => (
               <button
@@ -205,21 +176,20 @@ const ProfileForm = memo(
           <FormSwitch
             className="md:col-span-2"
             label={t("ProfilePage.editor.postCard")}
-            description={t("ProfilePage.editor.postCardDesc", {
-              game: activeTab,
-            })}
+            description={t("ProfilePage.editor.postCardDesc", { game: activeTab })}
             checked={enabledGames.includes(activeTab)}
             onChange={() => toggleGame(activeTab)}
             name="isGameEnabled"
           />
 
+          {/* Valorant — окремі поля для Riot ID */}
           {activeTab === "VALORANT" && (
             <div className="flex flex-col md:flex-row gap-6">
               <FormInput
                 className="flex-1"
                 label={t("ProfilePage.editor.riotId")}
                 icon={UserIcon}
-                name={`${prefix}game_name`}
+                name="game_name"
                 value={getGameValue("game_name")}
                 onChange={handleGameInputChange}
                 placeholder="e.g. Faker"
@@ -229,7 +199,7 @@ const ProfileForm = memo(
                 className="flex-1"
                 label={t("ProfilePage.editor.tagline")}
                 icon={Tag}
-                name={`${prefix}tag_line`}
+                name="tag_line"
                 value={getGameValue("tag_line")}
                 onChange={handleGameInputChange}
                 placeholder="e.g. EUW"
@@ -244,7 +214,7 @@ const ProfileForm = memo(
                 className="flex-1"
                 label={t("LandingPage.discovery.filters.region.label")}
                 icon={Globe}
-                name={`${prefix}region`}
+                name="region"
                 value={getGameValue("region") || "EUW"}
                 onChange={handleGameInputChange}
               >
@@ -259,14 +229,12 @@ const ProfileForm = memo(
                 className="flex-1"
                 label={t("ProfilePage.editor.rank")}
                 icon={Trophy}
-                name={`${prefix}rank`}
+                name="rank"
                 value={getGameValue("rank") || "Unranked"}
                 onChange={handleGameInputChange}
               >
                 {VALORANT_RANKS.map((rank) => (
-                  <option key={rank} value={rank}>
-                    {rank}
-                  </option>
+                  <option key={rank} value={rank}>{rank}</option>
                 ))}
               </FormSelect>
             )}
@@ -275,22 +243,16 @@ const ProfileForm = memo(
                 className="flex-1"
                 label={t("LandingPage.discovery.filters.role.label")}
                 icon={Sword}
-                name={`${prefix}main_role`}
-                value={getGameValue("main_role") || "FILL"}
+                name="role"
+                value={getGameValue("role") || "FILL"}
                 onChange={handleGameInputChange}
               >
                 {activeTab === "VALORANT" ? (
                   <>
                     <option value="DUELIST">{t("Common.roles.duelist")}</option>
-                    <option value="INITIATOR">
-                      {t("Common.roles.initiator")}
-                    </option>
-                    <option value="CONTROLLER">
-                      {t("Common.roles.controller")}
-                    </option>
-                    <option value="SENTINEL">
-                      {t("Common.roles.sentinel")}
-                    </option>
+                    <option value="INITIATOR">{t("Common.roles.initiator")}</option>
+                    <option value="CONTROLLER">{t("Common.roles.controller")}</option>
+                    <option value="SENTINEL">{t("Common.roles.sentinel")}</option>
                   </>
                 ) : (
                   <>
@@ -326,7 +288,7 @@ const ProfileForm = memo(
 
           <FormTextArea
             label={t("ProfilePage.editor.bio")}
-            name={`${prefix}bio`}
+            name="bio"
             value={getGameValue("bio")}
             onChange={handleGameInputChange}
             placeholder="Looking for competitive duo..."
@@ -336,7 +298,7 @@ const ProfileForm = memo(
             <button
               disabled={loading}
               type="submit"
-              className={`btn-modern w-full md:w-auto px-12 py-4 bg-[rgb(var(--accent-color))] hover:brightness-110 flex items-center justify-center gap-2`}
+              className="btn-modern w-full md:w-auto px-12 py-4 bg-[rgb(var(--accent-color))] hover:brightness-110 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

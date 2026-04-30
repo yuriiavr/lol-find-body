@@ -10,7 +10,7 @@ import {
   getRanksByPuuidAction, 
   getTopChampionsAction, 
   getRiotTFTStatsAction
-} from '@/app/[locale]/profile/actions'
+} from '@/app/[locale]/profile/actions';
 import { useToast } from '@/src/components/ToastProvider'
 import { ProfileSidebar } from './components/ProfileSidebar'
 import { ProfileIntel } from './components/ProfileIntel'
@@ -18,6 +18,7 @@ import { ProfileIntel } from './components/ProfileIntel'
 import { useTranslations } from 'next-intl'
 
 const supabase = createClient()
+import { getExtra, getRegion, type GameKey } from '@/src/lib/profile';
 
 export default function PublicProfilePage() {
   const params = useParams()
@@ -112,18 +113,19 @@ export default function PublicProfilePage() {
       setTftStats(null)
       setValStats(null)
       setTopChamps([])
+      
+      const puuid = getExtra(profile, activeGame.toLowerCase() as GameKey, 'puuid');
+      const region = getRegion(profile, activeGame.toLowerCase() as GameKey);
 
-      if (activeGame === 'LOL' && profile.puuid) {
-        const region = profile.riot_region || 'EUW';
+      if (activeGame === 'LOL' && puuid) {
         const [ranks, champs] = await Promise.all([
-          getRanksByPuuidAction(profile.puuid, region),
-          getTopChampionsAction(profile.puuid, region)
+          getRanksByPuuidAction(puuid, region),
+          getTopChampionsAction(puuid, region)
         ])
         setRiotStats(ranks)
         setTopChamps(champs)
-      } else if (activeGame === 'TFT' && profile.puuid) {
-        const region = profile.riot_region || 'EUW';
-        const tft = await getRiotTFTStatsAction(profile.puuid, region)
+      } else if (activeGame === 'TFT' && puuid) {
+        const tft = await getRiotTFTStatsAction(puuid, region)
         setTftStats(tft)
       }
 

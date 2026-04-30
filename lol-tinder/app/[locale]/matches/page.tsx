@@ -5,6 +5,7 @@ import { createClient } from "@/src/utils/supabase/client";
 import { Loader2, Users, Check, X, Trophy, Sword, MessageCircle, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { getMatches, updateMatchStatus } from "./actions";
+import { getGameName, getTagLine, getBio, type GameKey } from "@/src/lib/profile";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/src/components/ToastProvider";
 import { ViewProfileButton } from "@/src/components/ui/ProfileButton";
@@ -149,12 +150,19 @@ export default function MatchesPage() {
                                         </div>
                                         <div className="min-w-0">
                                             <h4 className="text-lg font-bold text-white group-hover:text-[rgb(var(--accent-color))] transition-colors truncate">
-                                              {m.profile.display_name || m.profile.riot_game_name || m.profile.val_game_name} 
-                                              {!m.profile.display_name && (
-                                                <span className="text-zinc-600 text-sm font-medium ml-1">
-                                                  #{m.profile.riot_tag_line || m.profile.val_tag_line}
-                                                </span>
-                                              )}
+                                              {(() => {
+                                                const enabledGame = (m.profile.enabled_games?.[0] ?? 'lol').toLowerCase() as GameKey;
+                                                const name = m.profile.display_name || getGameName(m.profile, enabledGame);
+                                                const tag = !m.profile.display_name ? getTagLine(m.profile, enabledGame) : null;
+                                                return (
+                                                  <>
+                                                    {name}
+                                                    {tag && (
+                                                      <span className="text-zinc-600 text-sm font-medium ml-1">#{tag}</span>
+                                                    )}
+                                                  </>
+                                                );
+                                              })()}
                                             </h4>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <span className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter">{m.profile.enabled_games}</span>
@@ -171,7 +179,10 @@ export default function MatchesPage() {
 
                                 <div className="mb-6 h-12">
                                     <p className="text-[11px] text-zinc-500 italic line-clamp-2 leading-relaxed">
-                                        {m.profile.bio || t('noBio')}
+                                        {(() => {
+                                          const enabledGame = (m.profile.enabled_games?.[0] ?? 'lol').toLowerCase() as GameKey;
+                                          return getBio(m.profile, enabledGame) || t('noBio');
+                                        })()}
                                     </p>
                                 </div>
 

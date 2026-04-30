@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreateRoomModal } from '@/src/components/CreateRoomModal';
 import { useToast } from '@/src/components/ToastProvider';
+import { getRank } from '@/src/lib/profile';
 
 const supabase = createClient();
 
@@ -53,7 +54,7 @@ export default function ValorantRooms() {
 
   const checkRankRequirement = (roomMinRank: string, roomMaxRank: string) => {
     if (!userProfile) return 'ok';
-    const userRankBase = (userProfile.val_rank || 'Unranked').split(' ')[0].toUpperCase();
+    const userRankBase = getRank(userProfile, 'valorant').split(' ')[0].toUpperCase();
     const minIdx = (!roomMinRank || roomMinRank === 'ALL') ? 0 : rankOrder.indexOf(roomMinRank.replace('+', '').toUpperCase());
     const maxIdx = (!roomMaxRank || roomMaxRank === 'ALL') ? rankOrder.length - 1 : rankOrder.indexOf(roomMaxRank.replace('+', '').toUpperCase());
     const userIdx = rankOrder.indexOf(userRankBase);

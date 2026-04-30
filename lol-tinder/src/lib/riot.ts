@@ -145,7 +145,6 @@ export const getRiotTFTStats = unstable_cache(
 //       if (!accountRes.ok) return null;
 
 //       const accountData = await accountRes.json();
-//       console.log(`[Riot API] Valorant account data:`, JSON.stringify(accountData));
 
 //       return {
 //         ...accountData,

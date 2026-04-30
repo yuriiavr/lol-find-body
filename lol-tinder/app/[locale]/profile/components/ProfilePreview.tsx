@@ -2,6 +2,7 @@ import { memo, useState, useCallback } from "react";
 import { Trophy, MicOff, Languages, Sword, Copy, Check } from "lucide-react";
 import RankPanel from "./RankPanel";
 import { useTranslations } from "next-intl";
+import { getRank, getExtra, type GameKey } from "@/src/lib/profile";
 
 interface ProfilePreviewProps {
   profile: any;
@@ -114,7 +115,7 @@ const ProfilePreview = memo(
             <>
               <RankPanel
                 title={t('ProfilePage.ranks.solo')}
-                value={riotStats?.solo || profile.solo_rank}
+                value={riotStats?.solo || getRank(profile, 'lol')}
                 isActive={selectedQueues.includes("Solo/Duo")}
                 isMain={true}
                 stats={
@@ -128,7 +129,7 @@ const ProfilePreview = memo(
               />
               <RankPanel
                 title={t('ProfilePage.ranks.flex')}
-                value={riotStats?.flex || profile.flex_rank}
+                value={riotStats?.flex || getExtra(profile, 'lol', 'flex_rank') || 'Unranked'}
                 isActive={selectedQueues.includes("Flex")}
                 isMain={false}
                 stats={
@@ -144,7 +145,7 @@ const ProfilePreview = memo(
           ) : activeTab === "TFT" ? (
             <RankPanel
               title={t('ProfilePage.ranks.tft')}
-              value={tftStats ? `${tftStats.rank}` : profile.tft_rank}
+              value={tftStats ? `${tftStats.rank}` : getRank(profile, 'tft')}
               isActive={true}
               isMain={true}
               stats={
@@ -159,7 +160,7 @@ const ProfilePreview = memo(
           ) : (
             <RankPanel
               title={t('ProfilePage.ranks.val')}
-              value={valStats?.rankName || profile.val_rank}
+              value={valStats?.rankName || getRank(profile, 'valorant')}
               isActive={true}
               isMain={true}
               stats={

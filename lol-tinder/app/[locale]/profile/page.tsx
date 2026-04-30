@@ -16,6 +16,17 @@ import { Loader2 } from "lucide-react";
 import { useToast } from "@/src/components/ToastProvider";
 import { useTranslations } from "next-intl";
 import { useGameTheme, type GameType } from "@/src/context/GameThemeContext";
+import {
+  getGameName,
+  getTagLine,
+  getRegion,
+  getRank,
+  getBio,
+  getRole,
+  getExtra,
+  buildGameUpdate,
+  type GameKey,
+} from "@/src/lib/profile";
 
 const supabase = createClient();
 
@@ -50,22 +61,31 @@ export default function ProfilePage() {
     setIsDirty(hasChanges);
   }, [profile, lastSavedProfile, isInitialLoading]);
 
-  const getGameValue = useCallback((field: string) => {
-    if (!profile) return "";
+  const getGameValue = useCallback(
+    (field: string) => {
+      if (!profile) return "";
 
-    // Mapping for LOL/TFT which use the global Riot Account columns
-    if (activeGame === "lol" || activeGame === "tft") {
-      if (field === "game_name") return profile.riot_game_name ?? "";
-      if (field === "tag_line") return profile.riot_tag_line ?? "";
-      if (field === "region") return profile.riot_region ?? "";
-    }
-
-    const prefix =
-      activeGame === "lol"
-        ? ""
-        : (activeGame === "valorant" ? "val" : activeGame) + "_";
-    return profile[`${prefix}${field}`] ?? "";
-  }, [profile, activeGame]);
+      const game = activeGame.toLowerCase() as GameKey;
+      switch (field) {
+        case "game_name":
+          return getGameName(profile, game);
+        case "tag_line":
+          return getTagLine(profile, game);
+        case "region":
+          return getRegion(profile, game);
+        case "bio":
+          return getBio(profile, game);
+        case "main_role":
+        case "role":
+          return getRole(profile, game);
+        case "rank":
+          return getRank(profile, game);
+        default:
+          return getExtra(profile, game, field) ?? "";
+      }
+    },
+    [profile, activeGame],
+  );
 
   useEffect(() => {
     if (!user || isInitialLoading) return;
@@ -129,12 +149,22 @@ export default function ProfilePage() {
       const isCheckbox = type === "checkbox";
       const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
 
-      setProfile((prev: any) => ({
-        ...prev,
-        [name]: val
-      }));
+      setProfile((prev: any) => {
+        const gameKey = activeGame.toLowerCase() as GameKey;
+        const existingGameProfile = prev?.game_profiles?.[gameKey] ?? {};
+        return {
+          ...prev, // ← зберігає display_name та всі топ-рівневі поля
+          game_profiles: {
+            ...prev?.game_profiles,
+            [gameKey]: {
+              ...existingGameProfile,
+              [name]: val,
+            },
+          },
+        };
+      });
     },
-    [],
+    [activeGame],
   );
 
   const toggleLang = useCallback((lang: string) => {
@@ -153,14 +183,16 @@ export default function ProfilePage() {
         const next = prev.includes(queue)
           ? prev.filter((q) => q !== queue)
           : [...prev, queue];
-        const prefix =
-          activeGame === "lol"
-            ? ""
-            : (activeGame === "valorant" ? "val" : activeGame) +
-              "_";
+
         setProfile((p: any) => ({
           ...p,
-          [`${prefix}preferred_queue`]: next.join(","),
+          game_profiles: {
+            ...p?.game_profiles,
+            [activeGame.toLowerCase()]: {
+              ...p?.game_profiles?.[activeGame.toLowerCase()],
+              queues: next.join(","),
+            },
+          },
         }));
         return next;
       });
@@ -173,8 +205,17 @@ export default function ProfilePage() {
       const next = prev.includes(agent)
         ? prev.filter((a) => a !== agent)
         : [...prev, agent];
-      
-      setProfile((p: any) => ({ ...p, val_top_agents: next.join(",") }));
+
+      setProfile((p: any) => ({
+        ...p,
+        game_profiles: {
+          ...p?.game_profiles,
+          valorant: {
+            ...p?.game_profiles?.valorant,
+            agents: next.join(","),
+          },
+        },
+      }));
       return next;
     });
   }, []);
@@ -190,7 +231,10 @@ export default function ProfilePage() {
   }, [activeGame, !!profile]);
 
   useEffect(() => {
-    if (!profile?.val_top_agents) { setSelectedAgents([]); return; }
+    if (!profile?.val_top_agents) {
+      setSelectedAgents([]);
+      return;
+    }
     setSelectedAgents(profile.val_top_agents.split(",").filter(Boolean));
   }, [activeGame, profile?.val_top_agents]);
 
@@ -283,10 +327,14 @@ export default function ProfilePage() {
         const prefix =
           activeGame === "lol"
             ? ""
-            : (activeGame === "valorant" ? "val" : activeGame) +
-              "_";
-        const qStr = initialProfile[`${prefix}preferred_queue`] || "";
-        setSelectedQueues(qStr.split(",").filter(Boolean));
+            : (activeGame === "valorant" ? "val" : activeGame) + "_";
+        const qStr =
+          getExtra(
+            initialProfile,
+            activeGame.toLowerCase() as GameKey,
+            "queues",
+          ) || "";
+        setSelectedQueues(qStr ? qStr.split(",").filter(Boolean) : []);
 
         if (initialProfile.val_top_agents)
           setSelectedAgents(initialProfile.val_top_agents.split(","));
@@ -294,17 +342,25 @@ export default function ProfilePage() {
         if (initialProfile.enabled_games)
           setEnabledGames(initialProfile.enabled_games.split(","));
 
-        if (initialProfile.puuid) {
-          getRanksByPuuidAction(initialProfile.puuid, initialProfile.riot_region).then(
+        const lolPuuid = getExtra(initialProfile, "lol", "puuid");
+        const lolRegion = getRegion(initialProfile, "lol");
+        if (lolPuuid) {
+          getRanksByPuuidAction(lolPuuid, lolRegion).then(
             (stats) => isMounted && setRiotStats(stats),
           );
         }
 
-        const initialGames = initialProfile.enabled_games ? initialProfile.enabled_games.split(",") : [];
-        if (initialProfile.puuid && (initialGames.includes("TFT") || activeGame === "tft")) {
+        const initialGames = initialProfile.enabled_games
+          ? initialProfile.enabled_games.split(",")
+          : [];
+        const tftPuuid = getExtra(initialProfile, "tft", "puuid") || lolPuuid;
+        if (
+          tftPuuid &&
+          (initialGames.includes("TFT") || activeGame === "tft")
+        ) {
           getRiotTFTStatsAction(
-            initialProfile.puuid,
-            initialProfile.riot_region,
+            tftPuuid,
+            getRegion(initialProfile, "tft"),
           ).then((stats) => isMounted && setTftStats(stats));
         }
       }
@@ -323,19 +379,12 @@ export default function ProfilePage() {
 
     const formData = new FormData(e.currentTarget);
 
-    const gamePrefix = activeGame === "lol" ? "" : (activeGame === "valorant" ? "val_" : "tft_");
-
     formData.append("activeGame", activeGame.toUpperCase());
     formData.set("language", selectedLangs.join(","));
-    formData.set(`${gamePrefix}preferred_queue`, selectedQueues.join(","));
-    if (activeGame === "valorant") formData.set("val_top_agents", selectedAgents.join(","));
     formData.set("enabled_games", enabledGames.join(","));
 
-    // Ensure shared Riot Account data is passed
-    formData.set("riot_game_name", profile.riot_game_name || "");
-    formData.set("riot_tag_line", profile.riot_tag_line || "");
-    formData.set("riot_region", profile.riot_region || "EUW");
-
+    // Removed: formData.set("game_profiles", JSON.stringify(profile.game_profiles));
+    // The server action already fetches the current profile and updates game_profiles.
     const result = await updateProfile(formData);
 
     if (result?.error) {
@@ -344,12 +393,13 @@ export default function ProfilePage() {
     } else {
       // Якщо повернуто новий puuid, оновлюємо статистику для RankPanel
       if (result.puuid) {
-        const region = (formData.get('riot_region') as string) || profile.riot_region;
-        
+        const region =
+          (formData.get("riot_region") as string) || getRegion(profile, "lol");
+
         // Запускаємо оновлення статистики паралельно
         const [stats, tft] = await Promise.all([
           getRanksByPuuidAction(result.puuid, region),
-          getRiotTFTStatsAction(result.puuid, region)
+          getRiotTFTStatsAction(result.puuid, region),
         ]);
 
         setRiotStats(stats);
@@ -357,7 +407,8 @@ export default function ProfilePage() {
 
         // Синхронізуємо локальний стан профілю з новим PUUID
         setProfile((prev: any) => {
-          const updated = { ...prev, puuid: result.puuid };
+          // Use buildGameUpdate for consistency
+          const updated = buildGameUpdate(prev, "lol", { puuid: result.puuid });
           setLastSavedProfile(JSON.parse(JSON.stringify(updated)));
           return updated;
         });
@@ -418,7 +469,9 @@ export default function ProfilePage() {
             enabledGames={enabledGames}
             selectedQueues={selectedQueues}
             handleSubmit={handleSubmit}
-            onSetActiveTab={(tab) => setActiveGame(tab.toLowerCase() as GameType)}
+            onSetActiveTab={(tab) =>
+              setActiveGame(tab.toLowerCase() as GameType)
+            }
             loading={loading}
           />
         </div>

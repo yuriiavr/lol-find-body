@@ -8,10 +8,11 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreateRoomModal } from '@/src/components/CreateRoomModal';
 import { useToast } from '@/src/components/ToastProvider';
+import { getRank } from '@/src/lib/profile';
 
 const supabase = createClient();
 
-export default function ValorantRooms() {
+export default function LeagueRooms() {
   const { showToast } = useToast();
   const t = useTranslations('Rooms');
   const router = useRouter();
@@ -23,9 +24,9 @@ export default function ValorantRooms() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
 
-  const modes = ['ALL', 'COMPETITIVE', 'UNRATED', 'SWIFPLAY', 'SPIKE RUSH', 'DEATHMATCH', 'PREMIER'];
-  const rankOrder = ['UNRANKED', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'ASCENDANT', 'IMMORTAL', 'RADIANT'];
-  const modalRanks = ['ALL', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'ASCENDANT', 'IMMORTAL', 'RADIANT'];
+  const modes = ['ALL', 'FLEX', 'NORMAL', 'ARAM', 'ARENA', 'QUICK PLAY', 'CUSTOM'];
+  const rankOrder = ['UNRANKED', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER', 'GRANDMASTER', 'CHALLENGER'];
+  const modalRanks = ['ALL', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER+'];
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -40,20 +41,20 @@ export default function ValorantRooms() {
 
   useEffect(() => {
     const fetchRooms = async () => {
-      let query = supabase.from('rooms').select('*, participants:room_participants(count)').eq('game_type', 'valorant');
+      let query = supabase.from('rooms').select('*, participants:room_participants(count)').eq('game_type', 'lol');
       if (filterMode !== 'ALL') query = query.eq('mode', filterMode);
       const { data } = await query.order('created_at', { ascending: false });
       setRooms(data || []);
       setLoading(false);
     };
     fetchRooms();
-    const channel = supabase.channel('public:valorant-rooms').on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: 'game_type=eq.valorant' }, fetchRooms).subscribe();
+    const channel = supabase.channel('public:lol-rooms').on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: 'game_type=eq.lol' }, fetchRooms).subscribe();
     return () => { supabase.removeChannel(channel) };
   }, [filterMode]);
 
   const checkRankRequirement = (roomMinRank: string, roomMaxRank: string) => {
     if (!userProfile) return 'ok';
-    const userRankBase = (userProfile.val_rank || 'Unranked').split(' ')[0].toUpperCase();
+    const userRankBase = getRank(userProfile, 'lol').split(' ')[0].toUpperCase();
     const minIdx = (!roomMinRank || roomMinRank === 'ALL') ? 0 : rankOrder.indexOf(roomMinRank.replace('+', '').toUpperCase());
     const maxIdx = (!roomMaxRank || roomMaxRank === 'ALL') ? rankOrder.length - 1 : rankOrder.indexOf(roomMaxRank.replace('+', '').toUpperCase());
     const userIdx = rankOrder.indexOf(userRankBase);
@@ -65,7 +66,7 @@ export default function ValorantRooms() {
   const handleCreateRoomSubmit = async (description: string, mode: string, maxPlayers: number, minRank: string, maxRank: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return showToast(t('loginRequired'), 'error');
-    const { data, error } = await supabase.from('rooms').insert({ owner_id: user.id, game_type: 'valorant', mode, max_players: maxPlayers, min_rank: minRank, max_rank: maxRank, description }).select().single();
+    const { data, error } = await supabase.from('rooms').insert({ owner_id: user.id, game_type: 'lol', mode, max_players: maxPlayers, min_rank: minRank, max_rank: maxRank, description }).select().single();
     if (error) return showToast(t('createRoomError', { message: error.message }), 'error');
     await supabase.from('room_participants').insert({ room_id: data.id, user_id: user.id });
     router.push(`./room/${data.id}`);

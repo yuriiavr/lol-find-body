@@ -3,6 +3,7 @@ import { Settings, User as UserIcon, Languages, Mic, Hash, Globe, ChevronDown } 
 import { FormInput, BadgeSelector, VoiceSwitch } from "@/src/components/ui/FormFields";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
+import { getGameName, getTagLine, getRegion, getExtra } from "@/src/lib/profile";
 
 interface GlobalSettingsSectionProps {
   profile: any;
@@ -16,13 +17,21 @@ const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onIn
   const t = useTranslations();
   const [isRiotOpen, setIsRiotOpen] = useState(false);
 
+  // Riot ID є спільним для lol/tft — беремо з lol профілю
+  const riotGameName = getGameName(profile, 'lol');
+  const riotTagLine  = getTagLine(profile, 'lol');
+  const riotRegion   = getRegion(profile, 'lol');
+  const puuid        = getExtra(profile, 'lol', 'puuid');
+
   return (
     <div className="modern-panel p-8 mb-10 bg-white/[0.02] border-white/5">
       <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-4">
         <Settings size={18} className="text-zinc-500" />
-        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">{t('LandingPage.profileEditor.settings.title')}</h3>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
+          {t('LandingPage.profileEditor.settings.title')}
+        </h3>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="md:col-span-2">
           <FormInput
@@ -54,7 +63,7 @@ const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onIn
           />
         </div>
 
-        {/* Riot Account Section */}
+        {/* Riot Account — спільний для LoL та TFT */}
         <div className="md:col-span-2 mt-4 pt-8 border-t border-white/5">
           <button
             type="button"
@@ -67,17 +76,20 @@ const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onIn
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 group-hover:text-white transition-colors">
                   {t('LandingPage.profileEditor.settings.riotAccount.title')}
                 </h3>
-                {profile?.puuid && (
+                {puuid && riotGameName && (
                   <p className="text-[10px] text-emerald-500 font-bold mt-1">
-                    {t('LandingPage.profileEditor.settings.riotAccount.status', { 
-                      name: profile.riot_game_name || profile.game_name, 
-                      tag: profile.riot_tag_line || profile.tag_line 
+                    {t('LandingPage.profileEditor.settings.riotAccount.status', {
+                      name: riotGameName,
+                      tag: riotTagLine,
                     })}
                   </p>
                 )}
               </div>
             </div>
-            <ChevronDown size={16} className={`text-zinc-600 transition-transform duration-300 ${isRiotOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              size={16}
+              className={`text-zinc-600 transition-transform duration-300 ${isRiotOpen ? 'rotate-180' : ''}`}
+            />
           </button>
 
           <AnimatePresence>
@@ -89,11 +101,12 @@ const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onIn
                 className="overflow-hidden"
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 pb-4">
+                  {/* Ці поля оновлюють game_profiles.lol (і синхронізуються з tft у server action) */}
                   <FormInput
                     label={t('ProfilePage.editor.riotId')}
                     icon={UserIcon}
                     name="riot_game_name"
-                    value={profile?.riot_game_name || ""}
+                    value={riotGameName}
                     onChange={onInputChange}
                     placeholder="Game Name"
                   />
@@ -101,7 +114,7 @@ const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onIn
                     label={t('ProfilePage.editor.tagline')}
                     icon={Hash}
                     name="riot_tag_line"
-                    value={profile?.riot_tag_line || ""}
+                    value={riotTagLine}
                     onChange={onInputChange}
                     placeholder="TAG"
                   />
@@ -112,7 +125,7 @@ const GlobalSettingsSection = memo(({ profile, selectedLangs, onToggleLang, onIn
                     </label>
                     <select
                       name="riot_region"
-                      value={profile?.riot_region || "EUW"}
+                      value={riotRegion}
                       onChange={onInputChange}
                       className="w-full bg-zinc-950 border border-white/5 rounded-xl px-4 py-3 text-sm focus:border-[rgb(var(--accent-color)/0.5)] transition-all outline-none appearance-none"
                     >
