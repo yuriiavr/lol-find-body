@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/src/components/ToastProvider'
 import { ProfileSidebar } from './components/ProfileSidebar'
 import { ProfileIntel } from './components/ProfileIntel'
-// import { ProfileReviews } from './components/ProfileReviews'
+import { ProfileReviews } from './components/ProfileReviews'
 import { useTranslations } from 'next-intl'
 
 const supabase = createClient()
@@ -31,7 +31,7 @@ export default function PublicProfilePage() {
   const [isRequesting, setIsRequesting] = useState(false)
   const [requestSent, setRequestStatus] = useState(false)
   const [isMatched, setIsMatched] = useState(false)
-  // const [reviews, setReviews] = useState<any[]>([])
+  const [reviews, setReviews] = useState<any[]>([])
   const [riotStats, setRiotStats] = useState<any>(null)
   const [tftStats, setTftStats] = useState<any>(null)
   const [valStats, setValStats] = useState<any>(null)
@@ -39,10 +39,8 @@ export default function PublicProfilePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
   
-  // const [reviewComment, setReviewComment] = useState('')
-  // const [behaviorRating, setBehaviorRating] = useState(5)
-  // const [skillRating, setSkillRating] = useState(5)
-  // const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [reviewComment, setReviewComment] = useState('')
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
   const { showToast } = useToast()
   const t = useTranslations('ProfilePage.public')
@@ -129,28 +127,25 @@ export default function PublicProfilePage() {
         setTftStats(tft)
       }
 
-      // await refreshReviews(id, activeGame, currentUser.id)
+      await refreshReviews(id, currentUser.id)
     }
     fetchGameSpecificData()
   }, [activeGame, profile, currentUser, id])
 
-  // const refreshReviews = async (targetId: string, gameType: 'LOL' | 'TFT' | 'VALORANT', authUserId: string) => {
-  //   const res = await getReviewsForUser(targetId, gameType)
-  //   if (res.data) {
-  //     setReviews(res.data)
-  //     const myReview = res.data.find((r: any) => r.reviewer_id === authUserId)
-  //     if (myReview && authUserId) {
-  //       setReviewComment(myReview.comment || '')
-  //       setBehaviorRating(myReview.behavior_rating)
-  //       setSkillRating(myReview.skill_rating)
-  //     } else {
-  //       setReviewComment('')
-  //       setBehaviorRating(5)
-  //       setSkillRating(5)
-  //     }
-  //   }
-  //   if (res.error) setReviews([])
-  // }
+  const refreshReviews = async (targetId: string, authUserId: string) => {
+    // Передаємо LOL як дефолт або модифікуємо екшн на бекенді, щоб він ігнорував тип гри
+    const res = await getReviewsForUser(targetId, 'LOL')
+    if (res.data) {
+      setReviews(res.data)
+      const myReview = res.data.find((r: any) => r.reviewer_id === authUserId)
+      if (myReview && authUserId) {
+        setReviewComment(myReview.comment || '')
+      } else {
+        setReviewComment('')
+      }
+    }
+    if (res.error) setReviews([])
+  }
 
   const handleLogin = async () => {
     const redirectTo = typeof window !== 'undefined' 
@@ -191,20 +186,19 @@ export default function PublicProfilePage() {
       showToast(result.error || t('toasts.requestError'), 'error')
     }
   }
-  // const handleSubmitReview = async () => {
-  //   if (!activeGame) return
-  //   setIsSubmittingReview(true)
-  //   const result = await upsertReview(id, reviewComment, behaviorRating, skillRating, activeGame)
-  //   setIsSubmittingReview(false)
+  const handleSubmitReview = async () => {
+    setIsSubmittingReview(true)
+    // Відправляємо нейтральні рейтинги (5), бо бекенд їх очікує, але ми їх більше не показуємо
+    const result = await upsertReview(id, reviewComment, 5, 5, 'LOL')
+    setIsSubmittingReview(false)
 
-  //   if (result.success) {
-  //     showToast(t('toasts.reviewSaved'), 'success')
-  //     await refreshReviews(id, activeGame, currentUser.id)
-  //     localStorage.setItem('lastProfileGame', activeGame)
-  //   } else {
-  //     showToast(result.error || t('toasts.reviewError'), 'error')
-  //   }
-  // }
+    if (result.success) {
+      showToast(t('toasts.reviewSaved'), 'success')
+      await refreshReviews(id, currentUser.id)
+    } else {
+      showToast(result.error || t('toasts.reviewError'), 'error')
+    }
+  }
   // const avgBehavior = useMemo(() => reviews.length > 0 
   //   ? reviews.reduce((acc, r) => acc + r.behavior_rating, 0) / reviews.length 
   //   : 0, [reviews])
@@ -240,7 +234,7 @@ export default function PublicProfilePage() {
             activeGame={activeGame}
             setActiveGame={setActiveGame}
             enabledGamesList={enabledGamesList}
-            riotStats={riotStats}
+            riotStats={riotStats} // Keep riotStats as is, it's game data
             tftStats={tftStats}
             valStats={valStats}
             // avgBehavior={avgBehavior}
@@ -259,19 +253,15 @@ export default function PublicProfilePage() {
                 requestSent={requestSent}
                 handleMatch={handleMatch}
               />
-              {/* <ProfileReviews 
+              <ProfileReviews 
                 id={id}
                 isMatched={isMatched}
                 reviews={reviews}
                 reviewComment={reviewComment}
                 setReviewComment={setReviewComment}
-                behaviorRating={behaviorRating}
-                setBehaviorRating={setBehaviorRating}
-                skillRating={skillRating}
-                setSkillRating={setSkillRating}
                 isSubmittingReview={isSubmittingReview}
                 handleSubmitReview={handleSubmitReview}
-              /> */}
+              />
             </div>
           </section>
         </div>

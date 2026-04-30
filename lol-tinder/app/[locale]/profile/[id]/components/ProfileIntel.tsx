@@ -1,6 +1,7 @@
 'use client'
 
 import { memo } from 'react'
+import { useTranslations } from 'next-intl'
 import { ExternalLink, Loader2, Check } from 'lucide-react'
 import { getBio, getGameName, getTagLine, getRegion, type GameKey } from '@/src/lib/profile'
 
@@ -23,22 +24,23 @@ export const ProfileIntel = memo(({
   requestSent,
   handleMatch,
 }: ProfileIntelProps) => {
+  const t = useTranslations('ProfilePage.intel')
   const gameKey = (activeGame?.toLowerCase() ?? 'lol') as GameKey
 
-  const bio       = getBio(profile, gameKey) || "This summoner prefers to keep a low profile."
-  const gameName  = getGameName(profile, 'lol') // OP.GG посилання завжди через lol
+  const bio       = getBio(profile, gameKey) || `${t('noBio')}`
+  const gameName  = getGameName(profile, 'lol')
   const tagLine   = getTagLine(profile, 'lol')
   const region    = getRegion(profile, 'lol')
 
   return (
     <div className="modern-panel p-8 bg-slate-900/20">
       <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8 border-b border-white/5 pb-4">
-        Summoner Intel
+        {t('gamerCard')}
       </h3>
 
       <div>
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">
-          Biography & Playstyle
+          {t('bio')}
         </p>
         <p className="text-2xl text-slate-200 leading-relaxed italic font-medium">{bio}</p>
       </div>
@@ -47,7 +49,7 @@ export const ProfileIntel = memo(({
         <div className="mt-10 border-t border-white/5 pt-8">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-              Top Champions Mastery
+              {t('topChamps')}
             </p>
             {gameName && tagLine && (
               <a
@@ -88,14 +90,12 @@ export const ProfileIntel = memo(({
             disabled={isRequesting || requestSent}
             className={`btn-modern px-12 py-5 text-base transition-all ${requestSent ? 'opacity-50 border-emerald-500 text-emerald-400' : ''}`}
           >
-            {isRequesting ? (
-              <Loader2 className="animate-spin" />
-            ) : requestSent ? (
+            {isRequesting ? <Loader2 className="animate-spin" /> : requestSent ? (
               <span className="flex items-center gap-2">
-                <Check size={20} /> Request Sent
+                <Check size={20} /> {t('requestSent')}
               </span>
             ) : (
-              "Send Team Request"
+              t('sendTeamRequest')
             )}
           </button>
         )}

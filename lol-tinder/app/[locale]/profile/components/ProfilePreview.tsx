@@ -86,7 +86,6 @@ const ProfilePreview = memo(
             <button
               onClick={handleCopy}
               className="p-2 rounded-xl cursor-pointer text-zinc-500 hover:text-[rgb(var(--accent-color))] hover:border-[rgb(var(--accent-color)/0.2)] transition-all opacity-0 group-hover/name:opacity-100 mt-2"
-              title={t('ProfilePage.editor.copyId')}
             >
               {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
             </button>

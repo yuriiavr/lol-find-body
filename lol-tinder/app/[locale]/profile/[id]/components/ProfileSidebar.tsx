@@ -1,6 +1,7 @@
 'use client'
 
 import { memo, useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { User, Trophy, MicOff, Sword, Languages, Gamepad, Copy, Check } from 'lucide-react'
 import {
   getGameName,
@@ -33,6 +34,7 @@ export const ProfileSidebar = memo(({
   valStats,
 }: ProfileSidebarProps) => {
   const [copied, setCopied] = useState(false)
+  const t = useTranslations()
 
   const gameKey = (activeGame?.toLowerCase() ?? 'lol') as GameKey
 
@@ -50,7 +52,7 @@ export const ProfileSidebar = memo(({
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [displayGameName, displayTagLine])
+  }, [displayGameName, displayTagLine, t])
 
   return (
     <section className="w-full lg:w-96 flex flex-col items-center lg:items-start text-center lg:text-left">
@@ -87,7 +89,7 @@ export const ProfileSidebar = memo(({
               onClick={handleCopy}
               className="p-2 rounded-xl cursor-pointer text-zinc-500 hover:text-[rgb(var(--accent-color))] hover:border-[rgb(var(--accent-color)/0.2)] transition-all opacity-0 group-hover/name:opacity-100 mt-2"
               title="Copy Riot ID"
-            >
+            > 
               {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
             </button>
           )}
@@ -97,7 +99,7 @@ export const ProfileSidebar = memo(({
       <div className="flex flex-wrap gap-4 mt-6 justify-center lg:justify-start">
         {displayRole && (
           <div className="px-4 py-2 bg-white/5 rounded-full border border-white/5 text-xs font-bold text-[rgb(var(--accent-color))] uppercase tracking-widest flex items-center gap-2">
-            <Sword size={14} /> {displayRole}
+            <Sword size={14} /> {t(`Common.roles.${displayRole.toLowerCase()}`)}
           </div>
         )}
         {language && (
@@ -121,20 +123,20 @@ export const ProfileSidebar = memo(({
                   ? 'bg-[rgb(var(--accent-color))] text-white shadow-lg'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
-            >
-              {game === 'LOL' ? 'League' : game}
+            > {game}
             </button>
           ))}
         </div>
       )}
 
       <div className="mt-6 w-full space-y-4">
+        {/* LOL */}
         {activeGame === 'LOL' && (
           <>
-            <RankBox
-              title="Solo Queue"
+            <RankBox 
+              title={t('ProfilePage.ranks.solo')}
               rank={riotStats?.solo || getRank(profile, 'lol')}
-              active={queues.includes('Solo/Duo')}
+              active={queues.includes('Solo/Duo')} // Keep 'Solo/Duo' as is, it's a game term
               stats={{
                 wins:   riotStats?.solo_wins   ?? getExtra(profile, 'lol', 'solo_wins')   ?? 0,
                 losses: riotStats?.solo_losses ?? getExtra(profile, 'lol', 'solo_losses') ?? 0,
@@ -142,10 +144,10 @@ export const ProfileSidebar = memo(({
               icon={<Trophy size={12} className="text-[rgb(var(--accent-color))]" />}
               isMain={true}
             />
-            <RankBox
-              title="Flex Queue"
-              rank={riotStats?.flex || getExtra(profile, 'lol', 'flex_rank') || 'Unranked'}
-              active={queues.includes('Flex')}
+            <RankBox 
+              title={t('ProfilePage.ranks.flex')}
+              rank={riotStats?.flex || getExtra(profile, 'lol', 'flex_rank') || t('ProfilePage.ranks.unranked')}
+              active={queues.includes('Flex')} // Keep 'Flex' as is, it's a game term
               stats={{
                 wins:   riotStats?.flex_wins   ?? getExtra(profile, 'lol', 'flex_wins')   ?? 0,
                 losses: riotStats?.flex_losses ?? getExtra(profile, 'lol', 'flex_losses') ?? 0,
@@ -153,11 +155,12 @@ export const ProfileSidebar = memo(({
             />
           </>
         )}
+        {/* TFT */}
         {activeGame === 'TFT' && (
           <RankBox
-            title="TFT Ranked"
-            rank={tftStats?.rank || getRank(profile, 'tft') || 'Unranked'}
-            active={true}
+            title={t('ProfilePage.ranks.tft')}
+            rank={tftStats?.rank || getRank(profile, 'tft') || t('ProfilePage.ranks.unranked')}
+            active={true} // TFT always has one rank
             stats={{
               wins:   tftStats?.wins   ?? getExtra(profile, 'tft', 'wins')   ?? 0,
               losses: tftStats?.losses ?? getExtra(profile, 'tft', 'losses') ?? 0,
@@ -167,11 +170,12 @@ export const ProfileSidebar = memo(({
             isMain={true}
           />
         )}
+        {/* VALORANT */}
         {activeGame === 'VALORANT' && (
           <RankBox
-            title="Valorant Rank"
-            rank={valStats?.rankName || getRank(profile, 'valorant') || 'Unranked'}
-            active={true}
+            title={t('ProfilePage.ranks.val')}
+            rank={valStats?.rankName || getRank(profile, 'valorant') || t('ProfilePage.ranks.unranked')}
+            active={true} // Valorant always has one rank
             stats={{
               wins:   valStats?.wins   ?? getExtra(profile, 'valorant', 'wins')   ?? 0,
               losses: valStats?.losses ?? getExtra(profile, 'valorant', 'losses') ?? 0,
@@ -194,6 +198,7 @@ const RankBox = ({
   icon,
   colorClass = "text-zinc-500",
   isMain = false,
+  t, // Pass t from parent
 }: any) => {
   const winNum  = Number(stats?.wins ?? 0)
   const lossNum = Number(stats?.losses ?? 0)
@@ -207,7 +212,7 @@ const RankBox = ({
         {icon}
       </div>
       <p className={`${isMain ? 'text-3xl' : 'text-2xl'} font-bold text-white uppercase italic`}>
-        {rank || 'Unranked'}
+        {rank || t('ProfilePage.ranks.unranked')}
       </p>
       {total > 0 && (
         <div className="flex gap-2 mt-1 text-[10px] font-bold">

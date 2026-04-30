@@ -337,7 +337,6 @@
       "postCard": "Post this card?",
       "postCardDesc": "Enable to show your {game} profile in discovery.",
       "placeholderName": "Your social nickname for this app",
-      "copyId": "Copy Riot ID",
       "summoner": "Summoner",
       "winRate": "{rate}% WR",
       "gamesCount": "({count} games)",
@@ -358,9 +357,7 @@
     },
     "sidebar": {
       "stats": "Stats",
-      "reviews": "Reviews",
-      "behavior": "Behavior",
-      "skill": "Skill"
+      "reviews": "Comments"
     },
     "ranks": {
       "unranked": "Unranked",
@@ -369,21 +366,24 @@
       "tft": "TFT Ranked",
       "val": "VALORANT Rank"
     },
-    "intel": {
-      "summonerIntel": "Summoner Intel",
-      "additionalInfo": "Additional Information",
-      "noBio": "User hasn't added a bio yet.",
-      "topChampions": "Top Champions",
-      "readyToPlay": "Ready to play together?",
-      "sendRequest": "Send Team Request",
-      "requestPending": "Request Pending"
-    },
     "reviews": {
-      "title": "Player Reviews",
-      "leaveReview": "Leave a Review",
-      "commentPlaceholder": "Describe your experience playing together...",
+      "title": "Profile Comments",
+      "leaveMessage": "Leave a message",
+      "commentPlaceholder": "Write something on this player's wall...",
       "submit": "Submit Review",
       "empty": "No reviews yet"
+    },
+    "intel": {
+      "gamerCard": "Gamer Card",
+      "information": "Information",
+      "lowProfileBio": "This summoner prefers to keep a low profile.",
+      "topChampsMastery": "Top Champions Mastery",
+      "viewOnOpgg": "View on OP.GG",
+      "requestSent": "Request Sent",
+      "sendTeamRequest": "Send Team Request",
+      "topChamps":"Top Champions Mastery",
+      "bio": "Information",
+      "noBio": "This summoner prefers to keep a low profile."
     }
   },
   "Navbar": {
@@ -396,6 +396,18 @@
     "notifications": {
       "newRequest": "New team request received!"
     }
+  },
+  "ErrorPage": {
+    "title": "Error in the Matrix",
+    "description": "We’ve encountered an unexpected issue. Don't worry, your data is safe. Our engineers are already working on a fix.",
+    "reset": "Try Again",
+    "home": "Back to Home"
+  },
+  "NotFoundPage": {
+    "title": "Lost in the Void",
+    "description": "It seems you've wandered into uncharted territory. The page you're looking for doesn't exist. Perhaps a wrong turn in the jungle?",
+    "home": "Return to Homepage",
+    "discovery": "Explore Discovery"
   },
   "PrivacyPage": {
     "title": "Privacy Policy — ReMatch",
