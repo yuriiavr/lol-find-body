@@ -69,51 +69,46 @@ export async function updateProfile(formData: FormData) {
     gRegion = (formData.get('val_region') as string) || getRegion(currentProf, 'valorant') || 'EUW';
   }
 
-  const bio          = formData.get(`${prefix}bio`) as string
-  const role         = formData.get(`${prefix}role`) as string
+  // Нова форма надсилає bio/role/queues без префіксів для всіх ігор
+  const bio          = formData.get('bio') as string
+  const role         = formData.get('role') as string
   const language     = formData.get('language') as string
-  const preferred_queue = formData.get(`${prefix}preferred_queue`) as string
+  const preferred_queue = formData.get('queues') as string
   const enabled_games = formData.get('enabled_games') as string
   const hasMic       = formData.get('hasMic') === 'on'
   const isPaused     = formData.get('isPaused') === 'on'
   const isGameEnabled = formData.get('isGameEnabled') === 'on'
 
-  // Перевірка зміни Riot ID для скидання PUUID
   const existingGameProfile = getGameProfile(currentProf, activeKey);
-  let puuid: string | null = getExtra(currentProf, activeKey, 'puuid') || null;
-  const hasRiotChanged = (gName !== getGameName(currentProf, activeKey)) || (tLine !== getTagLine(currentProf, activeKey)) || (gRegion !== getRegion(currentProf, activeKey));
 
-  if (hasRiotChanged) {
-    puuid = null;
-  }
+  // Valorant: просто зберігаємо нік і тег без будь-яких API запитів до Riot
+  let puuid: string | null = null;
+  let apiRank: string | null = null;
 
-  if (gName && tLine && !puuid) {
-    const account = await getAccountByRiotId(gName, tLine, gRegion);
-    if (account) {
-      puuid = account.puuid;
-    } else {
-      return { error: `Account not found: ${gName}#${tLine} in ${gRegion}` };
+  if (activeGame !== 'VALORANT') {
+    puuid = getExtra(currentProf, activeKey, 'puuid') || null;
+    const hasRiotChanged = (gName !== getGameName(currentProf, activeKey)) || (tLine !== getTagLine(currentProf, activeKey)) || (gRegion !== getRegion(currentProf, activeKey));
+
+    if (hasRiotChanged) {
+      puuid = null;
     }
-  }
 
-  // Примітка: перевірка унікальності puuid тепер може знадобитися через rpc або складний фільтр, 
-  // якщо puuid не є окремою колонкою. Якщо пуід залишився колонкою — код нижче ок.
+    if (gName && tLine && !puuid) {
+      const account = await getAccountByRiotId(gName, tLine, gRegion);
+      if (account) {
+        puuid = account.puuid;
+      } else {
+        return { error: `Account not found: ${gName}#${tLine} in ${gRegion}` };
+      }
+    }
 
-  let apiRank: string | null = null
-  if (puuid) {
-    if (activeGame === 'LOL') {
+    if (puuid && activeGame === 'LOL') {
       const ranks = await getRanksByPuuid(puuid, gRegion)
       if (ranks) {
         apiRank = ranks.solo !== 'UNRANKED' ? ranks.solo : ranks.flex;
       }
-    } else if (activeGame === 'TFT') {
-      try {
-        const tftStats = await getRiotTFTStats(puuid, gRegion)
-        if (tftStats) {
-          apiRank = `${(tftStats as any).tier || ''} ${tftStats.rank || ''}`.trim();
-        }
-      } catch {}
     }
+    // TFT: Riot API недоступний — ранг вводиться вручну
   }
 
   let finalEnabledGames = (enabled_games || "").split(",").filter(Boolean)
@@ -140,12 +135,12 @@ export async function updateProfile(formData: FormData) {
   // Формуємо оновлений об'єкт для конкретної гри
   const updatedGameProfile: any = {
     ...existingGameProfile,
-    bio: bio,
-    queues: preferred_queue,
-    region: gRegion,
-    tag_line: tLine,
+    bio:       bio       || existingGameProfile?.bio       || '',
+    queues:    preferred_queue || existingGameProfile?.queues || '',
+    region:    gRegion,
+    tag_line:  tLine,
     game_name: gName,
-    puuid: puuid,
+    puuid:     puuid,
   };
 
   if (activeGame === 'LOL') {
@@ -153,11 +148,13 @@ export async function updateProfile(formData: FormData) {
     updatedGameProfile.rank = (apiRank && apiRank !== 'UNRANKED') ? apiRank : (formData.get('solo_rank') as string || getRank(currentProf, activeKey) || 'Unranked');
     updatedGameProfile.flex_rank = formData.get('flex_rank') as string || getExtra(currentProf, activeKey, 'flex_rank') || 'Unranked';
   } else if (activeGame === 'VALORANT') {
-    updatedGameProfile.role = role;
-    updatedGameProfile.rank = formData.get('val_rank') as string || getRank(currentProf, activeKey) || 'Unranked';
-    updatedGameProfile.agents = (formData.get('val_top_agents') as string) || getExtra(currentProf, activeKey, 'agents') || '';
+    // Valorant: ручний ввід рангу та агентів (немає доступу до Riot API)
+    updatedGameProfile.role   = role   || existingGameProfile?.role   || '';
+    updatedGameProfile.rank   = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
+    updatedGameProfile.agents = formData.get('agents') as string || getExtra(currentProf, activeKey, 'agents') || '';
   } else if (activeGame === 'TFT') {
-    updatedGameProfile.rank = (apiRank && apiRank !== 'UNRANKED') ? apiRank : (formData.get('tft_rank') as string || getRank(currentProf, activeKey) || 'Unranked');
+    // TFT: ручний ввід рангу (немає доступу до Riot API)
+    updatedGameProfile.rank = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
   }
 
   // Оновлюємо загальний об'єкт профілів, не зачіпаючи інші ігри

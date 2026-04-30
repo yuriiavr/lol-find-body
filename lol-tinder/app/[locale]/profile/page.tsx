@@ -152,13 +152,15 @@ export default function ProfilePage() {
       setProfile((prev: any) => {
         const gameKey = activeGame.toLowerCase() as GameKey;
         const existingGameProfile = prev?.game_profiles?.[gameKey] ?? {};
+        // Стрипаємо val_/tft_ префікси — форма надсилає val_game_name, але в стейті повинно бути game_name
+        const stateKey = name.replace(/^val_/, '').replace(/^tft_/, '');
         return {
-          ...prev, // ← зберігає display_name та всі топ-рівневі поля
+          ...prev,
           game_profiles: {
             ...prev?.game_profiles,
             [gameKey]: {
               ...existingGameProfile,
-              [name]: val,
+              [stateKey]: val,
             },
           },
         };
@@ -222,21 +224,14 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!profile) return;
-    const prefix =
-      activeGame === "lol"
-        ? ""
-        : (activeGame === "valorant" ? "val" : activeGame) + "_";
-    const queueStr = profile[`${prefix}preferred_queue`] || "";
+    const queueStr = getExtra(profile, activeGame.toLowerCase() as GameKey, "queues") || "";
     setSelectedQueues(queueStr ? queueStr.split(",").filter(Boolean) : []);
-  }, [activeGame, !!profile]);
+  }, [activeGame, profile?.game_profiles]);
 
   useEffect(() => {
-    if (!profile?.val_top_agents) {
-      setSelectedAgents([]);
-      return;
-    }
-    setSelectedAgents(profile.val_top_agents.split(",").filter(Boolean));
-  }, [activeGame, profile?.val_top_agents]);
+    const agentStr = getExtra(profile, "valorant", "agents") || "";
+    setSelectedAgents(agentStr ? agentStr.split(",").filter(Boolean) : []);
+  }, [profile?.game_profiles]);
 
   const toggleGame = useCallback((game: string) => {
     setEnabledGames((prev) => {
@@ -336,8 +331,8 @@ export default function ProfilePage() {
           ) || "";
         setSelectedQueues(qStr ? qStr.split(",").filter(Boolean) : []);
 
-        if (initialProfile.val_top_agents)
-          setSelectedAgents(initialProfile.val_top_agents.split(","));
+        const agentsStr = getExtra(initialProfile, "valorant", "agents") || "";
+        if (agentsStr) setSelectedAgents(agentsStr.split(",").filter(Boolean));
 
         if (initialProfile.enabled_games)
           setEnabledGames(initialProfile.enabled_games.split(","));
@@ -378,13 +373,25 @@ export default function ProfilePage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const gameKey = activeGame.toLowerCase() as GameKey;
 
     formData.append("activeGame", activeGame.toUpperCase());
     formData.set("language", selectedLangs.join(","));
     formData.set("enabled_games", enabledGames.join(","));
 
-    // Removed: formData.set("game_profiles", JSON.stringify(profile.game_profiles));
-    // The server action already fetches the current profile and updates game_profiles.
+    // Явно передаємо всі значення зі стейту — кнопки не є form fields і не потрапляють у FormData автоматично
+    formData.set("role",   getRole(profile, gameKey) || "");
+    formData.set("bio",    getBio(profile, gameKey) || "");
+    formData.set("queues", selectedQueues.join(","));
+
+    if (activeGame === "valorant") {
+      formData.set("rank",   getRank(profile, "valorant") || "Unranked");
+      formData.set("agents", selectedAgents.join(","));
+    }
+    if (activeGame === "tft") {
+      formData.set("rank", getRank(profile, "tft") || "Unranked");
+    }
+
     const result = await updateProfile(formData);
 
     if (result?.error) {

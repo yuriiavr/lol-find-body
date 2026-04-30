@@ -105,21 +105,24 @@ export default function LiveRoomPage() {
     init();
 
     const channel = supabase.channel(`room:${roomId}`)
-      // Participants changes → refresh list
+      // Participants changes → refresh list + detect kick/leave
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'room_participants',
         filter: `room_id=eq.${roomId}`
-      }, async (payload) => {
-        await fetchParticipants();
+      }, async () => {
+        // Fetch fresh list first
+        const { data } = await supabase
+          .from('room_participants')
+          .select('*, profiles!user_id (*)')
+          .eq('room_id', roomId);
+        const list = data || [];
+        setParticipants(list);
 
-        // If current user was removed (kicked) → redirect
-        if (
-          payload.eventType === 'DELETE' &&
-          currentUserId &&
-          (payload.old as any)?.user_id === currentUserId
-        ) {
+        // Check if current user is still in the room
+        // (works for kick AND voluntary leave from another tab)
+        if (currentUserId && !list.some((p: any) => p.user_id === currentUserId)) {
           showToast(t('kicked'), 'error');
           router.push(getBackPath());
         }
@@ -134,16 +137,20 @@ export default function LiveRoomPage() {
         showToast(t('roomClosed'), 'error');
         router.push(getBackPath());
       })
-      // Ban inserted for current user → redirect
+      // Ban inserted → refresh participants (removes banned user from list for owner)
+      // + redirect if it's the current user
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'room_bans',
         filter: `room_id=eq.${roomId}`
-      }, (payload) => {
+      }, async (payload) => {
         if (currentUserId && (payload.new as any)?.user_id === currentUserId) {
           showToast(t('banned'), 'error');
           router.push(getBackPath());
+        } else {
+          // Refresh participants so banned user disappears for owner too
+          await fetchParticipants();
         }
       })
       .subscribe();

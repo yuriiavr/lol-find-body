@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/src/utils/supabase/client';
 import { Users, Plus, ChevronDown, Shield, Target } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -39,18 +39,23 @@ export default function TFTRooms() {
     fetchUser();
   }, []);
 
-  useEffect(() => {
-    const fetchRooms = async () => {
-      let query = supabase.from('rooms').select('*, participants:room_participants(count)').eq('game_type', 'tft');
-      if (filterMode !== 'ALL') query = query.eq('mode', filterMode);
-      const { data } = await query.order('created_at', { ascending: false });
-      setRooms(data || []);
-      setLoading(false);
-    };
-    fetchRooms();
-    const channel = supabase.channel('public:tft-rooms').on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: 'game_type=eq.tft' }, fetchRooms).subscribe();
-    return () => { supabase.removeChannel(channel) };
+  const fetchRooms = useCallback(async () => {
+    let query = supabase.from('rooms').select('*, participants:room_participants(count)').eq('game_type', 'tft');
+    if (filterMode !== 'ALL') query = query.eq('mode', filterMode);
+    const { data } = await query.order('created_at', { ascending: false });
+    setRooms(data || []);
+    setLoading(false);
   }, [filterMode]);
+
+  useEffect(() => {
+    fetchRooms();
+    const channel = supabase
+      .channel('public:tft-rooms')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: 'game_type=eq.tft' }, fetchRooms)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_participants' }, fetchRooms)
+      .subscribe();
+    return () => { supabase.removeChannel(channel) };
+  }, [fetchRooms]);
 
   const checkRankRequirement = (roomMinRank: string, roomMaxRank: string) => {
     if (!userProfile) return 'ok';

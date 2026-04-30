@@ -10,6 +10,7 @@ import { ProfileButton } from "./ui/ProfileButton";
 import { useToast } from "@/src/components/ToastProvider";
 import { useTranslations } from "next-intl";
 import { useGameTheme } from "@/src/context/GameThemeContext";
+import GameSelector, { GAME_URL_SLUG } from "@/src/components/GameSelector";
 
 const supabase = createClient();
 
@@ -18,6 +19,9 @@ const LANGUAGES = [
   { code: "uk", label: "UA" },
 ];
 
+// ---------------------------------------------------------------------------
+// Navbar
+// ---------------------------------------------------------------------------
 export function Navbar() {
   const [user, setUser] = useState<any>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -28,8 +32,8 @@ export function Navbar() {
   const currentLocale = (params?.locale as string) || "en";
   const router = useRouter();
   const { activeGame } = useGameTheme();
-  
-  const t = useTranslations('Navbar');
+
+  const t = useTranslations("Navbar");
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -45,12 +49,13 @@ export function Navbar() {
   const { showToast } = useToast();
   const fetchNotifications = useCallback(async (userId: string) => {
     const { count: pCount } = await supabase
-      .from('matches')
-      .select('*', { count: 'exact', head: true })
-      .eq('target_id', userId)
-      .eq('status', 'PENDING');
+      .from("matches")
+      .select("*", { count: "exact", head: true })
+      .eq("target_id", userId)
+      .eq("status", "PENDING");
     setPendingCount(pCount || 0);
   }, []);
+
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -62,10 +67,9 @@ export function Navbar() {
       setUser(session?.user ?? null);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => { subscription.unsubscribe(); };
   }, []);
+
   useEffect(() => {
     if (!user) {
       setPendingCount(0);
@@ -76,27 +80,26 @@ export function Navbar() {
 
     const channel = supabase
       .channel(`navbar-realtime-${Math.random()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, (payload) => {
         fetchNotifications(user.id);
-        if (payload.eventType === 'INSERT' && payload.new.target_id === user.id) {
-          showToast(t('notifications.newRequest'), "success");
+        if (payload.eventType === "INSERT" && payload.new.target_id === user.id) {
+          showToast(t("notifications.newRequest"), "success");
         }
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user?.id, pathname, fetchNotifications, showToast]);
-  
-  const gameSlug = activeGame === 'lol' ? 'league' : activeGame;
+
+  const gameSlug = GAME_URL_SLUG[activeGame];
   const discoveryPath = `/${currentLocale}/${gameSlug}`;
   const roomsPath = `/${currentLocale}/rooms/${gameSlug}`;
-  
+
   const handleLogin = async () => {
-    const redirectTo = typeof window !== 'undefined' 
-      ? `${window.location.origin}/api/auth/callback?next=${window.location.pathname}`
-      : undefined;
+    const redirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/api/auth/callback?next=${window.location.pathname}`
+        : undefined;
 
     await supabase.auth.signInWithOAuth({
       provider: "discord",
@@ -118,9 +121,9 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { id: "discovery", label: t('discovery'), href: discoveryPath, icon: Compass },
-    { id: "rooms", label: t('rooms'), href: roomsPath, icon: UserIcon },
-    { id: "matches", label: t('matches'), href: `/${currentLocale}/matches`, icon: MessageSquare },
+    { id: "discovery", label: t("discovery"), href: discoveryPath, icon: Compass },
+    { id: "rooms",     label: t("rooms"),     href: roomsPath,      icon: UserIcon },
+    { id: "matches",   label: t("matches"),   href: `/${currentLocale}/matches`, icon: MessageSquare },
   ];
 
   return (
@@ -133,42 +136,46 @@ export function Navbar() {
             </h1>
           </Link>
           <div className="hidden md:flex gap-8 text-xs font-bold uppercase tracking-widest text-slate-400">
-            {navLinks.map((link) => (
-              (!user && link.id === 'matches') ? null : (
-                <Link 
-                  key={link.href} 
-                  href={link.href} 
-                  className={`transition-colors hover:text-white ${ 
-                    (link.id === 'discovery' && !pathname.includes('/rooms/') && (pathname.includes('/league') || pathname.includes('/tft') || pathname.includes('/valorant'))) || 
-                    (link.id === 'rooms' && pathname.includes('/rooms/')) ||
+            {navLinks.map((link) =>
+              !user && link.id === "matches" ? null : (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`transition-colors hover:text-white ${
+                    (link.id === "discovery" && !pathname.includes("/rooms/") && (pathname.includes("/league") || pathname.includes("/tft") || pathname.includes("/valorant"))) ||
+                    (link.id === "rooms" && pathname.includes("/rooms/")) ||
                     pathname === link.href
-                      ? "text-white border-b-2 border-[rgb(var(--accent-color))] pb-1" 
+                      ? "text-white border-b-2 border-[rgb(var(--accent-color))] pb-1"
                       : ""
                   }`}
                 >
                   {link.label}
-                  {link.id === 'matches' && pendingCount > 0 && (
+                  {link.id === "matches" && pendingCount > 0 && (
                     <span className="ml-2 px-1.5 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[9px] rounded-full animate-pulse inline-flex items-center justify-center min-w-[18px]">
                       {pendingCount}
                     </span>
                   )}
                 </Link>
               )
-            ))}
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Game selector — shown only for logged-in users */}
+          {user && <GameSelector userId={user.id} />}
+
+          {/* Language selector */}
           <div className="relative" ref={langRef}>
-            <button 
+            <button
               onClick={() => setIsLangOpen(!isLangOpen)}
               className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 py-1.5 text-slate-400 hover:text-white transition-all group hover:bg-white/10"
             >
               <Globe size={14} className="group-hover:text-[rgb(var(--accent-color))] transition-colors" />
               <span className="text-[10px] font-black uppercase tracking-widest">
-                {LANGUAGES.find(l => l.code === currentLocale)?.label}
+                {LANGUAGES.find((l) => l.code === currentLocale)?.label}
               </span>
-              <ChevronDown size={12} className={`transition-transform duration-200 ${isLangOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={12} className={`transition-transform duration-200 ${isLangOpen ? "rotate-180" : ""}`} />
             </button>
 
             <AnimatePresence>
@@ -187,13 +194,15 @@ export function Navbar() {
                         setIsLangOpen(false);
                       }}
                       className={`w-full px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-left transition-colors flex items-center justify-between ${
-                        currentLocale === lang.code 
-                          ? 'text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.05)]' 
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        currentLocale === lang.code
+                          ? "text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.05)]"
+                          : "text-slate-400 hover:text-white hover:bg-white/5"
                       }`}
                     >
                       {lang.label}
-                      {currentLocale === lang.code && <div className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--accent-color))] shadow-[0_0_8px_rgb(var(--accent-color))]" />}
+                      {currentLocale === lang.code && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--accent-color))] shadow-[0_0_8px_rgb(var(--accent-color))]" />
+                      )}
                     </button>
                   ))}
                 </motion.div>
@@ -206,15 +215,15 @@ export function Navbar() {
               <ProfileButton user={user} className="hidden md:flex">
                 {user.user_metadata.full_name}
               </ProfileButton>
-              <button 
+              <button
                 onClick={handleSignOut}
                 className="hidden cursor-pointer md:flex items-center gap-2 p-2.5 text-slate-400 hover:text-red-500 transition-colors bg-white/5 rounded-xl border border-white/5 hover:bg-red-500/10 hover:border-red-500/20"
-                title={t('logout')}
+                title={t("logout")}
               >
                 <LogOut size={18} />
               </button>
-              <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)} 
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="md:hidden p-2 text-slate-400 hover:text-white transition-colors"
               >
                 {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -222,11 +231,12 @@ export function Navbar() {
             </>
           ) : (
             <button onClick={handleLogin} className="btn-modern py-2.5 px-6">
-              <LogIn size={18} /> <span className="hidden sm:inline">{t('login')}</span>
+              <LogIn size={18} /> <span className="hidden sm:inline">{t("login")}</span>
             </button>
           )}
         </div>
       </div>
+
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -237,35 +247,40 @@ export function Navbar() {
           >
             <div className="flex flex-col p-6 gap-4">
               {navLinks.map((link) => (
-                <Link 
-                  key={link.href} 
-                  href={link.href} 
+                <Link
+                  key={link.href}
+                  href={link.href}
                   onClick={() => setIsMenuOpen(false)}
                   className={`flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest ${
-                    (link.id === 'discovery' && !pathname.includes('/rooms/') && (pathname.includes('/league') || pathname.includes('/tft') || pathname.includes('/valorant'))) || 
-                    (link.id === 'rooms' && pathname.includes('/rooms/')) ||
+                    (link.id === "discovery" && !pathname.includes("/rooms/") && (pathname.includes("/league") || pathname.includes("/tft") || pathname.includes("/valorant"))) ||
+                    (link.id === "rooms" && pathname.includes("/rooms/")) ||
                     pathname === link.href
-                      ? "bg-[rgb(var(--accent-color)/0.1)] text-[rgb(var(--accent-color))]" : "text-slate-400"
+                      ? "bg-[rgb(var(--accent-color)/0.1)] text-[rgb(var(--accent-color))]"
+                      : "text-slate-400"
                   }`}
                 >
                   <link.icon size={20} />
                   {link.label}
-                  {link.id === 'matches' && pendingCount > 0 && (
+                  {link.id === "matches" && pendingCount > 0 && (
                     <span className="ml-auto px-2 py-0.5 bg-[rgb(var(--accent-color))] text-white text-[10px] rounded-full">
                       {pendingCount}
                     </span>
                   )}
                 </Link>
               ))}
-              <Link href="/profile" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest text-slate-400">
+              <Link
+                href="/profile"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest text-slate-400"
+              >
                 <UserIcon size={20} />
-                {t('profile')}
+                {t("profile")}
               </Link>
-              <button 
+              <button
                 onClick={handleSignOut}
                 className="flex items-center gap-4 p-4 rounded-xl text-sm font-bold uppercase tracking-widest text-red-500 hover:bg-red-500/5 transition-colors text-left"
               >
-                <LogOut size={20} /> {t('logout')}
+                <LogOut size={20} /> {t("logout")}
               </button>
             </div>
           </motion.div>
