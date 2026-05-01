@@ -1,5 +1,5 @@
 import { memo, useState, useCallback } from "react";
-import { Trophy, MicOff, Languages, Sword, Copy, Check } from "lucide-react";
+import { MicOff, Languages, Sword, Copy, Check } from "lucide-react";
 import RankPanel from "./RankPanel";
 import { useTranslations } from "next-intl";
 import { getRank, getExtra, type GameKey } from "@/src/lib/profile";
@@ -63,9 +63,7 @@ const ProfilePreview = memo(
               />
             </div>
           </div>
-          <div className="absolute -bottom-4 -right-4 bg-slate-900 p-4 rounded-2xl border border-white/10 shadow-xl">
-            <Trophy size={24} className="text-[rgb(var(--accent-color))]" />
-          </div>
+          
           {profile.has_mic === false && (
             <div className="absolute -top-2 -left-2 bg-red-500/20 p-2 rounded-full border border-red-500/50 backdrop-blur-md text-red-500 shadow-lg">
               <MicOff size={16} />

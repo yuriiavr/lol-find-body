@@ -347,6 +347,17 @@
       "summoner": "Призивач",
       "winRate": "{rate}% Вінрейт",
       "gamesCount": "({count} ігор)",
+      "nav": {
+        "global": "Основні",
+        "games": "Ігри",
+        "gameSettings": "Налаштування"
+      },
+      "gamesSection": {
+        "title": "Вибери ігри в які ти граєш"
+      },
+      "gameSettings": {
+        "emptyState": "Спочатку увімкни ігри на вкладці «Ігри»"
+      },
       "toasts": {
         "success": "Профіль успішно оновлено!",
         "error": "Не вдалося оновити профіль"
@@ -383,6 +394,11 @@
       "commentPlaceholder": "Напишіть щось на стіні цього гравця...",
       "submit": "Надіслати",
       "empty": "Тут ще немає коментарів"
+    },
+    "preview": {
+      "profileBadge": "Профіль",
+      "nicknamePlaceholder": "Ваш нікнейм",
+      "activeGames": "Активні ігри"
     },
     "intel": {
       "gamerCard": "Картка Гравця",

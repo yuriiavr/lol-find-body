@@ -344,6 +344,17 @@
       "summoner": "Summoner",
       "winRate": "{rate}% WR",
       "gamesCount": "({count} games)",
+      "nav": {
+        "global": "General",
+        "games": "Games",
+        "gameSettings": "Settings"
+      },
+      "gamesSection": {
+        "title": "Select the games you play"
+      },
+      "gameSettings": {
+        "emptyState": "Enable games in the \"Games\" tab first"
+      },
       "toasts": {
         "success": "Profile updated successfully!",
         "error": "Failed to update profile"
@@ -376,6 +387,11 @@
       "commentPlaceholder": "Write something on this player's wall...",
       "submit": "Submit Review",
       "empty": "No reviews yet"
+    },
+    "preview": {
+      "profileBadge": "Profile",
+      "nicknamePlaceholder": "Your nickname",
+      "activeGames": "Active Games"
     },
     "intel": {
       "gamerCard": "Gamer Card",

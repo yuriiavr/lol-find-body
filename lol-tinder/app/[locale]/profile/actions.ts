@@ -111,9 +111,10 @@ export async function updateProfile(formData: FormData) {
   const language     = formData.get('language') as string
   const preferred_queue = formData.get('queues') as string
   const enabled_games = formData.get('enabled_games') as string
-  const hasMic       = formData.get('hasMic') === 'on'
+  const hasMicRaw     = formData.get('has_mic') ?? formData.get('hasMic')
+  const hasMic        = hasMicRaw !== null ? (hasMicRaw === 'true' || hasMicRaw === 'on') : ((currentProf as any)?.has_mic ?? true)
   const isPaused     = formData.get('isPaused') === 'on'
-  const isGameEnabled = formData.get('isGameEnabled') === 'on'
+  const isGameEnabledRaw = formData.get('isGameEnabled')
 
   const existingGameProfile = getGameProfile(currentProf, activeKey);
 
@@ -148,9 +149,9 @@ export async function updateProfile(formData: FormData) {
   }
 
   let finalEnabledGames = (enabled_games || "").split(",").filter(Boolean)
-  if (isGameEnabled && !finalEnabledGames.includes(activeGame)) {
+  if (isGameEnabledRaw !== null && isGameEnabledRaw === 'on' && !finalEnabledGames.includes(activeGame)) {
     finalEnabledGames.push(activeGame)
-  } else if (!isGameEnabled) {
+  } else if (isGameEnabledRaw !== null && isGameEnabledRaw !== 'on') {
     finalEnabledGames = finalEnabledGames.filter(g => g !== activeGame)
   }
 
