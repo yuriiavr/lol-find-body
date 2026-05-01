@@ -1,5 +1,5 @@
-import React from "react";
-import { Activity } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Activity, ChevronDown } from "lucide-react";
 
 export const POPULAR_LANGUAGES = ["Ukrainian", "English", "Polish", "German", "French", "Spanish", "Italian", "Romanian", "Dutch", "Hungarian", "Czech"];
 
@@ -12,24 +12,81 @@ interface FilterSelectProps {
   options: { value: string; label: string }[];
   accentColor: AccentColor;
 }
+import { motion, AnimatePresence } from 'framer-motion';
 
-export function FilterSelect({ label, value, onChange, options, accentColor }: FilterSelectProps) {
-  const focusColors = {
-    orange: 'focus:border-orange-500/50 focus:ring-orange-500/20',
-    blue: 'focus:border-blue-500/50',
-    red: 'focus:border-red-500/50',
-  };
+export function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selected = options.find((o) => o.value === value);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{label}</label>
-      <select 
-        value={value} 
-        onChange={(e) => onChange(e.target.value)}
-        className={`w-full bg-zinc-950/50 border border-white/5 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none transition-all cursor-pointer appearance-none hover:border-white/10 ${focusColors[accentColor]}`}
-      >
-        {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-      </select>
+
+      <div className="relative" ref={ref}>
+        <button
+          onClick={() => setIsOpen((v) => !v)}
+          className="flex items-center justify-between gap-1.5 w-full h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
+        >
+          <span style={{ color: "rgb(var(--accent-color))" }}>
+            {selected?.label ?? value}
+          </span>
+          <ChevronDown
+            size={10}
+            strokeWidth={2}
+            style={{
+              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.18s",
+              flexShrink: 0,
+            }}
+          />
+        </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.12 }}
+              className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-hidden z-[110]"
+              style={{
+                background: "#0a0a0a",
+                border: "1px solid rgba(255,255,255,0.1)",
+                minWidth: "100%",
+              }}
+            >
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                  className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
+                  style={{
+                    color: value === opt.value ? "rgb(var(--accent-color))" : "rgb(113,113,122)",
+                  }}
+                >
+                  {opt.label}
+                  {value === opt.value && (
+                    <span
+                      className="w-1 h-1 rounded-full ml-2 flex-shrink-0"
+                      style={{ background: "rgb(var(--accent-color))" }}
+                    />
+                  )}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
@@ -74,16 +131,19 @@ interface OnlineToggleProps {
   label?: string;
 }
 
-export function OnlineToggle({ onlyOnline, onToggle, accentColor, label = "Live Online" }: OnlineToggleProps) {
-  const activeColors = { orange: 'border-orange-500 bg-orange-500/10 text-orange-400', blue: 'border-blue-500 bg-blue-500/10 text-blue-400', red: 'border-red-500 bg-red-500/10 text-red-400' };
-
+export function OnlineToggle({ onlyOnline, onToggle, label = "Live Online" }: OnlineToggleProps) {
   return (
-    <button 
+    <button
       onClick={onToggle}
-      className={`flex items-center justify-between w-full p-4 rounded-xl border transition-all ${onlyOnline ? activeColors[accentColor] : 'border-zinc-800 bg-zinc-900/50 text-zinc-500'}`}
+      className="flex items-center justify-between w-full h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] border transition-colors duration-150"
+      style={{
+        borderColor: onlyOnline ? "rgba(var(--accent-color), 0.5)" : "rgba(255,255,255,0.06)",
+        background: onlyOnline ? "rgba(var(--accent-color), 0.08)" : "transparent",
+        color: onlyOnline ? "rgb(var(--accent-color))" : "rgb(113,113,122)",
+      }}
     >
-      <span className="text-xs font-bold uppercase">{label}</span>
-      <Activity size={16} />
+      <span>{label}</span>
+      <Activity size={12} strokeWidth={2} />
     </button>
   );
 }

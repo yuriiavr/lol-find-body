@@ -10,23 +10,12 @@ import {
   getTopChampions,
 } from '@/src/lib/riot'
 import { getGameProfile, buildGameUpdate, getGameName, getTagLine, getRegion, getExtra, getRank } from '@/src/lib/profile'
+import { refreshRankIfNeeded } from '@/src/lib/rankCache'
 
-// Огортаємо функції для використання як Server Actions (запобігає помилкам ре-експорту)
-export async function getRanksByPuuidAction(puuid: string, region: string) {
-  return await getRanksByPuuid(puuid, region);
-}
-
-export async function getRiotTFTStatsAction(puuid: string, region: string) {
-  return await getRiotTFTStats(puuid, region);
-}
-
-export async function getTopChampionsAction(puuid: string, region: string) {
-  return await getTopChampions(puuid, region);
-}
-
-export async function updateProfile(formData: FormData) {
+// ─── Supabase клієнти ────────────────────────────────────────────────────────
+async function createCookieClient() {
   const cookieStore = await cookies()
-  const supabase = createServerClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -37,6 +26,55 @@ export async function updateProfile(formData: FormData) {
       },
     }
   )
+}
+
+// ─── getRanksByPuuidAction ────────────────────────────────────────────────────
+// Тепер не йде напряму до Riot — спочатку перевіряє кеш в БД (1 година)
+export async function getRanksByPuuidAction(puuid: string, region: string) {
+  // Шукаємо userId по puuid в БД
+  const supabase = await createCookieClient()
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id')
+    .filter('game_profiles->lol->>puuid', 'eq', puuid)
+    .maybeSingle()
+
+  // Якщо знайшли профіль → використовуємо кеш
+  if (profiles?.id) {
+    const result = await refreshRankIfNeeded(supabase, profiles.id, 'lol')
+    if (result) return result.data
+  }
+
+  // Fallback: якщо профіль не знайдено → пряме звернення до Riot (без кешу)
+  return await getRanksByPuuid(puuid, region)
+}
+
+// ─── getRiotTFTStatsAction ────────────────────────────────────────────────────
+export async function getRiotTFTStatsAction(puuid: string, region: string) {
+  const supabase = await createCookieClient()
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id')
+    .filter('game_profiles->tft->>puuid', 'eq', puuid)
+    .maybeSingle()
+
+  if (profiles?.id) {
+    const result = await refreshRankIfNeeded(supabase, profiles.id, 'tft')
+    if (result) return result.data
+  }
+
+  return await getRiotTFTStats(puuid, region)
+}
+
+// ─── getTopChampionsAction ────────────────────────────────────────────────────
+// Чемпіони не ранги — кеш тут не потрібен, залишаємо як є
+export async function getTopChampionsAction(puuid: string, region: string) {
+  return await getTopChampions(puuid, region);
+}
+
+// ─── updateProfile ────────────────────────────────────────────────────────────
+export async function updateProfile(formData: FormData) {
+  const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -53,7 +91,6 @@ export async function updateProfile(formData: FormData) {
   const display_name = (formData.get('display_name') as string)?.trim() || (currentProf as any)?.display_name || ''
   const prefix = activeGame === 'LOL' ? '' : (activeGame === 'VALORANT' ? 'val_' : 'tft_');
 
-  // Визначаємо змінні для Riot ID залежно від гри
   let gName = '', tLine = '', gRegion = 'EUW';
 
   if (activeGame === 'LOL' || activeGame === 'TFT') {
@@ -69,7 +106,6 @@ export async function updateProfile(formData: FormData) {
     gRegion = (formData.get('val_region') as string) || getRegion(currentProf, 'valorant') || 'EUW';
   }
 
-  // Нова форма надсилає bio/role/queues без префіксів для всіх ігор
   const bio          = formData.get('bio') as string
   const role         = formData.get('role') as string
   const language     = formData.get('language') as string
@@ -81,7 +117,6 @@ export async function updateProfile(formData: FormData) {
 
   const existingGameProfile = getGameProfile(currentProf, activeKey);
 
-  // Valorant: просто зберігаємо нік і тег без будь-яких API запитів до Riot
   let puuid: string | null = null;
   let apiRank: string | null = null;
 
@@ -103,12 +138,13 @@ export async function updateProfile(formData: FormData) {
     }
 
     if (puuid && activeGame === 'LOL') {
+      // При збереженні профілю — завжди оновлюємо ранг (скидаємо rank_updated_at)
+      // щоб наступний виклик getRanksByPuuidAction підтягнув свіжі дані
       const ranks = await getRanksByPuuid(puuid, gRegion)
       if (ranks) {
         apiRank = ranks.solo !== 'UNRANKED' ? ranks.solo : ranks.flex;
       }
     }
-    // TFT: Riot API недоступний — ранг вводиться вручну
   }
 
   let finalEnabledGames = (enabled_games || "").split(",").filter(Boolean)
@@ -132,7 +168,6 @@ export async function updateProfile(formData: FormData) {
     avatar_url:       user.user_metadata.avatar_url,
   }
 
-  // Формуємо оновлений об'єкт для конкретної гри
   const updatedGameProfile: any = {
     ...existingGameProfile,
     bio:       bio       || existingGameProfile?.bio       || '',
@@ -141,6 +176,8 @@ export async function updateProfile(formData: FormData) {
     tag_line:  tLine,
     game_name: gName,
     puuid:     puuid,
+    // Скидаємо кеш при збереженні профілю → наступний перегляд підтягне свіжий ранг
+    rank_updated_at: null,
   };
 
   if (activeGame === 'LOL') {
@@ -148,37 +185,27 @@ export async function updateProfile(formData: FormData) {
     updatedGameProfile.rank = (apiRank && apiRank !== 'UNRANKED') ? apiRank : (formData.get('solo_rank') as string || getRank(currentProf, activeKey) || 'Unranked');
     updatedGameProfile.flex_rank = formData.get('flex_rank') as string || getExtra(currentProf, activeKey, 'flex_rank') || 'Unranked';
   } else if (activeGame === 'VALORANT') {
-    // Valorant: ручний ввід рангу та агентів (немає доступу до Riot API)
     updatedGameProfile.role   = role   || existingGameProfile?.role   || '';
     updatedGameProfile.rank   = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
     updatedGameProfile.agents = formData.get('agents') as string || getExtra(currentProf, activeKey, 'agents') || '';
   } else if (activeGame === 'TFT') {
-    // TFT: ручний ввід рангу (немає доступу до Riot API)
     updatedGameProfile.rank = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
   }
 
-  // Оновлюємо загальний об'єкт профілів, не зачіпаючи інші ігри
   const finalUpdate = buildGameUpdate(currentProf, activeKey as any, updatedGameProfile);
   updateData.game_profiles = finalUpdate.game_profiles;
 
-  // Якщо Riot ID спільний для LoL та TFT, оновимо дані і в іншому профілі
   if (activeGame === 'LOL' && getGameProfile(currentProf, 'tft')) {
-    updateData.game_profiles.tft = { ...getGameProfile(currentProf, 'tft'), game_name: gName, tag_line: tLine, region: gRegion, puuid };
+    updateData.game_profiles.tft = { ...getGameProfile(currentProf, 'tft'), game_name: gName, tag_line: tLine, region: gRegion, puuid, rank_updated_at: null };
   } else if (activeGame === 'TFT' && getGameProfile(currentProf, 'lol')) {
-    updateData.game_profiles.lol = { ...getGameProfile(currentProf, 'lol'), game_name: gName, tag_line: tLine, region: gRegion, puuid };
+    updateData.game_profiles.lol = { ...getGameProfile(currentProf, 'lol'), game_name: gName, tag_line: tLine, region: gRegion, puuid, rank_updated_at: null };
   }
 
   const { error } = await supabase
     .from('profiles')
     .upsert(updateData, { onConflict: 'id' })
 
-  if (error) {return { error: error.message }; }
-
-  if (puuid) {
-    revalidateTag('ranks', 'max');
-    revalidateTag('tft-stats', 'max');
-    revalidateTag('top-champions', 'max');
-  }
+  if (error) { return { error: error.message }; }
 
   revalidatePath(`/profile/${user.id}`, 'page')
 

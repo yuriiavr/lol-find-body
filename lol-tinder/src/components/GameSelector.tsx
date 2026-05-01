@@ -15,18 +15,17 @@ const GAME_META: Record<string, { label: string; shortLabel: string }> = {
   valorant: { label: "Valorant",           shortLabel: "VAL" },
 };
 
-// Маппінг GameType → URL slug
 export const GAME_URL_SLUG: Record<GameType, string> = {
   lol: "league",
   tft: "tft",
   valorant: "valorant",
 };
 
-// Всі можливі URL slugи ігор (для пошуку в pathname)
+const ALL_GAMES = Object.keys(GAME_META) as GameType[];
 const ALL_GAME_SLUGS = Object.values(GAME_URL_SLUG);
 
 interface GameSelectorProps {
-  userId: string;
+  userId?: string | null;
 }
 
 export default function GameSelector({ userId }: GameSelectorProps) {
@@ -37,9 +36,13 @@ export default function GameSelector({ userId }: GameSelectorProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Fetch enabled_games for the current user
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      // Гість — показуємо всі ігри
+      setEnabledGames(ALL_GAMES);
+      return;
+    }
+
     const fetchGames = async () => {
       const { data } = await supabase
         .from("profiles")
@@ -51,13 +54,17 @@ export default function GameSelector({ userId }: GameSelectorProps) {
         const normalized = (data.enabled_games as string)
           .split(",")
           .map((g: string) => g.toLowerCase() as GameType);
-        setEnabledGames(normalized);
+        // Якщо масив непорожній — використовуємо його, інакше fallback на всі
+        setEnabledGames(normalized.length > 0 ? normalized : ALL_GAMES);
+      } else {
+        // Немає обраних ігор — показуємо всі
+        setEnabledGames(ALL_GAMES);
       }
     };
+
     fetchGames();
   }, [userId]);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
@@ -66,10 +73,12 @@ export default function GameSelector({ userId }: GameSelectorProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Don't render if 0 or 1 game — nothing to switch
-  if (enabledGames.length <= 1) return null;
-
   const current = GAME_META[activeGame] ?? GAME_META.lol;
+
+  // Якщо enabledGames ще не завантажились — нічого не рендеримо, щоб уникнути flash
+  if (enabledGames.length === 0) return null;
+
+  const isSingleGame = enabledGames.length === 1;
 
   const handleGameChange = (game: GameType) => {
     setActiveGame(game);
@@ -89,37 +98,57 @@ export default function GameSelector({ userId }: GameSelectorProps) {
   return (
     <div className="relative" ref={ref}>
       <button
-        onClick={() => setIsOpen((v) => !v)}
-        className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl px-3 py-1.5 text-slate-400 hover:text-white transition-all group hover:bg-white/10"
+        onClick={() => !isSingleGame && setIsOpen((v) => !v)}
+        className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
+        style={{ cursor: isSingleGame ? "default" : "pointer" }}
       >
-        <span className="text-[rgb(var(--accent-color))] text-[10px] font-black uppercase tracking-widest">
-          {current.shortLabel}
+        <span style={{ color: "rgb(var(--accent-color))" }}>
+          {current.label}
         </span>
-        <ChevronDown size={12} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+        {/* Шеврон приховуємо якщо вибору немає */}
+        {!isSingleGame && (
+          <ChevronDown
+            size={10}
+            strokeWidth={2}
+            style={{
+              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.18s",
+            }}
+          />
+        )}
       </button>
 
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && !isSingleGame && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-44 bg-[#111111] border border-white/10 rounded-xl overflow-hidden shadow-2xl z-[110]"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute right-0 top-[calc(100%+6px)] rounded-lg overflow-hidden z-[110]"
+            style={{
+              background: "#0a0a0a",
+              border: "1px solid rgba(255,255,255,0.1)",
+              minWidth: "160px",
+            }}
           >
             {enabledGames.map((game) => (
               <button
                 key={game}
                 onClick={() => handleGameChange(game)}
-                className={`w-full px-4 py-2.5 flex items-center justify-between text-[10px] font-black uppercase tracking-widest transition-colors ${
-                  game === activeGame
-                    ? "text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.05)]"
-                    : "text-slate-400 hover:text-white hover:bg-white/5"
-                }`}
+                className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between"
+                style={{
+                  color: game === activeGame
+                    ? "rgb(var(--accent-color))"
+                    : "rgb(113,113,122)",
+                }}
               >
                 {GAME_META[game]?.label ?? game}
                 {game === activeGame && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--accent-color))] shadow-[0_0_8px_rgb(var(--accent-color))]" />
+                  <span
+                    className="w-1 h-1 rounded-full"
+                    style={{ background: "rgb(var(--accent-color))" }}
+                  />
                 )}
               </button>
             ))}

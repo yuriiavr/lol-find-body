@@ -39,12 +39,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <p className="text-sm font-bold text-white tracking-tight leading-none">{toast.message}</p>
             </div>
             {toast.action && (
-              <button 
+              <button
                 onClick={() => {
                   toast.action?.onClick();
                   setToast(null);
                 }}
-                className="px-3 py-1.5 bg-[rgb(var(--accent-color))] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:brightness-110 transition-all active:scale-95 whitespace-nowrap"
+                className="toast-action-btn flex items-center h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] transition-all duration-200 border whitespace-nowrap"
+                style={{
+                  borderColor: 'rgba(var(--accent-color), 0.4)',
+                  color: 'rgb(var(--accent-color))',
+                  '--toast-accent': 'rgb(var(--accent-color))',
+                } as React.CSSProperties}
+                onMouseEnter={(e) => {
+                  const btn = e.currentTarget;
+                  btn.style.background = 'rgb(var(--accent-color))';
+                  btn.style.borderColor = 'rgb(var(--accent-color))';
+                  btn.style.color = '#000';
+                }}
+                onMouseLeave={(e) => {
+                  const btn = e.currentTarget;
+                  btn.style.background = '';
+                  btn.style.borderColor = 'rgba(var(--accent-color), 0.4)';
+                  btn.style.color = 'rgb(var(--accent-color))';
+                }}
               >
                 {toast.action.label}
               </button>

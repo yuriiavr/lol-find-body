@@ -14,6 +14,94 @@ interface CreateRoomModalProps {
   ranks?: string[];
 }
 
+// Reusable navbar-style dropdown
+interface NavDropdownProps<T extends string | number> {
+  value: T;
+  options: T[];
+  isOpen: boolean;
+  onToggle: () => void;
+  onSelect: (v: T) => void;
+  dropdownRef: React.RefObject<HTMLDivElement | null>;
+  renderLabel?: (v: T) => React.ReactNode;
+  renderOption?: (v: T) => React.ReactNode;
+  maxHeight?: string;
+}
+
+function NavDropdown<T extends string | number>({
+  value,
+  options,
+  isOpen,
+  onToggle,
+  onSelect,
+  dropdownRef,
+  renderLabel,
+  renderOption,
+  maxHeight = '240px',
+}: NavDropdownProps<T>) {
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center justify-between gap-2 w-full h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
+        style={{ color: 'rgb(var(--accent-color))' }}
+      >
+        <span className="truncate">{renderLabel ? renderLabel(value) : value}</span>
+        <ChevronDown
+          size={10}
+          strokeWidth={2}
+          style={{
+            flexShrink: 0,
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.18s',
+          }}
+        />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute left-0 top-[calc(100%+6px)] w-full rounded-lg overflow-y-auto z-[110]"
+            style={{
+              background: '#0a0a0a',
+              border: '1px solid rgba(255,255,255,0.1)',
+              maxHeight,
+            }}
+          >
+            {options.map((opt) => (
+              <button
+                key={String(opt)}
+                type="button"
+                onClick={() => onSelect(opt)}
+                className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between gap-2"
+                style={{
+                  color: opt === value
+                    ? 'rgb(var(--accent-color))'
+                    : 'rgb(113,113,122)',
+                }}
+              >
+                <span className="flex items-center gap-2 truncate">
+                  {renderOption ? renderOption(opt) : opt}
+                </span>
+                {opt === value && (
+                  <span
+                    className="w-1 h-1 rounded-full flex-shrink-0"
+                    style={{ background: 'rgb(var(--accent-color))' }}
+                  />
+                )}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoading, modes: customModes, ranks: customRanks }: CreateRoomModalProps) {
   const t = useTranslations('Rooms');
   const { showToast } = useToast();
@@ -22,7 +110,7 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
   const [maxPlayers, setMaxPlayers] = useState(5);
   const [minRank, setMinRank] = useState('ALL');
   const [maxRank, setMaxRank] = useState('ALL');
-  
+
   const [isModeOpen, setIsModeOpen] = useState(false);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
   const [isRankOpen, setIsRankOpen] = useState(false);
@@ -32,12 +120,12 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
   const rankRef = useRef<HTMLDivElement>(null);
   const maxRankRef = useRef<HTMLDivElement>(null);
 
-  const modes = customModes || ['FLEX','NORMAL', 'ARAM', 'ARAM: MAYHEM', 'ARENA', 'QUICK PLAY', 'CUSTOM'];
+  const modes = customModes || ['FLEX', 'NORMAL', 'ARAM', 'ARAM: MAYHEM', 'ARENA', 'QUICK PLAY', 'CUSTOM'];
   const ranks = customRanks || ['ALL', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER+'];
 
   useEffect(() => {
     if (isOpen) {
-      const defaultMode = initialMode === 'ALL' 
+      const defaultMode = initialMode === 'ALL'
         ? (modes.includes('FLEX') ? 'FLEX' : modes.includes('RANKED') ? 'RANKED' : modes.includes('COMPETITIVE') ? 'COMPETITIVE' : modes[0])
         : initialMode;
       setMode(defaultMode);
@@ -45,23 +133,14 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
       setMinRank('ALL');
       setMaxRank('ALL');
     }
-  }, [isOpen, initialMode, t, modes]);
+  }, [isOpen, initialMode, modes]);
 
-  // Close dropdowns on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modeRef.current && !modeRef.current.contains(event.target as Node)) {
-        setIsModeOpen(false);
-      }
-      if (playersRef.current && !playersRef.current.contains(event.target as Node)) {
-        setIsPlayersOpen(false);
-      }
-      if (rankRef.current && !rankRef.current.contains(event.target as Node)) {
-        setIsRankOpen(false);
-      }
-      if (maxRankRef.current && !maxRankRef.current.contains(event.target as Node)) {
-        setIsMaxRankOpen(false);
-      }
+      if (modeRef.current && !modeRef.current.contains(event.target as Node)) setIsModeOpen(false);
+      if (playersRef.current && !playersRef.current.contains(event.target as Node)) setIsPlayersOpen(false);
+      if (rankRef.current && !rankRef.current.contains(event.target as Node)) setIsRankOpen(false);
+      if (maxRankRef.current && !maxRankRef.current.contains(event.target as Node)) setIsMaxRankOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -80,6 +159,13 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
     await onSubmit(description, mode, maxPlayers, minRank, maxRank);
   };
 
+  const rankOption = (r: string) => (
+    <>
+      {r !== 'ALL' && <Shield size={10} />}
+      {r}
+    </>
+  );
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -91,7 +177,7 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
             onClick={onClose}
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           />
-          
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -100,9 +186,9 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
           >
             {/* Decorative Accent Line */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[rgb(var(--accent-color))] to-transparent opacity-50" />
-            
-            <button 
-              onClick={onClose} 
+
+            <button
+              onClick={onClose}
               className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-1.5 rounded-lg hover:bg-white/10"
             >
               <X size={18} />
@@ -116,6 +202,7 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Description */}
               <div className="space-y-2">
                 <label htmlFor="description" className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
                   {t('roomDescription')}
@@ -131,158 +218,79 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
                 />
               </div>
 
+              {/* Mode + Max Players */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="mode" className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
+                  <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
                     {t('filterMode')}
                   </label>
-                  <div className="relative" ref={modeRef}>
-                    <div 
-                      onClick={() => setIsModeOpen(!isModeOpen)}
-                      className={`w-full bg-white/5 border rounded-xl px-5 py-3 text-sm flex items-center justify-between cursor-pointer transition-all ${isModeOpen ? 'border-[rgb(var(--accent-color)/0.5)] bg-white/[0.08]' : 'border-white/5 hover:bg-white/[0.08]'}`}
-                    >
-                      <span className="text-white font-medium">{mode}</span>
-                      <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isModeOpen ? 'rotate-180 text-[rgb(var(--accent-color))]' : ''}`} />
-                    </div>
-
-                    <AnimatePresence>
-                      {isModeOpen && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="absolute z-50 top-full left-0 w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl backdrop-blur-xl"
-                        >
-                          {modes.map((m) => (
-                            <div 
-                              key={m}
-                              onClick={() => { setMode(m); setIsModeOpen(false); }}
-                              className={`px-5 py-3 text-sm font-medium transition-colors cursor-pointer ${mode === m ? 'text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.1)]' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                            >
-                              {m}
-                            </div>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <NavDropdown
+                    value={mode}
+                    options={modes}
+                    isOpen={isModeOpen}
+                    onToggle={() => setIsModeOpen((v) => !v)}
+                    onSelect={(v) => { setMode(v); setIsModeOpen(false); }}
+                    dropdownRef={modeRef}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
                     {t('maxPlayers')}
                   </label>
-                  <div className="relative" ref={playersRef}>
-                    <div 
-                      onClick={() => setIsPlayersOpen(!isPlayersOpen)}
-                      className={`w-full bg-white/5 border rounded-xl px-5 py-3 text-sm flex items-center justify-between cursor-pointer transition-all ${isPlayersOpen ? 'border-[rgb(var(--accent-color)/0.5)] bg-white/[0.08]' : 'border-white/5 hover:bg-white/[0.08]'}`}
-                    >
-                      <span className="text-white font-medium">{maxPlayers}</span>
-                      <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isPlayersOpen ? 'rotate-180 text-[rgb(var(--accent-color))]' : ''}`} />
-                    </div>
-
-                    <AnimatePresence>
-                      {isPlayersOpen && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="absolute z-50 top-full left-0 w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl backdrop-blur-xl"
-                        >
-                          {[5, 10].map((num) => (
-                            <div 
-                              key={num}
-                              onClick={() => { setMaxPlayers(num); setIsPlayersOpen(false); }}
-                              className={`px-5 py-3 text-sm font-medium transition-colors cursor-pointer ${maxPlayers === num ? 'text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.1)]' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                            >
-                              {num}
-                            </div>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <NavDropdown
+                    value={maxPlayers}
+                    options={[5, 10]}
+                    isOpen={isPlayersOpen}
+                    onToggle={() => setIsPlayersOpen((v) => !v)}
+                    onSelect={(v) => { setMaxPlayers(v); setIsPlayersOpen(false); }}
+                    dropdownRef={playersRef}
+                  />
                 </div>
               </div>
 
+              {/* Min + Max Rank */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
                     {t('minRank')}
                   </label>
-                  <div className="relative" ref={rankRef}>
-                    <div 
-                      onClick={() => setIsRankOpen(!isRankOpen)}
-                      className={`w-full bg-white/5 border rounded-xl px-5 py-3 text-sm flex items-center justify-between cursor-pointer transition-all ${isRankOpen ? 'border-[rgb(var(--accent-color)/0.5)] bg-white/[0.08]' : 'border-white/5 hover:bg-white/[0.08]'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Shield size={14} className={minRank !== 'ALL' ? 'text-[rgb(var(--accent-color))]' : 'text-zinc-500'} />
-                        <span className="text-white font-medium">{minRank}</span>
-                      </div>
-                      <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isRankOpen ? 'rotate-180 text-[rgb(var(--accent-color))]' : ''}`} />
-                    </div>
-
-                    <AnimatePresence>
-                      {isRankOpen && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="absolute z-50 top-full left-0 w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto scrollbar-thin"
-                        >
-                          {ranks.map((r) => (
-                            <div 
-                              key={r}
-                              onClick={() => { setMinRank(r); setIsRankOpen(false); }}
-                              className={`px-5 py-3 text-sm font-medium transition-colors cursor-pointer flex items-center gap-3 ${minRank === r ? 'text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.1)]' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                            >
-                              {r !== 'ALL' && <Shield size={12} />}
-                              {r}
-                            </div>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <NavDropdown
+                    value={minRank}
+                    options={ranks}
+                    isOpen={isRankOpen}
+                    onToggle={() => setIsRankOpen((v) => !v)}
+                    onSelect={(v) => { setMinRank(v); setIsRankOpen(false); }}
+                    dropdownRef={rankRef}
+                    renderLabel={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <Shield size={10} className={v !== 'ALL' ? '' : 'opacity-40'} />
+                        {v}
+                      </span>
+                    )}
+                    renderOption={rankOption}
+                    maxHeight="200px"
+                  />
                 </div>
-
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
                     {t('maxRank')}
                   </label>
-                  <div className="relative" ref={maxRankRef}>
-                    <div 
-                      onClick={() => setIsMaxRankOpen(!isMaxRankOpen)}
-                      className={`w-full bg-white/5 border rounded-xl px-5 py-3 text-sm flex items-center justify-between cursor-pointer transition-all ${isMaxRankOpen ? 'border-[rgb(var(--accent-color)/0.5)] bg-white/[0.08]' : 'border-white/5 hover:bg-white/[0.08]'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Shield size={14} className={maxRank !== 'ALL' ? 'text-[rgb(var(--accent-color))]' : 'text-zinc-500'} />
-                        <span className="text-white font-medium">{maxRank}</span>
-                      </div>
-                      <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isMaxRankOpen ? 'rotate-180 text-[rgb(var(--accent-color))]' : ''}`} />
-                    </div>
-
-                    <AnimatePresence>
-                      {isMaxRankOpen && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="absolute z-50 top-full left-0 w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-48 overflow-y-auto scrollbar-thin"
-                        >
-                          {ranks.map((r) => (
-                            <div 
-                              key={r}
-                              onClick={() => { setMaxRank(r); setIsMaxRankOpen(false); }}
-                              className={`px-5 py-3 text-sm font-medium transition-colors cursor-pointer flex items-center gap-3 ${maxRank === r ? 'text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.1)]' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                            >
-                              {r !== 'ALL' && <Shield size={12} />}
-                              {r}
-                            </div>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <NavDropdown
+                    value={maxRank}
+                    options={ranks}
+                    isOpen={isMaxRankOpen}
+                    onToggle={() => setIsMaxRankOpen((v) => !v)}
+                    onSelect={(v) => { setMaxRank(v); setIsMaxRankOpen(false); }}
+                    dropdownRef={maxRankRef}
+                    renderLabel={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <Shield size={10} className={v !== 'ALL' ? '' : 'opacity-40'} />
+                        {v}
+                      </span>
+                    )}
+                    renderOption={rankOption}
+                    maxHeight="200px"
+                  />
                 </div>
               </div>
 

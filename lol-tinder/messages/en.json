@@ -74,7 +74,7 @@
         "description": "Activate the <b>Live Online</b> filter to see only those currently on the site. This allows you to find a duo <b>instantly</b>, instead of waiting for hours."
       },
       "buttons": {
-        "viewProfile": "View Profile"
+        "viewProfile": "Profile"
       }
     },
     "matchCenter": {
@@ -229,7 +229,7 @@
     }
   },
   "MatchesPage": {
-    "title": "Match Center",
+    "title": "YOUR MATCHES",
     "tabs": {
       "confirmed": "Confirmed Team ({count})",
       "incoming": "Incoming Requests ({count})"
@@ -238,12 +238,16 @@
     "buttons": {
       "accept": "Accept",
       "decline": "Decline",
-      "viewProfile": "View Profile"
+      "viewProfile": "Profile"
     },
     "toasts": {
       "accepted": "Match accepted!",
       "declined": "Request declined",
       "error": "Failed to update status"
+    },
+    "empty": {
+      "pending": "Nobody here :(",
+      "team": "You don't have any teammates yet, but you'll find them here! :)"
     }
   },
   "Discovery": {
@@ -254,9 +258,9 @@
       "valorant": "Valorant"
     },
     "card": {
-      "viewProfile": "View Profile",
-      "viewTactician": "View Tactician",
-      "viewAgent": "View Agent",
+      "viewProfile": "Profile",
+      "viewTactician": "Profile",
+      "viewAgent": "Profile",
       "noInfo": {
         "lol": "Summoner is keeping a low profile.",
         "tft": "No information added.",

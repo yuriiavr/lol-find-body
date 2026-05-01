@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/src/utils/supabase/client';
 import { Users, LogOut, Trash2, Send, Copy, ShieldAlert, Crown, UserPlus, Info, Ban } from 'lucide-react';
@@ -24,11 +24,18 @@ export default function LiveRoomPage() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  // store gameType in ref so it's always fresh inside closures
+
+  // Refs — завжди свіжі значення всередині closures
   const gameTypeRef = useRef<string>('lol');
+  const currentUserIdRef = useRef<string | null>(null);
+  const roomIdRef = useRef<string>('');
 
   const isOwner = room?.owner_id === currentUser?.id;
   const roomId = (Array.isArray(id) ? id[0] : id) as string;
+
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
 
   const getBackPath = (gameType?: string) => {
     const type = gameType || gameTypeRef.current || activeGame;
@@ -36,26 +43,43 @@ export default function LiveRoomPage() {
     return `/${locale}/rooms/${slug}`;
   };
 
+  // ─── Fetch учасників і перевірити авто-видалення кімнати ────────────────
+  const fetchParticipants = useCallback(async (rId?: string) => {
+    const targetRoomId = rId || roomIdRef.current;
+    const { data } = await supabase
+      .from('room_participants')
+      .select('*, profiles!user_id (*)')
+      .eq('room_id', targetRoomId);
+
+    const list = data || [];
+    setParticipants(list);
+
+    // ─── Авто-видалення: якщо 0 учасників → видаляємо кімнату ──────────
+    if (list.length === 0) {
+      await supabase.from('rooms').delete().eq('id', targetRoomId);
+      // Редірект для поточного юзера (якщо він ще тут)
+      router.push(getBackPath());
+      return;
+    }
+
+    // ─── Якщо поточного юзера немає в списку → його кікнули або він вийшов ─
+    if (currentUserIdRef.current && !list.some((p: any) => p.user_id === currentUserIdRef.current)) {
+      router.push(getBackPath());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!roomId) return;
 
-    let currentUserId: string | null = null;
-
-    const fetchParticipants = async () => {
-      const { data } = await supabase
-        .from('room_participants')
-        .select('*, profiles!user_id (*)')
-        .eq('room_id', roomId);
-      setParticipants(data || []);
-      setLoading(false);
-    };
-
     const init = async () => {
+      // ─── Авторизація ────────────────────────────────────────────────────
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) return router.push(getBackPath());
       setCurrentUser(user);
-      currentUserId = user.id;
+      currentUserIdRef.current = user.id;
 
+      // ─── Завантаження кімнати ────────────────────────────────────────────
       const { data: roomData, error: roomError } = await supabase
         .from('rooms')
         .select('*')
@@ -67,7 +91,7 @@ export default function LiveRoomPage() {
       gameTypeRef.current = roomData.game_type;
       setActiveGame(roomData.game_type);
 
-      // Check if user is banned from this room
+      // ─── Перевірка бану ──────────────────────────────────────────────────
       const { data: banData } = await supabase
         .from('room_bans')
         .select('id')
@@ -80,7 +104,7 @@ export default function LiveRoomPage() {
         return router.push(getBackPath(roomData.game_type));
       }
 
-      // Rank Range Check
+      // ─── Перевірка рангу ─────────────────────────────────────────────────
       if ((roomData.min_rank && roomData.min_rank !== 'ALL') || (roomData.max_rank && roomData.max_rank !== 'ALL')) {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         const rankOrder = roomData.game_type === 'valorant'
@@ -94,40 +118,67 @@ export default function LiveRoomPage() {
         if (userIdx > maxIdx) return router.push(`${getBackPath(roomData.game_type)}?error=rank_high`);
       }
 
-      // Join room automatically
+      // ─── 1 юзер = 1 кімната: виходимо з усіх інших кімнат ──────────────
+      // Отримуємо всі кімнати де є юзер (крім поточної)
+      const { data: existingRooms } = await supabase
+        .from('room_participants')
+        .select('room_id')
+        .eq('user_id', user.id)
+        .neq('room_id', roomId);
+
+      if (existingRooms && existingRooms.length > 0) {
+        // Видаляємо юзера з усіх інших кімнат
+        for (const er of existingRooms) {
+          await supabase
+            .from('room_participants')
+            .delete()
+            .eq('room_id', er.room_id)
+            .eq('user_id', user.id);
+
+          // Перевіряємо чи кімната не стала пустою → видаляємо
+          const { data: remaining } = await supabase
+            .from('room_participants')
+            .select('id')
+            .eq('room_id', er.room_id);
+
+          if (!remaining || remaining.length === 0) {
+            await supabase.from('rooms').delete().eq('id', er.room_id);
+          }
+        }
+      }
+
+      // ─── Вступаємо в поточну кімнату ────────────────────────────────────
       await supabase
         .from('room_participants')
         .upsert({ room_id: roomId, user_id: user.id }, { onConflict: 'room_id,user_id' });
 
-      await fetchParticipants();
+      await fetchParticipants(roomId);
+      setLoading(false);
     };
 
     init();
 
+    // ─── Realtime підписки ───────────────────────────────────────────────────
     const channel = supabase.channel(`room:${roomId}`)
-      // Participants changes → refresh list + detect kick/leave
+      // Зміни учасників → оновлюємо список (INSERT/UPDATE/DELETE)
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'room_participants',
         filter: `room_id=eq.${roomId}`
-      }, async () => {
-        // Fetch fresh list first
-        const { data } = await supabase
-          .from('room_participants')
-          .select('*, profiles!user_id (*)')
-          .eq('room_id', roomId);
-        const list = data || [];
-        setParticipants(list);
+      }, () => fetchParticipants(roomId))
 
-        // Check if current user is still in the room
-        // (works for kick AND voluntary leave from another tab)
-        if (currentUserId && !list.some((p: any) => p.user_id === currentUserId)) {
-          showToast(t('kicked'), 'error');
-          router.push(getBackPath());
-        }
-      })
-      // Room deleted → redirect all remaining users
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'room_participants',
+        // ВАЖЛИВО: не фільтруємо по room_id тут, бо Supabase DELETE
+        // не завжди передає фільтровані поля у payload.
+        // Натомість fetchParticipants сам перевіряє стан.
+        filter: `room_id=eq.${roomId}`
+      }, () => fetchParticipants(roomId))
+
+      // Кімнату видалено → редірект для всіх
       .on('postgres_changes', {
         event: 'DELETE',
         schema: 'public',
@@ -137,64 +188,106 @@ export default function LiveRoomPage() {
         showToast(t('roomClosed'), 'error');
         router.push(getBackPath());
       })
-      // Ban inserted → refresh participants (removes banned user from list for owner)
-      // + redirect if it's the current user
+
+      // Бан вставлено → перевіряємо чи це поточний юзер
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'room_bans',
         filter: `room_id=eq.${roomId}`
       }, async (payload) => {
-        if (currentUserId && (payload.new as any)?.user_id === currentUserId) {
+        if (currentUserIdRef.current && (payload.new as any)?.user_id === currentUserIdRef.current) {
           showToast(t('banned'), 'error');
           router.push(getBackPath());
         } else {
-          // Refresh participants so banned user disappears for owner too
-          await fetchParticipants();
+          // Для власника: оновлюємо список (забанений вже видалений з participants)
+          await fetchParticipants(roomId);
         }
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
+  // ─── Вийти з кімнати ──────────────────────────────────────────────────────
   const leaveRoom = async () => {
-    await supabase.from('room_participants').delete().eq('room_id', roomId).eq('user_id', currentUser.id);
+    if (!currentUser) return;
+
+    await supabase
+      .from('room_participants')
+      .delete()
+      .eq('room_id', roomId)
+      .eq('user_id', currentUser.id);
+
+    // Якщо кімната стала пустою → видаляємо (для випадку коли власник виходить без закриття)
+    const { data: remaining } = await supabase
+      .from('room_participants')
+      .select('id')
+      .eq('room_id', roomId);
+
+    if (!remaining || remaining.length === 0) {
+      await supabase.from('rooms').delete().eq('id', roomId);
+    }
+
     router.push(getBackPath(room?.game_type));
   };
 
+  // ─── Закрити кімнату (власник) ────────────────────────────────────────────
   const closeRoom = async () => {
     showToast(t('close') + '?', 'error', {
       label: t('close'),
       onClick: async () => {
+        // Видаляємо кімнату → realtime сповістить усіх учасників
         await supabase.from('rooms').delete().eq('id', roomId);
-        // Owner redirects themselves — others are handled via realtime
         router.push(getBackPath(room?.game_type));
       }
     }, 10000);
   };
 
+  // ─── Кікнути гравця ───────────────────────────────────────────────────────
   const kickPlayer = async (userId: string, userName: string) => {
     showToast(`${t('kick')} ${userName}?`, 'error', {
       label: t('kick'),
       onClick: async () => {
-        await supabase.from('room_participants').delete().eq('room_id', roomId).eq('user_id', userId);
+        await supabase
+          .from('room_participants')
+          .delete()
+          .eq('room_id', roomId)
+          .eq('user_id', userId);
+
         showToast(`${userName} ${t('kickedSuccess')}`, 'success');
+
+        // fetchParticipants спрацює через realtime,
+        // але викличемо і вручну для миттєвого оновлення у власника
+        await fetchParticipants(roomId);
       }
     }, 8000);
   };
 
+  // ─── Забанити гравця ──────────────────────────────────────────────────────
   const banPlayer = async (userId: string, userName: string) => {
     showToast(`${t('ban')} ${userName}?`, 'error', {
       label: t('ban'),
       onClick: async () => {
-        // Insert ban first, then remove from participants
+        // Спочатку бан → realtime відправить забаненого геть
         await supabase.from('room_bans').upsert(
           { room_id: roomId, user_id: userId },
           { onConflict: 'room_id,user_id' }
         );
-        await supabase.from('room_participants').delete().eq('room_id', roomId).eq('user_id', userId);
+        // Потім видаляємо з кімнати
+        await supabase
+          .from('room_participants')
+          .delete()
+          .eq('room_id', roomId)
+          .eq('user_id', userId);
+
         showToast(`${userName} ${t('bannedSuccess')}`, 'success');
+
+        // Миттєве оновлення у власника
+        await fetchParticipants(roomId);
       }
     }, 8000);
   };
@@ -244,12 +337,12 @@ export default function LiveRoomPage() {
 
         <div className="relative z-10 flex gap-2">
           {isOwner ? (
-            <button onClick={closeRoom} className="px-6 py-2.5 rounded-xl bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-[0.2em] border border-red-500/20 hover:bg-red-500/20 transition-all flex items-center gap-2">
-              <Trash2 size={14} /> {t('close')}
+            <button onClick={closeRoom} className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] transition-colors duration-150 border border-red-500/30 hover:border-red-500/50 text-red-500 hover:text-red-400">
+              <Trash2 size={10} strokeWidth={2} /> {t('close')}
             </button>
           ) : (
-            <button onClick={leaveRoom} className="px-6 py-2.5 rounded-xl bg-zinc-800/50 text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] hover:text-white border border-white/5 hover:bg-zinc-800 transition-all flex items-center gap-2">
-              <LogOut size={14} /> {t('leave')}
+            <button onClick={leaveRoom} className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]">
+              <LogOut size={10} strokeWidth={2} /> {t('leave')}
             </button>
           )}
         </div>
@@ -321,23 +414,23 @@ export default function LiveRoomPage() {
                         <div className="mt-2.5 flex gap-1.5">
                           <button
                             onClick={() => copyNickname(getNick(p.profiles))}
-                            className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-all text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 border border-white/5"
+                            className="flex items-center gap-1.5 h-7 px-2 rounded-md text-[9px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
                           >
-                            <Copy size={10} /> ID
+                            <Copy size={9} strokeWidth={2} /> ID
                           </button>
                           {isOwner && p.user_id !== currentUser.id && (
                             <>
                               <button
                                 onClick={() => kickPlayer(p.user_id, getNick(p.profiles))}
-                                className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-500 transition-all text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                                className="flex items-center gap-1.5 h-7 px-2 rounded-md text-[9px] font-bold uppercase tracking-[1.5px] transition-colors duration-150 border border-red-500/30 hover:border-red-500/50 text-red-500 hover:text-red-400"
                               >
-                                <ShieldAlert size={10} /> {t('kick')}
+                                <ShieldAlert size={9} strokeWidth={2} /> {t('kick')}
                               </button>
                               <button
                                 onClick={() => banPlayer(p.user_id, getNick(p.profiles))}
-                                className="px-2.5 py-1.5 bg-orange-500/10 hover:bg-orange-500/20 rounded-lg text-orange-500 transition-all text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                                className="flex items-center gap-1.5 h-7 px-2 rounded-md text-[9px] font-bold uppercase tracking-[1.5px] transition-colors duration-150 border border-orange-500/30 hover:border-orange-500/50 text-orange-500 hover:text-orange-400"
                               >
-                                <Ban size={10} /> {t('ban')}
+                                <Ban size={9} strokeWidth={2} /> {t('ban')}
                               </button>
                             </>
                           )}
