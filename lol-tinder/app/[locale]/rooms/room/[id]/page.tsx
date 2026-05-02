@@ -25,7 +25,6 @@ export default function LiveRoomPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Refs — завжди свіжі значення всередині closures
   const gameTypeRef = useRef<string>('lol');
   const currentUserIdRef = useRef<string | null>(null);
   const roomIdRef = useRef<string>('');
@@ -43,9 +42,13 @@ export default function LiveRoomPage() {
     return `/${locale}/rooms/${slug}`;
   };
 
-  // ─── Fetch учасників і перевірити авто-видалення кімнати ────────────────
+  // ─── FIX: fetchParticipants без фільтра по room_id в realtime ─────────────
+  // Supabase не гарантує передачу фільтрованих полів у DELETE payload,
+  // тому завжди робимо явний запит до БД.
   const fetchParticipants = useCallback(async (rId?: string) => {
     const targetRoomId = rId || roomIdRef.current;
+    if (!targetRoomId) return;
+
     const { data } = await supabase
       .from('room_participants')
       .select('*, profiles!user_id (*)')
@@ -54,15 +57,14 @@ export default function LiveRoomPage() {
     const list = data || [];
     setParticipants(list);
 
-    // ─── Авто-видалення: якщо 0 учасників → видаляємо кімнату ──────────
+    // Авто-видалення кімнати якщо пуста
     if (list.length === 0) {
       await supabase.from('rooms').delete().eq('id', targetRoomId);
-      // Редірект для поточного юзера (якщо він ще тут)
       router.push(getBackPath());
       return;
     }
 
-    // ─── Якщо поточного юзера немає в списку → його кікнули або він вийшов ─
+    // Якщо поточного юзера немає в списку → його кікнули або він вийшов
     if (currentUserIdRef.current && !list.some((p: any) => p.user_id === currentUserIdRef.current)) {
       router.push(getBackPath());
     }
@@ -73,13 +75,11 @@ export default function LiveRoomPage() {
     if (!roomId) return;
 
     const init = async () => {
-      // ─── Авторизація ────────────────────────────────────────────────────
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) return router.push(getBackPath());
       setCurrentUser(user);
       currentUserIdRef.current = user.id;
 
-      // ─── Завантаження кімнати ────────────────────────────────────────────
       const { data: roomData, error: roomError } = await supabase
         .from('rooms')
         .select('*')
@@ -91,7 +91,7 @@ export default function LiveRoomPage() {
       gameTypeRef.current = roomData.game_type;
       setActiveGame(roomData.game_type);
 
-      // ─── Перевірка бану ──────────────────────────────────────────────────
+      // Перевірка бану
       const { data: banData } = await supabase
         .from('room_bans')
         .select('id')
@@ -104,7 +104,7 @@ export default function LiveRoomPage() {
         return router.push(getBackPath(roomData.game_type));
       }
 
-      // ─── Перевірка рангу ─────────────────────────────────────────────────
+      // Перевірка рангу
       if ((roomData.min_rank && roomData.min_rank !== 'ALL') || (roomData.max_rank && roomData.max_rank !== 'ALL')) {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         const rankOrder = roomData.game_type === 'valorant'
@@ -118,8 +118,7 @@ export default function LiveRoomPage() {
         if (userIdx > maxIdx) return router.push(`${getBackPath(roomData.game_type)}?error=rank_high`);
       }
 
-      // ─── 1 юзер = 1 кімната: виходимо з усіх інших кімнат ──────────────
-      // Отримуємо всі кімнати де є юзер (крім поточної)
+      // 1 юзер = 1 кімната: виходимо з усіх інших кімнат
       const { data: existingRooms } = await supabase
         .from('room_participants')
         .select('room_id')
@@ -127,7 +126,6 @@ export default function LiveRoomPage() {
         .neq('room_id', roomId);
 
       if (existingRooms && existingRooms.length > 0) {
-        // Видаляємо юзера з усіх інших кімнат
         for (const er of existingRooms) {
           await supabase
             .from('room_participants')
@@ -135,7 +133,6 @@ export default function LiveRoomPage() {
             .eq('room_id', er.room_id)
             .eq('user_id', user.id);
 
-          // Перевіряємо чи кімната не стала пустою → видаляємо
           const { data: remaining } = await supabase
             .from('room_participants')
             .select('id')
@@ -147,7 +144,7 @@ export default function LiveRoomPage() {
         }
       }
 
-      // ─── Вступаємо в поточну кімнату ────────────────────────────────────
+      // Вступаємо в поточну кімнату
       await supabase
         .from('room_participants')
         .upsert({ room_id: roomId, user_id: user.id }, { onConflict: 'room_id,user_id' });
@@ -158,9 +155,14 @@ export default function LiveRoomPage() {
 
     init();
 
-    // ─── Realtime підписки ───────────────────────────────────────────────────
-    const channel = supabase.channel(`room:${roomId}`)
-      // Зміни учасників → оновлюємо список (INSERT/UPDATE/DELETE)
+    // ─── FIX: Realtime через broadcast канал ──────────────────────────────
+    // Замість ненадійних postgres_changes з фільтрами для DELETE,
+    // використовуємо broadcast повідомлення які надсилаємо після кожної дії.
+    // Postgres_changes залишаємо тільки для INSERT (вони надійні).
+    const channel = supabase.channel(`room:${roomId}`, {
+      config: { broadcast: { self: true } }
+    })
+      // INSERT учасника — надійно працює з фільтром
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -168,15 +170,11 @@ export default function LiveRoomPage() {
         filter: `room_id=eq.${roomId}`
       }, () => fetchParticipants(roomId))
 
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'room_participants',
-        // ВАЖЛИВО: не фільтруємо по room_id тут, бо Supabase DELETE
-        // не завжди передає фільтровані поля у payload.
-        // Натомість fetchParticipants сам перевіряє стан.
-        filter: `room_id=eq.${roomId}`
-      }, () => fetchParticipants(roomId))
+      // FIX: Broadcast "refresh" — надсилається після kick/ban/leave
+      // Всі клієнти в каналі отримують і оновлюють список
+      .on('broadcast', { event: 'participants_changed' }, () => {
+        fetchParticipants(roomId);
+      })
 
       // Кімнату видалено → редірект для всіх
       .on('postgres_changes', {
@@ -189,7 +187,7 @@ export default function LiveRoomPage() {
         router.push(getBackPath());
       })
 
-      // Бан вставлено → перевіряємо чи це поточний юзер
+      // Бан вставлено
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -199,18 +197,34 @@ export default function LiveRoomPage() {
         if (currentUserIdRef.current && (payload.new as any)?.user_id === currentUserIdRef.current) {
           showToast(t('banned'), 'error');
           router.push(getBackPath());
-        } else {
-          // Для власника: оновлюємо список (забанений вже видалений з participants)
-          await fetchParticipants(roomId);
         }
+        // FIX: Не робимо fetchParticipants тут — він прийде через broadcast нижче
       })
       .subscribe();
 
+    // Зберігаємо канал у ref щоб використовувати для broadcast
+    channelRef.current = channel;
+
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
+
+  // Ref для доступу до каналу в обробниках
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // ─── FIX: broadcastRefresh — надсилає всім сигнал оновити список ─────────
+  const broadcastRefresh = useCallback(async () => {
+    if (channelRef.current) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'participants_changed',
+        payload: {}
+      });
+    }
+  }, []);
 
   // ─── Вийти з кімнати ──────────────────────────────────────────────────────
   const leaveRoom = async () => {
@@ -222,7 +236,9 @@ export default function LiveRoomPage() {
       .eq('room_id', roomId)
       .eq('user_id', currentUser.id);
 
-    // Якщо кімната стала пустою → видаляємо (для випадку коли власник виходить без закриття)
+    // FIX: Broadcast щоб інші оновили список одразу
+    await broadcastRefresh();
+
     const { data: remaining } = await supabase
       .from('room_participants')
       .select('id')
@@ -240,7 +256,6 @@ export default function LiveRoomPage() {
     showToast(t('close') + '?', 'error', {
       label: t('close'),
       onClick: async () => {
-        // Видаляємо кімнату → realtime сповістить усіх учасників
         await supabase.from('rooms').delete().eq('id', roomId);
         router.push(getBackPath(room?.game_type));
       }
@@ -252,17 +267,22 @@ export default function LiveRoomPage() {
     showToast(`${t('kick')} ${userName}?`, 'error', {
       label: t('kick'),
       onClick: async () => {
-        await supabase
+        // FIX: Видаляємо з БД
+        const { error } = await supabase
           .from('room_participants')
           .delete()
           .eq('room_id', roomId)
           .eq('user_id', userId);
 
-        showToast(`${userName} ${t('kickedSuccess')}`, 'success');
+        if (error) {
+          showToast('Error kicking player', 'error');
+          return;
+        }
 
-        // fetchParticipants спрацює через realtime,
-        // але викличемо і вручну для миттєвого оновлення у власника
-        await fetchParticipants(roomId);
+        // FIX: Broadcast → всі (включно з власником) оновлять список
+        await broadcastRefresh();
+
+        showToast(`${userName} ${t('kickedSuccess')}`, 'success');
       }
     }, 8000);
   };
@@ -272,11 +292,12 @@ export default function LiveRoomPage() {
     showToast(`${t('ban')} ${userName}?`, 'error', {
       label: t('ban'),
       onClick: async () => {
-        // Спочатку бан → realtime відправить забаненого геть
+        // Спочатку бан → realtime відправить забаненого геть через postgres_changes
         await supabase.from('room_bans').upsert(
           { room_id: roomId, user_id: userId },
           { onConflict: 'room_id,user_id' }
         );
+
         // Потім видаляємо з кімнати
         await supabase
           .from('room_participants')
@@ -284,10 +305,10 @@ export default function LiveRoomPage() {
           .eq('room_id', roomId)
           .eq('user_id', userId);
 
-        showToast(`${userName} ${t('bannedSuccess')}`, 'success');
+        // FIX: Broadcast щоб власник і всі інші оновили список
+        await broadcastRefresh();
 
-        // Миттєве оновлення у власника
-        await fetchParticipants(roomId);
+        showToast(`${userName} ${t('bannedSuccess')}`, 'success');
       }
     }, 8000);
   };
