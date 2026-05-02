@@ -103,20 +103,48 @@ export default function ProfilePage() {
   }, [profile, selectedLangs, selectedQueues, enabledGames, user, isInitialLoading, activeGame]);
 
   const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      const { name, value, type } = e.target;
-      const isCheckbox = type === "checkbox";
-      const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
-      setProfile((prev: any) => {
-        const next = { ...prev };
-        if (name === "hasMic") next.has_mic = val;
-        else if (name === "isPaused") next.is_paused = val;
-        else next[name] = val;
-        return next;
-      });
-    },
-    [],
-  );
+  (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const isCheckbox = type === "checkbox";
+    const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
+
+    setProfile((prev: any) => {
+      const next = { ...prev };
+
+      if (name === "hasMic") {
+        next.has_mic = val;
+      } else if (name === "isPaused") {
+        next.is_paused = val;
+
+      // ── Riot-поля (спільні для LoL/TFT) ──
+      } else if (name === "riot_game_name") {
+        next.game_profiles = {
+          ...prev?.game_profiles,
+          lol: { ...prev?.game_profiles?.lol, game_name: val },
+          tft: { ...prev?.game_profiles?.tft, game_name: val },
+        };
+      } else if (name === "riot_tag_line") {
+        next.game_profiles = {
+          ...prev?.game_profiles,
+          lol: { ...prev?.game_profiles?.lol, tag_line: val },
+          tft: { ...prev?.game_profiles?.tft, tag_line: val },
+        };
+      } else if (name === "riot_region") {
+        next.game_profiles = {
+          ...prev?.game_profiles,
+          lol: { ...prev?.game_profiles?.lol, region: val },
+          tft: { ...prev?.game_profiles?.tft, region: val },
+        };
+
+      } else {
+        next[name] = val;
+      }
+
+      return next;
+    });
+  },
+  [],
+);
 
   const handleGameInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
