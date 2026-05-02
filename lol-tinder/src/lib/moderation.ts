@@ -16,32 +16,24 @@ Respond with ONLY one word: APPROVE, REJECT, or PENDING. No explanation.
 Comment: "${comment.replace(/"/g, '\\"')}"`
 
 export async function moderateComment(comment: string): Promise<ModerationResult> {
-  console.log('[moderation] called, comment preview:', comment.slice(0, 80))
-
   if (!process.env.GEMINI_API_KEY) {
     console.error('[moderation] ❌ GEMINI_API_KEY is not set in environment variables')
     return 'approved'
   }
-  console.log('[moderation] ✅ API key found, length:', process.env.GEMINI_API_KEY.length)
 
   try {
-    console.log('[moderation] creating GoogleGenAI client...')
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
-    console.log('[moderation] sending request to gemini-3.1-flash-preview...')
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-lite',
       contents: buildPrompt(comment),
     })
 
-    console.log('[moderation] raw response:', JSON.stringify(response, null, 2))
 
     const raw = response.text?.trim().toUpperCase() ?? ''
-    console.log('[moderation] parsed text:', raw)
 
-    if (raw.includes('APPROVE')) { console.log('[moderation] → approved'); return 'approved' }
-    if (raw.includes('REJECT'))  { console.log('[moderation] → rejected'); return 'rejected' }
-    console.log('[moderation] → pending (no clear verdict in response)')
+    if (raw.includes('APPROVE')) { return 'approved' }
+    if (raw.includes('REJECT'))  { return 'rejected' }
     return 'pending'
   } catch (err: any) {
     console.error('[moderation] ❌ Exception caught:')

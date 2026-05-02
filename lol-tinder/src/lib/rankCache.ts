@@ -34,14 +34,6 @@ export async function refreshRankIfNeeded(
   // ─── Майстерність: перевіряємо незалежно від кешу рангу ─────────────────
   // (навіть якщо ранг свіжий — майстерність могла ще не кешуватись)
   let masteryExtraFields: Record<string, any> = {};
-  console.log(
-    "[rankCache] mastery check - game:",
-    game,
-    "puuid:",
-    !!puuid,
-    "mastery_updated_at:",
-    gameProfile.mastery_updated_at ?? "NONE",
-  );
   if (game === "lol" && puuid) {
     const lastMasteryUpdated: string | null =
       gameProfile.mastery_updated_at ?? null;
@@ -51,7 +43,6 @@ export async function refreshRankIfNeeded(
         MASTERY_CACHE_TTL_MS;
 
     if (masteryExpired) {
-      console.log("[rankCache] fetching mastery from Riot for", puuid);
       const champions = await getTopChampions(puuid, region);
       masteryExtraFields = {
         top_champions: champions,
@@ -75,7 +66,6 @@ export async function refreshRankIfNeeded(
         masteryExtraFields,
       );
     }
-    console.log("[rankCache] returning cached rank for", game);
     return {
       cached: true,
       data: extractCachedRank({ ...gameProfile, ...masteryExtraFields }, game),
@@ -88,7 +78,6 @@ export async function refreshRankIfNeeded(
   }
 
   // ─── Запит до Riot API (ранг) ────────────────────────────────────────────
-  console.log("[rankCache] fetching rank from Riot for", game, puuid);
   let updatedFields: Record<string, any> = { ...masteryExtraFields };
 
   if (game === "lol") {
@@ -126,7 +115,6 @@ export async function refreshRankIfNeeded(
     return { cached: true, data: extractCachedRank(gameProfile, game) };
   }
 
-  console.log("[rankCache] successfully updated for", game, userId);
   return { cached: false, data: updatedFields };
 }
 

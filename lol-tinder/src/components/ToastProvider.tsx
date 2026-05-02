@@ -45,8 +45,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             {toast.action && (
               <button
                 onClick={async () => {
+                  const action = toast.action; // захоплюємо ДО setToast(null)
                   setToast(null);
-                  await toast.action?.onClick();
+                  await action?.onClick();
                 }}
                 className="toast-action-btn flex items-center h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] transition-all duration-200 border whitespace-nowrap"
                 style={{

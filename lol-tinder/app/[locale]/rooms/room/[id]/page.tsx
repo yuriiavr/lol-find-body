@@ -219,19 +219,15 @@ export default function LiveRoomPage() {
   // FIX: fetchParticipants ПЕРЕД broadcastRefresh — власник бачить зміну одразу
   const kickPlayer = async (userId: string, userName: string) => {
     const capturedRoomId = roomIdRef.current;
-    console.log('[KICK] kickPlayer called', { userId, userName, capturedRoomId });
     showToast(`${t('kick')} ${userName}?`, 'error', {
       label: t('kick'),
       onClick: async () => {
-        console.log('[KICK] onClick fired', { userId, capturedRoomId });
         const { data, error } = await supabase
           .from('room_participants')
           .delete()
           .eq('room_id', capturedRoomId)
           .eq('user_id', userId)
           .select();
-
-        console.log('[KICK] delete result', { data, error });
 
         if (error) {
           showToast('Error kicking player', 'error');
