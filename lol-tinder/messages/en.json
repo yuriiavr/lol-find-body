@@ -298,7 +298,9 @@
     "roomClosed": "This room has been closed",
     "ban": "Ban",
     "kickedSuccess": "was kicked",
-    "bannedSuccess": "was banned"
+    "bannedSuccess": "was banned",
+    "language": "Language",
+    "region": "Region"
   },
   "Common": {
     "micStatus": "I have a microphone",
@@ -358,6 +360,10 @@
       "toasts": {
         "success": "Profile updated successfully!",
         "error": "Failed to update profile"
+      },
+      "riotHint": {
+        "text": "Riot account (Game Name + Tag) is linked in",
+        "link": "General → Riot Account"
       }
     },
     "public": {
@@ -411,7 +417,7 @@
       "viewOnOpgg": "View on OP.GG",
       "requestSent": "Request Sent",
       "sendTeamRequest": "Send Team Request",
-      "topChamps":"Top Champions Mastery",
+      "topChamps": "Top Champions Mastery",
       "bio": "Information",
       "noBio": "This summoner prefers to keep a low profile."
     }

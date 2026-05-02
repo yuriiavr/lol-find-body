@@ -4,10 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/src/utils/supabase/client";
 import { useGameTheme, GameType } from "@/src/context/GameThemeContext";
-
-const supabase = createClient();
 
 const GAME_META: Record<string, { label: string; shortLabel: string }> = {
   lol:      { label: "League of Legends", shortLabel: "LoL" },
@@ -16,54 +13,34 @@ const GAME_META: Record<string, { label: string; shortLabel: string }> = {
 };
 
 export const GAME_URL_SLUG: Record<GameType, string> = {
-  lol: "league",
-  tft: "tft",
+  lol:      "league",
+  tft:      "tft",
   valorant: "valorant",
+  none:     "",
 };
 
 const ALL_GAMES = Object.keys(GAME_META) as GameType[];
-const ALL_GAME_SLUGS = Object.values(GAME_URL_SLUG);
+const ALL_GAME_SLUGS = Object.values(GAME_URL_SLUG).filter(Boolean);
 
 interface GameSelectorProps {
   userId?: string | null;
 }
 
 export default function GameSelector({ userId }: GameSelectorProps) {
-  const { activeGame, setActiveGame } = useGameTheme();
-  const [enabledGames, setEnabledGames] = useState<GameType[]>([]);
+  const { activeGame, setActiveGame, enabledGames: ctxGames } = useGameTheme();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!userId) {
-      // Гість — показуємо всі ігри
-      setEnabledGames(ALL_GAMES);
-      return;
-    }
-
-    const fetchGames = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("enabled_games")
-        .eq("id", userId)
-        .single();
-
-      if (data?.enabled_games) {
-        const normalized = (data.enabled_games as string)
-          .split(",")
-          .map((g: string) => g.toLowerCase() as GameType);
-        // Якщо масив непорожній — використовуємо його, інакше fallback на всі
-        setEnabledGames(normalized.length > 0 ? normalized : ALL_GAMES);
-      } else {
-        // Немає обраних ігор — показуємо всі
-        setEnabledGames(ALL_GAMES);
-      }
-    };
-
-    fetchGames();
-  }, [userId]);
+  // Гість бачить всі ігри.
+  // Авторизований — список з контексту (синхронізується з profile/page.tsx миттєво).
+  // Fallback на ALL_GAMES поки контекст ще не заповнений (перший рендер).
+  const enabledGames: GameType[] = !userId
+    ? ALL_GAMES
+    : ctxGames.length > 0
+      ? ctxGames.map((g) => g.toLowerCase() as GameType)
+      : ALL_GAMES;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -74,10 +51,6 @@ export default function GameSelector({ userId }: GameSelectorProps) {
   }, []);
 
   const current = GAME_META[activeGame] ?? GAME_META.lol;
-
-  // Якщо enabledGames ще не завантажились — нічого не рендеримо, щоб уникнути flash
-  if (enabledGames.length === 0) return null;
-
   const isSingleGame = enabledGames.length === 1;
 
   const handleGameChange = (game: GameType) => {
@@ -88,7 +61,6 @@ export default function GameSelector({ userId }: GameSelectorProps) {
     const gameSegmentIndex = segments.findIndex((seg) =>
       ALL_GAME_SLUGS.includes(seg)
     );
-
     if (gameSegmentIndex !== -1) {
       segments[gameSegmentIndex] = GAME_URL_SLUG[game];
       router.push(segments.join("/"));
@@ -105,7 +77,6 @@ export default function GameSelector({ userId }: GameSelectorProps) {
         <span style={{ color: "rgb(var(--accent-color))" }}>
           {current.label}
         </span>
-        {/* Шеврон приховуємо якщо вибору немає */}
         {!isSingleGame && (
           <ChevronDown
             size={10}
@@ -138,9 +109,10 @@ export default function GameSelector({ userId }: GameSelectorProps) {
                 onClick={() => handleGameChange(game)}
                 className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between"
                 style={{
-                  color: game === activeGame
-                    ? "rgb(var(--accent-color))"
-                    : "rgb(113,113,122)",
+                  color:
+                    game === activeGame
+                      ? "rgb(var(--accent-color))"
+                      : "rgb(113,113,122)",
                 }}
               >
                 {GAME_META[game]?.label ?? game}

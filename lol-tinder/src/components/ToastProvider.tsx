@@ -27,10 +27,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: 50, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: 20, x: '-50%', transition: { duration: 0.2 } }}
-            className="fixed bottom-10 left-1/2 z-[100] modern-panel px-6 py-4 flex items-center gap-4 min-w-[320px] border-[rgb(var(--accent-color)/0.5)] bg-[rgb(var(--bg-secondary)/0.9)] backdrop-blur-xl shadow-2xl shadow-[rgb(var(--accent-color)/0.2)]"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40, transition: { duration: 0.2 } }}
+            className="fixed top-8 right-6 z-[120] modern-panel px-6 py-4 flex items-center gap-4 min-w-[300px] max-w-[420px] border-[rgb(var(--accent-color)/0.5)] bg-[rgb(var(--bg-secondary)/0.9)] backdrop-blur-xl shadow-2xl shadow-[rgb(var(--accent-color)/0.2)]"
           >
             <div className={`p-2 rounded-full ${
               toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' 

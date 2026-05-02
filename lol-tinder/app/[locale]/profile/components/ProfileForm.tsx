@@ -385,6 +385,8 @@ interface ProfileFormProps {
   ) => void;
   toggleQueue: (queue: string) => void;
   toggleGame: (game: string) => void;
+  visibleGames: string[];
+  toggleVisibility: (game: string) => void;
   activeTab: GameId;
   enabledGames: string[];
   selectedQueues: string[];
@@ -405,6 +407,8 @@ const ProfileForm = memo(
     handleGameInputChange,
     toggleQueue,
     toggleGame,
+    visibleGames,
+    toggleVisibility,
     activeTab,
     enabledGames,
     selectedQueues,
@@ -540,9 +544,9 @@ const ProfileForm = memo(
                           </div>
                           <FormSwitch
                             label=""
-                            checked={enabledGames.includes(activeTab)}
-                            onChange={() => toggleGame(activeTab)}
-                            name="isGameEnabled"
+                            checked={visibleGames.includes(activeTab)}
+                            onChange={() => toggleVisibility(activeTab)}
+                            name="isGameVisible"
                           />
                         </div>
 

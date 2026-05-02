@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/src/utils/supabase/client';
-import { Users, Plus, ChevronDown, Shield, Target } from 'lucide-react';
+import { Users, Plus, ChevronDown, Shield, Target, Globe, Languages } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,8 +34,14 @@ export default function RoomsPage({ config }: RoomsPageProps) {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterMode, setFilterMode] = useState('ALL');
+  const [filterLang, setFilterLang] = useState('ANY');
+  const [filterRegion, setFilterRegion] = useState('ANY');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isLangFilterOpen, setIsLangFilterOpen] = useState(false);
+  const [isRegionFilterOpen, setIsRegionFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
+  const langFilterRef = useRef<HTMLDivElement>(null);
+  const regionFilterRef = useRef<HTMLDivElement>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
 
@@ -54,6 +60,8 @@ export default function RoomsPage({ config }: RoomsPageProps) {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) setIsFilterOpen(false);
+      if (langFilterRef.current && !langFilterRef.current.contains(e.target as Node)) setIsLangFilterOpen(false);
+      if (regionFilterRef.current && !regionFilterRef.current.contains(e.target as Node)) setIsRegionFilterOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -62,10 +70,12 @@ export default function RoomsPage({ config }: RoomsPageProps) {
   const fetchRooms = useCallback(async () => {
     let query = supabase.from('rooms').select('*, participants:room_participants(count)').eq('game_type', gameType);
     if (filterMode !== 'ALL') query = query.eq('mode', filterMode);
+    if (filterLang !== 'ANY') query = query.eq('language', filterLang);
+    if (filterRegion !== 'ANY') query = query.eq('region', filterRegion);
     const { data } = await query.order('created_at', { ascending: false });
     setRooms(data || []);
     setLoading(false);
-  }, [filterMode, gameType]);
+  }, [filterMode, filterLang, filterRegion, gameType]);
 
   useEffect(() => {
     fetchRooms();
@@ -88,10 +98,10 @@ export default function RoomsPage({ config }: RoomsPageProps) {
     return 'ok';
   };
 
-  const handleCreateRoomSubmit = async (description: string, mode: string, maxPlayers: number, minRank: string, maxRank: string) => {
+  const handleCreateRoomSubmit = async (description: string, mode: string, maxPlayers: number, minRank: string, maxRank: string, language: string, region: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return showToast(t('loginRequired'), 'error');
-    const { data, error } = await supabase.from('rooms').insert({ owner_id: user.id, game_type: gameType, mode, max_players: maxPlayers, min_rank: minRank, max_rank: maxRank, description }).select().single();
+    const { data, error } = await supabase.from('rooms').insert({ owner_id: user.id, game_type: gameType, mode, max_players: maxPlayers, min_rank: minRank, max_rank: maxRank, description, language, region }).select().single();
     if (error) return showToast(t('createRoomError', { message: error.message }), 'error');
     await supabase.from('room_participants').insert({ room_id: data.id, user_id: user.id });
     router.push(`./room/${data.id}`);
@@ -107,49 +117,96 @@ export default function RoomsPage({ config }: RoomsPageProps) {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
 
-        {/* Mode filter — Navbar style */}
+      <div className="flex flex-wrap gap-2 items-center">
+        {/* Mode filter */}
         <div className="relative" ref={filterRef}>
           <button
             onClick={() => setIsFilterOpen((v) => !v)}
             className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
           >
             <span style={{ color: 'rgb(var(--accent-color))' }}>{filterMode}</span>
-            <ChevronDown
-              size={10}
-              strokeWidth={2}
-              style={{
-                transform: isFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.18s',
-              }}
-            />
+            <ChevronDown size={10} strokeWidth={2} style={{ transform: isFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
           </button>
           <AnimatePresence>
             {isFilterOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
-                transition={{ duration: 0.12 }}
+              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
                 className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-hidden z-[110]"
                 style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '140px' }}
               >
                 {modes.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => { setFilterMode(m); setIsFilterOpen(false); }}
+                  <button key={m} onClick={() => { setFilterMode(m); setIsFilterOpen(false); }}
                     className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
                     style={{ color: filterMode === m ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
                   >
                     {m}
-                    {filterMode === m && (
-                      <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />
-                    )}
+                    {filterMode === m && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
                   </button>
                 ))}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+
+        {/* Language filter */}
+        <div className="relative" ref={langFilterRef}>
+          <button
+            onClick={() => setIsLangFilterOpen((v) => !v)}
+            className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
+          >
+            <Languages size={10} />
+            <span style={{ color: filterLang !== 'ANY' ? 'rgb(var(--accent-color))' : undefined }}>{filterLang}</span>
+            <ChevronDown size={10} strokeWidth={2} style={{ transform: isLangFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
+          </button>
+          <AnimatePresence>
+            {isLangFilterOpen && (
+              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
+                className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-y-auto z-[110]"
+                style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '150px', maxHeight: '220px' }}
+              >
+                {['ANY', 'Ukrainian', 'English', 'Polish', 'German', 'French', 'Spanish', 'Romanian', 'Czech', 'Hungarian'].map((l) => (
+                  <button key={l} onClick={() => { setFilterLang(l); setIsLangFilterOpen(false); }}
+                    className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
+                    style={{ color: filterLang === l ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
+                  >
+                    {l}
+                    {filterLang === l && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Region filter */}
+        <div className="relative" ref={regionFilterRef}>
+          <button
+            onClick={() => setIsRegionFilterOpen((v) => !v)}
+            className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
+          >
+            <Globe size={10} />
+            <span style={{ color: filterRegion !== 'ANY' ? 'rgb(var(--accent-color))' : undefined }}>{filterRegion}</span>
+            <ChevronDown size={10} strokeWidth={2} style={{ transform: isRegionFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
+          </button>
+          <AnimatePresence>
+            {isRegionFilterOpen && (
+              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
+                className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-hidden z-[110]"
+                style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '120px' }}
+              >
+                {['ANY', 'EUW', 'EUNE', 'NA', 'KR', 'BR', 'LAN', 'LAS', 'OCE', 'RU', 'TR'].map((r) => (
+                  <button key={r} onClick={() => { setFilterRegion(r); setIsRegionFilterOpen(false); }}
+                    className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
+                    style={{ color: filterRegion === r ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
+                  >
+                    {r}
+                    {filterRegion === r && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
         <button onClick={() => setIsCreateRoomModalOpen(true)} className="btn-modern flex items-center gap-3 py-3 px-8 text-xs font-black uppercase tracking-[0.2em]">
           <Plus size={20} strokeWidth={3} /> {t('createRoom')}
@@ -162,11 +219,21 @@ export default function RoomsPage({ config }: RoomsPageProps) {
             <div className="p-6 flex-1">
               <div className="flex justify-between items-start mb-6">
                 <div className="flex flex-col gap-2">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <span className="text-[9px] font-black uppercase tracking-widest text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.1)] px-2.5 py-1 rounded-lg border border-[rgb(var(--accent-color)/0.2)]">{room.mode}</span>
                     {((room.min_rank && room.min_rank !== 'ALL') || (room.max_rank && room.max_rank !== 'ALL')) && (
                       <span className="text-[9px] font-black uppercase tracking-widest text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 flex items-center gap-1">
                         <Shield size={10} /> {room.min_rank} - {room.max_rank === 'ALL' ? '∞' : room.max_rank}
+                      </span>
+                    )}
+                    {room.language && room.language !== 'ANY' && (
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.1)] px-2.5 py-1 rounded-lg border border-[rgb(var(--accent-color)/0.2)] flex items-center gap-1">
+                        <Languages size={10} /> {room.language}
+                      </span>
+                    )}
+                    {room.region && room.region !== 'ANY' && (
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[rgb(var(--accent-color))] bg-[rgb(var(--accent-color)/0.1)] px-2.5 py-1 rounded-lg border border-[rgb(var(--accent-color)/0.2)] flex items-center gap-1">
+                        <Globe size={10} /> {room.region}
                       </span>
                     )}
                   </div>

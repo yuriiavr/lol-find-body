@@ -124,10 +124,10 @@ export async function updateProfile(formData: FormData) {
   const language     = formData.get('language') as string
   const preferred_queue = formData.get('queues') as string
   const enabled_games = formData.get('enabled_games') as string
+  const visible_games = formData.get('visible_games') as string
   const hasMicRaw     = formData.get('has_mic') ?? formData.get('hasMic')
   const hasMic        = hasMicRaw !== null ? (hasMicRaw === 'true' || hasMicRaw === 'on') : ((currentProf as any)?.has_mic ?? true)
   const isPaused     = formData.get('isPaused') === 'on'
-  const isGameEnabledRaw = formData.get('isGameEnabled')
 
   const existingGameProfile = getGameProfile(currentProf, activeKey);
 
@@ -161,11 +161,15 @@ export async function updateProfile(formData: FormData) {
     }
   }
 
+  const isGameVisibleRaw = formData.get('isGameVisible')
+
   let finalEnabledGames = (enabled_games || "").split(",").filter(Boolean)
-  if (isGameEnabledRaw !== null && isGameEnabledRaw === 'on' && !finalEnabledGames.includes(activeGame)) {
-    finalEnabledGames.push(activeGame)
-  } else if (isGameEnabledRaw !== null && isGameEnabledRaw !== 'on') {
-    finalEnabledGames = finalEnabledGames.filter(g => g !== activeGame)
+
+  let finalVisibleGames = (visible_games || "").split(",").filter(Boolean)
+  if (isGameVisibleRaw !== null && isGameVisibleRaw === 'on' && !finalVisibleGames.includes(activeGame)) {
+    finalVisibleGames.push(activeGame)
+  } else if (isGameVisibleRaw !== null && isGameVisibleRaw !== 'on') {
+    finalVisibleGames = finalVisibleGames.filter(g => g !== activeGame)
   }
 
   const updateData: any = {
@@ -174,6 +178,7 @@ export async function updateProfile(formData: FormData) {
     has_mic:          hasMic,
     is_paused:        isPaused,
     enabled_games:    finalEnabledGames.join(','),
+    visible_games:    finalVisibleGames.join(','),
     language:         language,
     updated_at:       new Date().toISOString(),
     last_seen:        new Date().toISOString(),

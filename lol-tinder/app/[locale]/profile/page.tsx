@@ -37,7 +37,7 @@ type NavSection = "global" | "games" | "game-settings";
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const { activeGame, setActiveGame } = useGameTheme();
+  const { activeGame, setActiveGame, setEnabledGamesCtx } = useGameTheme();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [lastSavedProfile, setLastSavedProfile] = useState<any>(null);
@@ -51,6 +51,7 @@ export default function ProfilePage() {
   const [selectedQueues, setSelectedQueues] = useState<string[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
+  const [visibleGames, setVisibleGames] = useState<string[]>([]);
 
   // Відстежуємо активну секцію, щоб прев'ю адаптувалось
   const [activeSection, setActiveSection] = useState<NavSection>("global");
@@ -64,6 +65,11 @@ export default function ProfilePage() {
     }
     setIsDirty(JSON.stringify(profile) !== JSON.stringify(lastSavedProfile));
   }, [profile, lastSavedProfile, isInitialLoading]);
+
+  // Sync enabled games into context so Navbar/GameSelector reacts instantly
+  useEffect(() => {
+    setEnabledGamesCtx(enabledGames);
+  }, [enabledGames, setEnabledGamesCtx]);
 
   const getGameValue = useCallback(
     (field: string) => {
@@ -190,6 +196,30 @@ export default function ProfilePage() {
     setEnabledGames((prev) => {
       const next = prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game];
       setProfile((p: any) => ({ ...p, enabled_games: next.join(",") }));
+
+      // Schedule active game switch after the current render — calling setActiveGame
+      // (a context state setter) inside a setState updater triggers the
+      // "Cannot update a component while rendering a different component" error.
+      const isRemoving = prev.includes(game);
+      const isFirst = !prev.includes(game) && prev.length === 0;
+
+      if (isRemoving && activeGame.toLowerCase() === game.toLowerCase()) {
+        const remaining = next.filter((g) => g.toLowerCase() !== game.toLowerCase());
+        queueMicrotask(() =>
+          setActiveGame(remaining.length > 0 ? (remaining[0].toLowerCase() as any) : "none"),
+        );
+      } else if (isFirst) {
+        queueMicrotask(() => setActiveGame(game.toLowerCase() as any));
+      }
+
+      return next;
+    });
+  }, [activeGame, setActiveGame]);
+
+  const toggleVisibility = useCallback((game: string) => {
+    setVisibleGames((prev) => {
+      const next = prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game];
+      setProfile((p: any) => ({ ...p, visible_games: next.join(",") }));
       return next;
     });
   }, []);
@@ -232,6 +262,7 @@ export default function ProfilePage() {
         if (agentsStr) setSelectedAgents(agentsStr.split(",").filter(Boolean));
 
         if (initialProfile.enabled_games) setEnabledGames(initialProfile.enabled_games.split(","));
+        if (initialProfile.visible_games) setVisibleGames(initialProfile.visible_games.split(","));
 
         const lolPuuid = getExtra(initialProfile, "lol", "puuid");
         const lolRegion = getRegion(initialProfile, "lol");
@@ -262,6 +293,7 @@ export default function ProfilePage() {
     formData.append("activeGame", activeGame.toUpperCase());
     formData.set("language", selectedLangs.join(","));
     formData.set("enabled_games", enabledGames.join(","));
+    formData.set("visible_games", visibleGames.join(","));
     formData.set("has_mic", String(profile.has_mic ?? true));
     formData.set("role",   getRole(profile, gameKey) || "");
     formData.set("bio",    getBio(profile, gameKey) || "");
@@ -352,6 +384,8 @@ export default function ProfilePage() {
             handleGameInputChange={handleGameInputChange}
             toggleQueue={toggleQueue}
             toggleGame={toggleGame}
+            visibleGames={visibleGames}
+            toggleVisibility={toggleVisibility}
             selectedAgents={selectedAgents}
             onToggleAgent={toggleAgent}
             activeTab={activeGame.toUpperCase() as any}

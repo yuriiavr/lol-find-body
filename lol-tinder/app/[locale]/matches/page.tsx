@@ -147,9 +147,11 @@ function MatchCard({
     const enabledGame = (m.profile.enabled_games?.[0] ?? 'lol').toLowerCase() as GameKey;
     const name        = m.profile.display_name || getGameName(m.profile, enabledGame);
     const tag         = !m.profile.display_name ? getTagLine(m.profile, enabledGame) : null;
-    const games: string[] = Array.isArray(m.profile.enabled_games)
+    const games: string[] = typeof m.profile.enabled_games === 'string'
+        ? m.profile.enabled_games.split(',').filter(Boolean)
+        : Array.isArray(m.profile.enabled_games)
         ? m.profile.enabled_games
-        : m.profile.enabled_games ? [m.profile.enabled_games] : [];
+        : [];
     const isOnline = m.profile.last_seen &&
         new Date(m.profile.last_seen).getTime() > Date.now() - 10 * 60 * 1000;
 

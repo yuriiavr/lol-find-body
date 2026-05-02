@@ -299,7 +299,9 @@
     "roomClosed": "Цю кімнату було закрито",
     "ban": "Бан",
     "kickedSuccess": "було кікнуто",
-    "bannedSuccess": "було заблоковано"
+    "bannedSuccess": "було заблоковано",
+    "language": "Мова",
+    "region": "Регіон"
   },
   "Common": {
     "micStatus": "У мене є мікрофон",
@@ -361,6 +363,10 @@
       "toasts": {
         "success": "Профіль успішно оновлено!",
         "error": "Не вдалося оновити профіль"
+      },
+      "riotHint": {
+        "text": "Riot акаунт (Game Name + Tag) підключається у",
+        "link": "Основні → Riot Акаунт"
       }
     },
     "public": {

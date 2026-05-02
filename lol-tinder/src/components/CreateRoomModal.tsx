@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Loader2, ChevronDown, Gamepad2, Shield } from 'lucide-react';
+import { X, Plus, Loader2, ChevronDown, Gamepad2, Shield, Globe, Languages } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { useToast } from '@/src/components/ToastProvider';
@@ -8,11 +8,15 @@ interface CreateRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode: string;
-  onSubmit: (description: string, mode: string, maxPlayers: number, minRank: string, maxRank: string) => Promise<void>;
+  onSubmit: (description: string, mode: string, maxPlayers: number, minRank: string, maxRank: string, language: string, region: string) => Promise<void>;
   isLoading: boolean;
   modes?: string[];
   ranks?: string[];
 }
+
+const LANGUAGES = ['ANY', 'Ukrainian', 'English', 'Polish', 'German', 'French', 'Spanish', 'Romanian', 'Czech', 'Hungarian'];
+
+const REGIONS = ['ANY', 'EUW', 'EUNE', 'NA', 'KR'];
 
 // Reusable navbar-style dropdown
 interface NavDropdownProps<T extends string | number> {
@@ -110,15 +114,21 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
   const [maxPlayers, setMaxPlayers] = useState(5);
   const [minRank, setMinRank] = useState('ALL');
   const [maxRank, setMaxRank] = useState('ALL');
+  const [language, setLanguage] = useState('ANY');
+  const [region, setRegion] = useState('ANY');
 
   const [isModeOpen, setIsModeOpen] = useState(false);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
   const [isRankOpen, setIsRankOpen] = useState(false);
   const [isMaxRankOpen, setIsMaxRankOpen] = useState(false);
+  const [isLangOpen, setIsLangOpen] = useState(false);
+  const [isRegionOpen, setIsRegionOpen] = useState(false);
   const modeRef = useRef<HTMLDivElement>(null);
   const playersRef = useRef<HTMLDivElement>(null);
   const rankRef = useRef<HTMLDivElement>(null);
   const maxRankRef = useRef<HTMLDivElement>(null);
+  const langRef = useRef<HTMLDivElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
 
   const modes = customModes || ['FLEX', 'NORMAL', 'ARAM', 'ARAM: MAYHEM', 'ARENA', 'QUICK PLAY', 'CUSTOM'];
   const ranks = customRanks || ['ALL', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER+'];
@@ -132,6 +142,8 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
       setMaxPlayers(5);
       setMinRank('ALL');
       setMaxRank('ALL');
+      setLanguage('ANY');
+      setRegion('ANY');
     }
   }, [isOpen, initialMode, modes]);
 
@@ -141,6 +153,8 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
       if (playersRef.current && !playersRef.current.contains(event.target as Node)) setIsPlayersOpen(false);
       if (rankRef.current && !rankRef.current.contains(event.target as Node)) setIsRankOpen(false);
       if (maxRankRef.current && !maxRankRef.current.contains(event.target as Node)) setIsMaxRankOpen(false);
+      if (langRef.current && !langRef.current.contains(event.target as Node)) setIsLangOpen(false);
+      if (regionRef.current && !regionRef.current.contains(event.target as Node)) setIsRegionOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -156,7 +170,7 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
       showToast(t('maxPlayersRange'), 'error');
       return;
     }
-    await onSubmit(description, mode, maxPlayers, minRank, maxRank);
+    await onSubmit(description, mode, maxPlayers, minRank, maxRank, language, region);
   };
 
   const rankOption = (r: string) => (
@@ -289,6 +303,62 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
                       </span>
                     )}
                     renderOption={rankOption}
+                    maxHeight="200px"
+                  />
+                </div>
+              </div>
+
+              {/* Language + Region */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
+                    {t('language')}
+                  </label>
+                  <NavDropdown
+                    value={language}
+                    options={LANGUAGES}
+                    isOpen={isLangOpen}
+                    onToggle={() => setIsLangOpen((v) => !v)}
+                    onSelect={(v) => { setLanguage(v); setIsLangOpen(false); }}
+                    dropdownRef={langRef}
+                    renderLabel={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <Languages size={10} className={v !== 'ANY' ? '' : 'opacity-40'} />
+                        {v}
+                      </span>
+                    )}
+                    renderOption={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <Languages size={10} className={v !== 'ANY' ? '' : 'opacity-40'} />
+                        {v}
+                      </span>
+                    )}
+                    maxHeight="200px"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
+                    {t('region')}
+                  </label>
+                  <NavDropdown
+                    value={region}
+                    options={REGIONS}
+                    isOpen={isRegionOpen}
+                    onToggle={() => setIsRegionOpen((v) => !v)}
+                    onSelect={(v) => { setRegion(v); setIsRegionOpen(false); }}
+                    dropdownRef={regionRef}
+                    renderLabel={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <Globe size={10} className={v !== 'ANY' ? '' : 'opacity-40'} />
+                        {v}
+                      </span>
+                    )}
+                    renderOption={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <Globe size={10} className={v !== 'ANY' ? '' : 'opacity-40'} />
+                        {v}
+                      </span>
+                    )}
                     maxHeight="200px"
                   />
                 </div>
