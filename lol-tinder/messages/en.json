@@ -367,7 +367,13 @@
         "requestSent": "Team request sent successfully!",
         "requestError": "Failed to send request",
         "reviewSaved": "Review saved!",
-        "reviewError": "Error saving review"
+        "reviewError": "Error saving review",
+        "reviewPending": "Your review has been sent for moderation",
+        "reviewRejected": "Your comment violates community guidelines and was not posted",
+        "loginRequired": "You must be logged in to send a request",
+        "loginButton": "Login",
+        "setupRequired": "Please set up your profile first",
+        "setupButton": "Set Up Profile"
       }
     },
     "sidebar": {
@@ -386,7 +392,11 @@
       "leaveMessage": "Leave a message",
       "commentPlaceholder": "Write something on this player's wall...",
       "submit": "Submit Review",
-      "empty": "No reviews yet"
+      "empty": "No reviews yet",
+      "moderation": {
+        "pending": "Your review is under moderation and will appear once approved",
+        "rejected": "Your review was rejected for violating community guidelines"
+      }
     },
     "preview": {
       "profileBadge": "Profile",

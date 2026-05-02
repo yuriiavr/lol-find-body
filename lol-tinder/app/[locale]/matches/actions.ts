@@ -2,10 +2,12 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { moderateComment } from '@/src/lib/moderation'
 
-export async function sendMatchRequest(targetId: string) {
+// ─── Helper ───────────────────────────────────────────────────────────────────
+async function createCookieClient() {
   const cookieStore = await cookies()
-  const supabase = createServerClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -16,6 +18,10 @@ export async function sendMatchRequest(targetId: string) {
       },
     }
   )
+}
+
+export async function sendMatchRequest(targetId: string) {
+  const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'You must be logged in' }
@@ -35,23 +41,11 @@ export async function sendMatchRequest(targetId: string) {
     .insert({ user_id: user.id, target_id: targetId, status: 'PENDING' })
 
   if (error) return { error: error.message }
-
   return { success: true }
 }
 
 export async function getMatches() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value },
-        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
-        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
-      },
-    }
-  )
+  const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
@@ -88,18 +82,7 @@ export async function getMatches() {
 }
 
 export async function updateMatchStatus(matchId: string, status: 'ACCEPTED' | 'DECLINED') {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value },
-        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
-        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
-      },
-    }
-  )
+  const supabase = await createCookieClient()
 
   const { error } = await supabase
     .from('matches')
@@ -110,19 +93,15 @@ export async function updateMatchStatus(matchId: string, status: 'ACCEPTED' | 'D
   return { success: true }
 }
 
-export async function upsertReview(targetId: string, comment: string, behaviorRating: number, skillRating: number, gameType: 'LOL' | 'TFT' | 'VALORANT' = 'LOL') {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value },
-        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
-        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
-      },
-    }
-  )
+// ─── upsertReview — з AI-модерацією ──────────────────────────────────────────
+export async function upsertReview(
+  targetId: string,
+  comment: string,
+  behaviorRating?: number, // залишаємо для сумісності, але не використовуємо
+  skillRating?: number,
+  gameType: 'LOL' | 'TFT' | 'VALORANT' = 'LOL'
+) {
+  const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
@@ -136,51 +115,76 @@ export async function upsertReview(targetId: string, comment: string, behaviorRa
 
   if (!match) return { error: 'You can only review players you are matched with' }
 
+  // ── Модерація через Gemini ──
+  const modStatus = await moderateComment(comment)
+
+  if (modStatus === 'rejected') {
+    return {
+      error: null,
+      success: false,
+      moderation: 'rejected' as const,
+    }
+  }
+
   const { error } = await supabase
     .from('reviews')
     .upsert({
       reviewer_id: user.id,
       target_id: targetId,
       comment,
-      behavior_rating: behaviorRating,
-      skill_rating: skillRating,
       game_type: gameType,
+      moderation_status: modStatus, // 'approved' або 'pending'
       updated_at: new Date().toISOString()
     }, { onConflict: 'reviewer_id,target_id,game_type' })
 
   if (error) return { error: error.message }
-  return { success: true }
+
+  return {
+    success: true,
+    moderation: modStatus, // 'approved' | 'pending'
+  }
 }
 
-export async function getReviewsForUser(targetId: string, gameType: 'LOL' | 'TFT' | 'VALORANT' = 'LOL') {
+// ─── getReviewsForUser — тільки approved ─────────────────────────────────────
+export async function getReviewsForUser(targetId: string, gameType?: string) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: { get: () => '' } as any }
   )
 
+  const query = supabase
+    .from('reviews')
+    .select('*, reviewer:profiles!reviewer_id(display_name, avatar_url)')
+    .eq('target_id', targetId)
+    .eq('moderation_status', 'approved') // ← тільки схвалені коментарі видимі іншим
+    .order('updated_at', { ascending: false })
+
+  const { data, error } = await query
+
+  return { data, error }
+}
+
+// ─── getMyReviewForUser — для автора (показує його власний pending/approved) ─
+export async function getMyReviewForUser(targetId: string, gameType: string = 'LOL') {
+  const supabase = await createCookieClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null }
+
   const { data, error } = await supabase
     .from('reviews')
-    .select('*, reviewer:profiles!reviewer_id(display_name, riot_game_name, avatar_url)')
+    .select('comment, moderation_status')
+    .eq('reviewer_id', user.id)
     .eq('target_id', targetId)
     .eq('game_type', gameType)
+    .maybeSingle()
 
   return { data, error }
 }
 
 export async function sendMessage(matchId: string, content: string) {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value },
-        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
-        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
-      },
-    }
-  )
+  const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
@@ -198,18 +202,7 @@ export async function sendMessage(matchId: string, content: string) {
 }
 
 export async function getMessages(matchId: string) {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value },
-        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
-        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
-      },
-    }
-  )
+  const supabase = await createCookieClient()
 
   const { data, error } = await supabase
     .from('messages')
@@ -221,18 +214,7 @@ export async function getMessages(matchId: string) {
 }
 
 export async function markMessagesAsRead(matchId: string) {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value },
-        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options) },
-        remove(name: string, options: CookieOptions) { cookieStore.delete(name) },
-      },
-    }
-  )
+  const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }

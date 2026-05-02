@@ -76,7 +76,6 @@ model Review {
   reviewerId     String   @map("reviewer_id") @db.Uuid
   targetId       String   @map("target_id") @db.Uuid
   comment        String?  @db.Text
-  behaviorRating Int      @map("behavior_rating")
   createdAt      DateTime @default(now()) @map("created_at")
 
   reviewer User @relation("Reviewer", fields: [reviewerId], references: [id])

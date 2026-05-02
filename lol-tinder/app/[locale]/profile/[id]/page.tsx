@@ -5,7 +5,7 @@ import { createClient } from '@/src/utils/supabase/client'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { sendMatchRequest, upsertReview, getReviewsForUser } from '@/app/[locale]/matches/actions'
+import { sendMatchRequest, upsertReview, getReviewsForUser, getMyReviewForUser } from '@/app/[locale]/matches/actions'
 import { 
   getRanksByPuuidAction, 
   getTopChampionsAction, 
@@ -36,11 +36,14 @@ export default function PublicProfilePage() {
   const [tftStats, setTftStats] = useState<any>(null)
   const [valStats, setValStats] = useState<any>(null)
   const [topChamps, setTopChamps] = useState<any[]>([])
+  const [isLoadingChamps, setIsLoadingChamps] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
   
   const [reviewComment, setReviewComment] = useState('')
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  // Статус модерації мого власного коментаря (тільки видно автору)
+  const [myReviewStatus, setMyReviewStatus] = useState<'approved' | 'pending' | 'rejected' | null>(null)
 
   const { showToast } = useToast()
   const t = useTranslations('ProfilePage.public')
@@ -104,13 +107,15 @@ export default function PublicProfilePage() {
     }
     fetchProfile()
   }, [id, router])
+
   useEffect(() => {
-    if (!profile || !currentUser || !activeGame) return
+    if (!profile || !activeGame) return
     const fetchGameSpecificData = async () => {
       setRiotStats(null)
       setTftStats(null)
       setValStats(null)
       setTopChamps([])
+      setIsLoadingChamps(activeGame === 'LOL')
       
       const puuid = getExtra(profile, activeGame.toLowerCase() as GameKey, 'puuid');
       const region = getRegion(profile, activeGame.toLowerCase() as GameKey);
@@ -122,29 +127,37 @@ export default function PublicProfilePage() {
         ])
         setRiotStats(ranks)
         setTopChamps(champs)
+        setIsLoadingChamps(false)
       } else if (activeGame === 'TFT' && puuid) {
         const tft = await getRiotTFTStatsAction(puuid, region)
         setTftStats(tft)
+        setIsLoadingChamps(false)
+      } else {
+        setIsLoadingChamps(false)
       }
 
-      await refreshReviews(id, currentUser.id)
+      if (currentUser) await refreshReviews(id, currentUser.id)
     }
     fetchGameSpecificData()
-  }, [activeGame, profile, currentUser, id])
+  }, [activeGame, profile, id])
 
   const refreshReviews = async (targetId: string, authUserId: string) => {
-    // Передаємо LOL як дефолт або модифікуємо екшн на бекенді, щоб він ігнорував тип гри
+    // Публічні approved коментарі
     const res = await getReviewsForUser(targetId, 'LOL')
     if (res.data) {
       setReviews(res.data)
-      const myReview = res.data.find((r: any) => r.reviewer_id === authUserId)
-      if (myReview && authUserId) {
-        setReviewComment(myReview.comment || '')
-      } else {
-        setReviewComment('')
-      }
     }
     if (res.error) setReviews([])
+
+    // Власний коментар автора (може бути pending/rejected — не видно іншим)
+    const myRes = await getMyReviewForUser(targetId, 'LOL')
+    if (myRes.data) {
+      setReviewComment(myRes.data.comment || '')
+      setMyReviewStatus(myRes.data.moderation_status as any)
+    } else {
+      setReviewComment('')
+      setMyReviewStatus(null)
+    }
   }
 
   const handleLogin = async () => {
@@ -186,26 +199,31 @@ export default function PublicProfilePage() {
       showToast(result.error || t('toasts.requestError'), 'error')
     }
   }
+
   const handleSubmitReview = async () => {
     setIsSubmittingReview(true)
-    // Відправляємо нейтральні рейтинги (5), бо бекенд їх очікує, але ми їх більше не показуємо
     const result = await upsertReview(id, reviewComment, 5, 5, 'LOL')
     setIsSubmittingReview(false)
 
+    if (result.moderation === 'rejected') {
+      // Не зберігаємо — показуємо помилку
+      setMyReviewStatus('rejected')
+      showToast(t('toasts.reviewRejected'), 'error')
+      return
+    }
+
     if (result.success) {
-      showToast(t('toasts.reviewSaved'), 'success')
-      await refreshReviews(id, currentUser.id)
+      setMyReviewStatus(result.moderation as any)
+      if (result.moderation === 'pending') {
+        showToast(t('toasts.reviewPending'), 'info')
+      } else {
+        showToast(t('toasts.reviewSaved'), 'success')
+      }
+      if (currentUser) await refreshReviews(id, currentUser.id)
     } else {
       showToast(result.error || t('toasts.reviewError'), 'error')
     }
   }
-  // const avgBehavior = useMemo(() => reviews.length > 0 
-  //   ? reviews.reduce((acc, r) => acc + r.behavior_rating, 0) / reviews.length 
-  //   : 0, [reviews])
-  // const avgSkill = useMemo(() => reviews.length > 0 
-  //   ? reviews.reduce((acc, r) => acc + r.skill_rating, 0) / reviews.length 
-  //   : 0, [reviews])
-  // const totalAvg = useMemo(() => (avgBehavior + avgSkill) / 2, [avgBehavior, avgSkill])
 
   if (isLoading) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -234,12 +252,9 @@ export default function PublicProfilePage() {
             activeGame={activeGame}
             setActiveGame={setActiveGame}
             enabledGamesList={enabledGamesList}
-            riotStats={riotStats} // Keep riotStats as is, it's game data
+            riotStats={riotStats}
             tftStats={tftStats}
             valStats={valStats}
-            // avgBehavior={avgBehavior}
-            // avgSkill={avgSkill}
-            // totalReviews={reviews.length}
           />
 
           <section className="flex-1">
@@ -248,6 +263,7 @@ export default function PublicProfilePage() {
                 profile={profile}
                 activeGame={activeGame}
                 topChamps={topChamps}
+                isLoadingChamps={isLoadingChamps}
                 isMatched={isMatched}
                 isRequesting={isRequesting}
                 requestSent={requestSent}
@@ -261,6 +277,7 @@ export default function PublicProfilePage() {
                 setReviewComment={setReviewComment}
                 isSubmittingReview={isSubmittingReview}
                 handleSubmitReview={handleSubmitReview}
+                myReviewStatus={myReviewStatus}
               />
             </div>
           </section>

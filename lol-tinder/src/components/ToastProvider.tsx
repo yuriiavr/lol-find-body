@@ -2,9 +2,9 @@
 
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, AlertCircle, X } from 'lucide-react'
+import { Check, AlertCircle, X, Info } from 'lucide-react'
 
-type ToastType = 'success' | 'error'
+type ToastType = 'success' | 'error' | 'info'
 interface ToastAction { label: string; onClick: () => void }
 interface Toast { message: string; type: ToastType; action?: ToastAction }
 interface ToastContextType { showToast: (message: string, type?: ToastType, action?: ToastAction, duration?: number) => void }
@@ -32,8 +32,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             exit={{ opacity: 0, y: 20, x: '-50%', transition: { duration: 0.2 } }}
             className="fixed bottom-10 left-1/2 z-[100] modern-panel px-6 py-4 flex items-center gap-4 min-w-[320px] border-[rgb(var(--accent-color)/0.5)] bg-[rgb(var(--bg-secondary)/0.9)] backdrop-blur-xl shadow-2xl shadow-[rgb(var(--accent-color)/0.2)]"
           >
-            <div className={`p-2 rounded-full ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[rgb(var(--accent-color)/0.2)] text-[rgb(var(--accent-color))]'}`}>
-              {toast.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+            <div className={`p-2 rounded-full ${
+              toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' 
+              : toast.type === 'info' ? 'bg-blue-500/20 text-blue-400'
+              : 'bg-[rgb(var(--accent-color)/0.2)] text-[rgb(var(--accent-color))]'
+            }`}>
+              {toast.type === 'success' ? <Check size={18} /> : toast.type === 'info' ? <Info size={18} /> : <AlertCircle size={18} />}
             </div>
             <div className="flex-1">
               <p className="text-sm font-bold text-white tracking-tight leading-none">{toast.message}</p>

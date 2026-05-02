@@ -2,7 +2,7 @@
 
 import { memo, useState, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
-import { User, Trophy, MicOff, Sword, Languages, Gamepad, Copy, Check } from 'lucide-react'
+import { User, MicOff, Sword, Languages, Gamepad, Copy, Check } from 'lucide-react'
 import {
   getGameName,
   getTagLine,
@@ -66,9 +66,6 @@ export const ProfileSidebar = memo(({
             )}
           </div>
         </div>
-        <div className="absolute -bottom-4 -right-4 bg-slate-900 p-4 rounded-2xl border border-white/10 shadow-xl">
-          <Trophy size={24} className="text-[rgb(var(--accent-color))]" />
-        </div>
         {profile.has_mic === false && (
           <div className="absolute -top-4 -left-4 bg-red-500/10 p-3 rounded-full border border-red-500/30 text-red-500 backdrop-blur-sm shadow-xl shadow-red-900/20">
             <MicOff size={24} />
@@ -109,23 +106,38 @@ export const ProfileSidebar = memo(({
         )}
       </div>
 
-      {enabledGamesList.length > 1 && (
-        <div className="mt-10 w-full flex bg-zinc-950 rounded-2xl p-1 border border-white/5">
-          {enabledGamesList.map((game) => (
-            <button
-              key={game}
-              onClick={() => {
-                setActiveGame(game)
-                localStorage.setItem('lastProfileGame', game)
-              }}
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                activeGame === game
-                  ? 'bg-[rgb(var(--accent-color))] text-white shadow-lg'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            > {game}
-            </button>
-          ))}
+      {enabledGamesList.length > 0 && (
+        <div className="mt-10 w-full flex items-center gap-3">
+          {enabledGamesList.map((game) => {
+            const isActive = activeGame === game
+            const iconSrc = `/games-icons/${game.toLowerCase()}.png`
+            return (
+              <button
+                key={game}
+                onClick={() => {
+                  setActiveGame(game)
+                  localStorage.setItem('lastProfileGame', game)
+                }}
+                className={`
+                  relative flex flex-col items-center justify-center gap-2 w-25 h-25 rounded-2xl border transition-all duration-200
+                  ${isActive
+                    ? 'bg-white/[0.08] border-white/20'
+                    : 'bg-white/[0.02] border-white/5 opacity-40 grayscale hover:opacity-70 hover:grayscale-0'
+                  }
+                `}
+              >
+                <img
+                  src={iconSrc}
+                  alt={game}
+                  title={game}
+                  className="w-10 h-10 object-contain rounded-xl"
+                />
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-white' : 'text-zinc-600'}`}>
+                  {game}
+                </span>
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -141,7 +153,6 @@ export const ProfileSidebar = memo(({
                 wins:   riotStats?.solo_wins   ?? getExtra(profile, 'lol', 'solo_wins')   ?? 0,
                 losses: riotStats?.solo_losses ?? getExtra(profile, 'lol', 'solo_losses') ?? 0,
               }}
-              icon={<Trophy size={12} className="text-[rgb(var(--accent-color))]" />}
               isMain={true}
             />
             <RankBox 
@@ -180,7 +191,6 @@ export const ProfileSidebar = memo(({
               wins:   valStats?.wins   ?? getExtra(profile, 'valorant', 'wins')   ?? 0,
               losses: valStats?.losses ?? getExtra(profile, 'valorant', 'losses') ?? 0,
             }}
-            icon={<Trophy size={12} className="text-red-400" />}
             colorClass="text-red-400"
             isMain={true}
           />

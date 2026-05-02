@@ -67,9 +67,22 @@ export async function getRiotTFTStatsAction(puuid: string, region: string) {
 }
 
 // ─── getTopChampionsAction ────────────────────────────────────────────────────
-// Чемпіони не ранги — кеш тут не потрібен, залишаємо як є
+// Кешується в БД на 24 години через refreshRankIfNeeded
 export async function getTopChampionsAction(puuid: string, region: string) {
-  return await getTopChampions(puuid, region);
+  const supabase = await createCookieClient()
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id')
+    .filter('game_profiles->lol->>puuid', 'eq', puuid)
+    .maybeSingle()
+
+  if (profiles?.id) {
+    const result = await refreshRankIfNeeded(supabase, profiles.id, 'lol')
+    if (result && result.data?.top_champions?.length > 0) return result.data.top_champions
+  }
+
+  // Fallback: якщо профіль не знайдено → пряме звернення до Riot
+  return await getTopChampions(puuid, region)
 }
 
 // ─── updateProfile ────────────────────────────────────────────────────────────

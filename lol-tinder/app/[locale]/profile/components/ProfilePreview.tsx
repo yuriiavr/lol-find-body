@@ -1,7 +1,9 @@
 import { memo, useState, useCallback } from "react";
-import { MicOff, Languages, Sword, Copy, Check } from "lucide-react";
+import { MicOff, Languages, Sword, Copy, Check, ExternalLink } from "lucide-react";
 import RankPanel from "./RankPanel";
 import { useTranslations } from "next-intl";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import { getRank, getExtra, type GameKey } from "@/src/lib/profile";
 
 interface ProfilePreviewProps {
@@ -30,6 +32,8 @@ const ProfilePreview = memo(
   }: ProfilePreviewProps) => {
     const [copied, setCopied] = useState(false);
     const t = useTranslations();
+    const params = useParams();
+    const locale = params?.locale as string ?? "en";
 
     const handleCopy = useCallback(() => {
       const name = getGameValue("game_name");
@@ -44,17 +48,14 @@ const ProfilePreview = memo(
     return (
       <section className="w-full lg:w-96 flex flex-col items-center lg:items-start">
         <div className="mb-6 flex items-center gap-2 px-4 py-2 bg-zinc-900 rounded-full border border-white/5">
-          <div
-            className={`w-2 h-2 rounded-full bg-[rgb(var(--accent-color))]`}
-          />
+          <div className="w-2 h-2 rounded-full bg-[rgb(var(--accent-color))]" />
           <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
             {activeTab}
           </span>
         </div>
+
         <div className="relative mb-10 group">
-          <div
-            className={`w-56 h-56 rounded-[2.5rem] bg-[rgb(var(--accent-color))] p-1 shadow-2xl shadow-[rgb(var(--accent-color)/0.2)] group-hover:rotate-3 transition-transform duration-500`}
-          >
+          <div className="w-56 h-56 rounded-[2.5rem] bg-[rgb(var(--accent-color))] p-1 shadow-2xl shadow-[rgb(var(--accent-color)/0.2)] group-hover:rotate-3 transition-transform duration-500">
             <div className="w-full h-full rounded-[2.3rem] bg-zinc-950 overflow-hidden">
               <img
                 src={user?.user_metadata?.avatar_url}
@@ -63,11 +64,22 @@ const ProfilePreview = memo(
               />
             </div>
           </div>
-          
+
           {profile.has_mic === false && (
             <div className="absolute -top-2 -left-2 bg-red-500/20 p-2 rounded-full border border-red-500/50 backdrop-blur-md text-red-500 shadow-lg">
               <MicOff size={16} />
             </div>
+          )}
+
+          {user?.id && (
+            <Link
+              href={`/${locale}/profile/${user.id}`}
+              target="_blank"
+              className="absolute -bottom-2 -right-2 flex items-center justify-center w-9 h-9 rounded-full bg-zinc-900 border border-white/10 text-zinc-400 hover:text-[rgb(var(--accent-color))] hover:border-[rgb(var(--accent-color)/0.4)] hover:bg-zinc-800 transition-all shadow-lg opacity-0 group-hover:opacity-100"
+              title="View public profile"
+            >
+              <ExternalLink size={14} />
+            </Link>
           )}
         </div>
 
@@ -96,11 +108,7 @@ const ProfilePreview = memo(
                   key={lang}
                   className="text-[10px] bg-white/5 px-2 py-1 rounded-md text-slate-400 border border-white/5 flex items-center gap-1"
                 >
-                  <Languages
-                    size={10}
-                    className="text-[rgb(var(--accent-color))]"
-                  />{" "}
-                  {lang}
+                  <Languages size={10} className="text-[rgb(var(--accent-color))]" /> {lang}
                 </span>
               ))}
             </div>
@@ -117,10 +125,7 @@ const ProfilePreview = memo(
                 isMain={true}
                 stats={
                   ((riotStats?.solo_wins ?? 0) + (riotStats?.solo_losses ?? 0)) > 0
-                    ? {
-                        wins: riotStats.solo_wins,
-                        losses: riotStats.solo_losses,
-                      }
+                    ? { wins: riotStats.solo_wins, losses: riotStats.solo_losses }
                     : null
                 }
               />
@@ -131,10 +136,7 @@ const ProfilePreview = memo(
                 isMain={false}
                 stats={
                   ((riotStats?.flex_wins ?? 0) + (riotStats?.flex_losses ?? 0)) > 0
-                    ? {
-                        wins: riotStats.flex_wins,
-                        losses: riotStats.flex_losses,
-                      }
+                    ? { wins: riotStats.flex_wins, losses: riotStats.flex_losses }
                     : null
                 }
               />
@@ -147,10 +149,7 @@ const ProfilePreview = memo(
               isMain={true}
               stats={
                 ((tftStats?.wins ?? 0) + (tftStats?.losses ?? 0)) > 0
-                  ? { 
-                      wins: tftStats.wins, 
-                      losses: tftStats.losses 
-                    }
+                  ? { wins: tftStats.wins, losses: tftStats.losses }
                   : null
               }
             />
@@ -162,10 +161,7 @@ const ProfilePreview = memo(
               isMain={true}
               stats={
                 ((valStats?.wins ?? 0) + (valStats?.losses ?? 0)) > 0
-                  ? { 
-                      wins: valStats.wins, 
-                      losses: valStats.losses 
-                    }
+                  ? { wins: valStats.wins, losses: valStats.losses }
                   : null
               }
             />
@@ -192,7 +188,7 @@ const ProfilePreview = memo(
                 .map((q) => (
                   <span
                     key={q}
-                    className={`text-[9px] bg-[rgb(var(--accent-color)/0.1)] px-2 py-1 rounded text-[rgb(var(--accent-color))] border border-[rgb(var(--accent-color)/0.2)] font-black uppercase tracking-widest`}
+                    className="text-[9px] bg-[rgb(var(--accent-color)/0.1)] px-2 py-1 rounded text-[rgb(var(--accent-color))] border border-[rgb(var(--accent-color)/0.2)] font-black uppercase tracking-widest"
                   >
                     {q}
                   </span>

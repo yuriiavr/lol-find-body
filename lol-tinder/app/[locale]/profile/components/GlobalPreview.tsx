@@ -1,6 +1,8 @@
 import { memo } from "react";
-import { Languages, Gamepad2, MicOff } from "lucide-react";
+import { Languages, MicOff, ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 const GAME_META: Record<string, { label: string; iconSrc: string }> = {
   LOL:      { label: "League of Legends", iconSrc: "/games-icons/lol.png"      },
@@ -17,6 +19,8 @@ interface GlobalPreviewProps {
 
 const GlobalPreview = memo(({ profile, user, selectedLangs, enabledGames }: GlobalPreviewProps) => {
   const t = useTranslations("ProfilePage.preview");
+  const params = useParams();
+  const locale = params?.locale as string ?? "en";
 
   return (
     <section className="w-full lg:w-96 flex flex-col items-center lg:items-start">
@@ -42,6 +46,17 @@ const GlobalPreview = memo(({ profile, user, selectedLangs, enabledGames }: Glob
           <div className="absolute -top-2 -left-2 bg-red-500/20 p-2 rounded-full border border-red-500/50 backdrop-blur-md text-red-500 shadow-lg">
             <MicOff size={16} />
           </div>
+        )}
+
+        {user?.id && (
+          <Link
+            href={`/${locale}/profile/${user.id}`}
+            target="_blank"
+            className="absolute -bottom-2 -right-2 flex items-center justify-center w-9 h-9 rounded-full bg-zinc-900 border border-white/10 text-zinc-400 hover:text-[rgb(var(--accent-color))] hover:border-[rgb(var(--accent-color)/0.4)] hover:bg-zinc-800 transition-all shadow-lg opacity-0 group-hover:opacity-100"
+            title="View public profile"
+          >
+            <ExternalLink size={14} />
+          </Link>
         )}
       </div>
 
