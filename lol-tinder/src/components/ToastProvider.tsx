@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Check, AlertCircle, X, Info } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'info'
-interface ToastAction { label: string; onClick: () => void }
+interface ToastAction { label: string; onClick: () => void | Promise<void> }
 interface Toast { message: string; type: ToastType; action?: ToastAction }
 interface ToastContextType { showToast: (message: string, type?: ToastType, action?: ToastAction, duration?: number) => void }
 
@@ -44,9 +44,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             </div>
             {toast.action && (
               <button
-                onClick={() => {
-                  toast.action?.onClick();
+                onClick={async () => {
                   setToast(null);
+                  await toast.action?.onClick();
                 }}
                 className="toast-action-btn flex items-center h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] transition-all duration-200 border whitespace-nowrap"
                 style={{
