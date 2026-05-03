@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { steamIdToFriendCode } from '@/src/lib/steamFriendCode'
 
 async function verifySteamOpenID(params: URLSearchParams): Promise<string | null> {
   const verifyParams = new URLSearchParams(params)
@@ -44,7 +43,7 @@ export async function GET(req: NextRequest) {
   }
 
   const steamUsername = await getSteamUsername(steamId)
-  const friendCode = steamIdToFriendCode(steamId)
+  const friendCode = (BigInt(steamId) - BigInt('76561197960265728')).toString()
 
   const cookieStore = await cookies()
   const supabase = createServerClient(
