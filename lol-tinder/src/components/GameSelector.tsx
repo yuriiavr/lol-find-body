@@ -10,12 +10,16 @@ const GAME_META: Record<string, { label: string; shortLabel: string }> = {
   lol:      { label: "League of Legends", shortLabel: "LoL" },
   tft:      { label: "Teamfight Tactics",  shortLabel: "TFT" },
   valorant: { label: "Valorant",           shortLabel: "VAL" },
+  cs2:      { label: "Counter-Strike 2",   shortLabel: "CS2" },
+  another:  { label: "Other Games",       shortLabel: "ANOTHER" },
 };
 
 export const GAME_URL_SLUG: Record<GameType, string> = {
   lol:      "league",
   tft:      "tft",
   valorant: "valorant",
+  cs2:      "cs2",
+  another:  "another", 
   none:     "",
 };
 
@@ -33,9 +37,6 @@ export default function GameSelector({ userId }: GameSelectorProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Гість бачить всі ігри.
-  // Авторизований — список з контексту (синхронізується з profile/page.tsx миттєво).
-  // Fallback на ALL_GAMES поки контекст ще не заповнений (перший рендер).
   const enabledGames: GameType[] = !userId
     ? ALL_GAMES
     : ctxGames.length > 0
