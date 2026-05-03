@@ -2,7 +2,7 @@
 
 import { memo, useState, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
-import { User, MicOff, Sword, Languages, Gamepad, Copy, Check } from 'lucide-react'
+import { User, MicOff, Sword, Languages, Gamepad, Copy, Check, UserPlus } from 'lucide-react'
 import {
   getGameName,
   getTagLine,
@@ -16,9 +16,9 @@ import {
 
 interface ProfileSidebarProps {
   profile: any
-  activeGame: 'LOL' | 'TFT' | 'VALORANT' | null
-  setActiveGame: (game: 'LOL' | 'TFT' | 'VALORANT') => void
-  enabledGamesList: ('LOL' | 'TFT' | 'VALORANT')[]
+  activeGame: 'LOL' | 'TFT' | 'VALORANT' | 'CS2' | null
+  setActiveGame: (game: 'LOL' | 'TFT' | 'VALORANT' | 'CS2') => void
+  enabledGamesList: ('LOL' | 'TFT' | 'VALORANT' | 'CS2')[]
   riotStats: any
   tftStats: any
   valStats: any
@@ -34,25 +34,39 @@ export const ProfileSidebar = memo(({
   valStats,
 }: ProfileSidebarProps) => {
   const [copied, setCopied] = useState(false)
+  const [copiedFriendCode, setCopiedFriendCode] = useState(false)
   const t = useTranslations()
 
   const gameKey = (activeGame?.toLowerCase() ?? 'lol') as GameKey
 
-  // Riot ID для відображення — завжди з lol (спільний для lol/tft)
-  const displayGameName = getGameName(profile, gameKey)
-  const displayTagLine  = getTagLine(profile, gameKey)
+  // For CS2, display Steam username as the nickname
+  const displayGameName = activeGame === 'CS2'
+    ? (profile?.steam_username ?? getGameName(profile, gameKey))
+    : getGameName(profile, gameKey)
+  const displayTagLine  = activeGame === 'CS2' ? '' : getTagLine(profile, gameKey)
   const displayRole     = getRole(profile, gameKey)
   const language        = profile?.language ?? ''
 
-  // Черги для визначення активного RankBox
   const queues = getQueues(profile, gameKey)
+
+  // CS2 friend code — stored in profile.friend_code (top-level)
+  const cs2FriendCode = activeGame === 'CS2'
+    ? (profile?.friend_code ?? '')
+    : ''
 
   const handleCopy = useCallback(() => {
     const text = `${displayGameName}#${displayTagLine}`
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [displayGameName, displayTagLine, t])
+  }, [displayGameName, displayTagLine])
+
+  const handleCopyFriendCode = useCallback(() => {
+    if (!cs2FriendCode) return
+    navigator.clipboard.writeText(cs2FriendCode)
+    setCopiedFriendCode(true)
+    setTimeout(() => setCopiedFriendCode(false), 2000)
+  }, [cs2FriendCode])
 
   return (
     <section className="w-full lg:w-96 flex flex-col items-center lg:items-start text-center lg:text-left">
@@ -86,7 +100,7 @@ export const ProfileSidebar = memo(({
               onClick={handleCopy}
               className="p-2 rounded-xl cursor-pointer text-zinc-500 hover:text-[rgb(var(--accent-color))] hover:border-[rgb(var(--accent-color)/0.2)] transition-all opacity-0 group-hover/name:opacity-100 mt-2"
               title="Copy Riot ID"
-            > 
+            >
               {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
             </button>
           )}
@@ -107,7 +121,7 @@ export const ProfileSidebar = memo(({
       </div>
 
       {enabledGamesList.length > 0 && (
-        <div className="mt-10 w-full flex items-center gap-3">
+        <div className="mt-10 w-full flex items-center gap-3 flex-wrap">
           {enabledGamesList.map((game) => {
             const isActive = activeGame === game
             const iconSrc = `/games-icons/${game.toLowerCase()}.png`
@@ -145,20 +159,20 @@ export const ProfileSidebar = memo(({
         {/* LOL */}
         {activeGame === 'LOL' && (
           <>
-            <RankBox 
+            <RankBox
               title={t('ProfilePage.ranks.solo')}
               rank={riotStats?.solo || getRank(profile, 'lol')}
-              active={queues.includes('Solo/Duo')} // Keep 'Solo/Duo' as is, it's a game term
+              active={queues.includes('Solo/Duo')}
               stats={{
                 wins:   riotStats?.solo_wins   ?? getExtra(profile, 'lol', 'solo_wins')   ?? 0,
                 losses: riotStats?.solo_losses ?? getExtra(profile, 'lol', 'solo_losses') ?? 0,
               }}
               isMain={true}
             />
-            <RankBox 
+            <RankBox
               title={t('ProfilePage.ranks.flex')}
               rank={riotStats?.flex || getExtra(profile, 'lol', 'flex_rank') || t('ProfilePage.ranks.unranked')}
-              active={queues.includes('Flex')} // Keep 'Flex' as is, it's a game term
+              active={queues.includes('Flex')}
               stats={{
                 wins:   riotStats?.flex_wins   ?? getExtra(profile, 'lol', 'flex_wins')   ?? 0,
                 losses: riotStats?.flex_losses ?? getExtra(profile, 'lol', 'flex_losses') ?? 0,
@@ -171,7 +185,7 @@ export const ProfileSidebar = memo(({
           <RankBox
             title={t('ProfilePage.ranks.tft')}
             rank={tftStats?.rank || getRank(profile, 'tft') || t('ProfilePage.ranks.unranked')}
-            active={true} // TFT always has one rank
+            active={true}
             stats={{
               wins:   tftStats?.wins   ?? getExtra(profile, 'tft', 'wins')   ?? 0,
               losses: tftStats?.losses ?? getExtra(profile, 'tft', 'losses') ?? 0,
@@ -186,7 +200,7 @@ export const ProfileSidebar = memo(({
           <RankBox
             title={t('ProfilePage.ranks.val')}
             rank={valStats?.rankName || getRank(profile, 'valorant') || t('ProfilePage.ranks.unranked')}
-            active={true} // Valorant always has one rank
+            active={true}
             stats={{
               wins:   valStats?.wins   ?? getExtra(profile, 'valorant', 'wins')   ?? 0,
               losses: valStats?.losses ?? getExtra(profile, 'valorant', 'losses') ?? 0,
@@ -194,6 +208,46 @@ export const ProfileSidebar = memo(({
             colorClass="text-red-400"
             isMain={true}
           />
+        )}
+        {/* CS2 */}
+        {activeGame === 'CS2' && (
+          <>
+            <RankBox
+              title={t('ProfilePage.ranks.cs2')}
+              rank={getRank(profile, 'cs2' as GameKey) || t('ProfilePage.ranks.unranked')}
+              active={true}
+              stats={null}
+              colorClass="text-orange-400"
+              isMain={true}
+            />
+            {/* Friend Code — only shown when cs2FriendCode exists */}
+            {cs2FriendCode && (
+              <button
+                onClick={handleCopyFriendCode}
+                className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/15 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-orange-500/20">
+                    <UserPlus size={14} className="text-orange-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-orange-400">
+                      {t('ProfilePage.cs2.friendCode')}
+                    </p>
+                    <p className="text-xs font-bold text-zinc-300 font-mono mt-0.5 truncate max-w-[160px]">
+                      {cs2FriendCode}
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-orange-400/70 group-hover:text-orange-400 transition-colors">
+                  {copiedFriendCode
+                    ? <Check size={16} className="text-emerald-500" />
+                    : <Copy size={16} />
+                  }
+                </div>
+              </button>
+            )}
+          </>
         )}
       </div>
     </section>
@@ -208,8 +262,8 @@ const RankBox = ({
   icon,
   colorClass = "text-zinc-500",
   isMain = false,
-  t, // Pass t from parent
 }: any) => {
+  const t = useTranslations()
   const winNum  = Number(stats?.wins ?? 0)
   const lossNum = Number(stats?.losses ?? 0)
   const total   = winNum + lossNum

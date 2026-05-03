@@ -15,6 +15,7 @@ import GlobalSettingsSection from "./GlobalSettingsSection";
 import { LolForm } from "./game-forms/LolForm";
 import { TftForm } from "./game-forms/TftForm";
 import { ValorantForm } from "./game-forms/ValorantForm";
+import { Cs2Form } from "./game-forms/Cs2Form";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { FormSwitch } from "@/src/components/ui/FormFields";
@@ -92,10 +93,26 @@ const GAMES = [
       dot: "bg-red-400",
     },
   },
+  {
+    id: "CS2" as const,
+    name: "Counter-Strike 2",
+    shortName: "CS2",
+    iconSrc: "/games-icons/cs2.png",
+    description: "5v5 Tactical FPS",
+    iconBg: "linear-gradient(135deg, #7c4a1a 0%, #f5a623 50%, #7c4a1a 100%)",
+    accent: {
+      text: "text-orange-400",
+      bg: "bg-orange-500/10",
+      border: "border-orange-500/30",
+      activeBg: "bg-orange-500/15",
+      activeBorder: "border-orange-500/40",
+      dot: "bg-orange-400",
+    },
+  },
 ];
 
 type NavSection = "global" | "games" | "game-settings";
-type GameId = "LOL" | "TFT" | "VALORANT";
+type GameId = "LOL" | "TFT" | "VALORANT" | "CS2";
 
 function TabSwitcher({
   activeSection,
@@ -398,9 +415,7 @@ interface ProfileFormProps {
   onSetActiveTab: (tab: GameId) => void;
   loading: boolean;
   onSectionChange?: (section: NavSection) => void;
-  /** Called when validation fails — parent can show a toast */
   onValidationError?: (message: string, action?: { label: string; onClick: () => void }) => void;
-  /** Navigate to global settings tab (for Riot account hint) */
   onGoToGlobal?: () => void;
 }
 
@@ -463,23 +478,22 @@ const ProfileForm = memo(
           return getRole(profile, gameKey);
         case "rank":
           return getRank(profile, gameKey);
+        case "friend_code":
+          // friend_code is stored at top-level profile.friend_code for CS2
+          return (profile?.friend_code as string) ?? getExtra(profile, gameKey, field) ?? "";
         default:
           return getExtra(profile, gameKey, field) ?? "";
       }
     };
 
     // ─── Validation ────────────────────────────────────────────────────────────
-    // Returns true if the form is valid, false otherwise (and fires onValidationError).
     const validate = useCallback((): boolean => {
-      // 1. Display name is required
       if (!profile?.display_name?.trim()) {
         onValidationError?.(t("ProfilePage.editor.validation.missingDisplayName"));
-        // Jump to global settings so the user sees the field
         handleSectionChange("global");
         return false;
       }
 
-      // 2. LOL / TFT require a linked Riot account (game_name + tag_line)
       if (activeTab === "LOL" || activeTab === "TFT") {
         const riotName = getGameName(profile, "lol") || getGameName(profile, "tft");
         const riotTag  = getTagLine(profile, "lol")  || getTagLine(profile, "tft");
@@ -511,11 +525,10 @@ const ProfileForm = memo(
       [validate, handleSubmit],
     );
 
-    // ─── Whether preview card is "ready" to show ───────────────────────────────
-    // Used to grey-out the preview hint — not blocking render, just a UX cue.
     const hasDisplayName = !!profile?.display_name?.trim();
     const hasRiotAccount =
       activeTab === "VALORANT" ||
+      activeTab === "CS2" ||
       !!(
         (getGameName(profile, "lol") || getGameName(profile, "tft")) &&
         (getTagLine(profile, "lol") || getTagLine(profile, "tft"))
@@ -531,7 +544,6 @@ const ProfileForm = memo(
           </h3>
         </div>
 
-        {/* Inline hint when the card is not ready yet */}
         {!isCardReady && (
           <div className="flex items-start gap-3 mb-6 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-400/80">
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
@@ -602,8 +614,7 @@ const ProfileForm = memo(
 
                         <div
                           className={`flex items-center justify-between px-5 py-4 rounded-2xl border mb-2 ${
-                            GAMES.find((g) => g.id === activeTab)?.accent
-                              .activeBg
+                            GAMES.find((g) => g.id === activeTab)?.accent.activeBg
                           } ${GAMES.find((g) => g.id === activeTab)?.accent.activeBorder}`}
                         >
                           <div>
@@ -656,6 +667,14 @@ const ProfileForm = memo(
                                 toggleQueue={toggleQueue}
                                 selectedAgents={selectedAgents}
                                 onToggleAgent={onToggleAgent}
+                              />
+                            )}
+                            {activeTab === "CS2" && (
+                              <Cs2Form
+                                getGameValue={getGameValue}
+                                handleGameInputChange={handleGameInputChange}
+                                selectedQueues={selectedQueues}
+                                toggleQueue={toggleQueue}
                               />
                             )}
                           </motion.div>

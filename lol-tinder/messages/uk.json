@@ -329,7 +329,11 @@
       "duelist": "Duelist",
       "initiator": "Initiator",
       "controller": "Controller",
-      "sentinel": "Sentinel"
+      "sentinel": "Sentinel",
+      "entry": "Форс-фрагер",
+      "lurker": "Лоркер",
+      "awp": "AWPер",
+      "igl": "IGL"
     }
   },
   "Chat": {
@@ -385,6 +389,18 @@
         "toastSuccess": "Steam акаунт успішно підключено!",
         "toastErrorAuth": "Ви повинні бути авторизовані, щоб підключити Steam.",
         "toastErrorGeneric": "Не вдалося підключити Steam акаунт. Спробуйте ще раз."
+      },
+      "cs2": {
+        "friendCode": "Код друга Steam",
+        "friendCodeHint": "Твій код друга Steam, щоб товариші по команді могли додати тебе прямо в грі.",
+        "steamLinkedHint": "Підказка: можна підключити Steam-акаунт вище — код підтягнеться автоматично.",
+        "copy": "Копіювати",
+        "copied": "Скопійовано!",
+        "rank": "Ранг",
+        "role": "Роль",
+        "modes": "Режими, в які граєш",
+        "bio": "Біо",
+        "bioPlaceholder": "Global Elite AWPer, шукаю спокійний 5-стек для Premier гринду..."
       }
     },
     "public": {
@@ -412,7 +428,8 @@
       "solo": "Solo Черга",
       "flex": "Flex Черга",
       "tft": "TFT Ранговий",
-      "val": "VALORANT Ранг"
+      "val": "VALORANT Ранг",
+      "cs2": "Ранг CS2"
     },
     "reviews": {
       "title": "Коментарі профілю",
@@ -443,6 +460,11 @@
       "topChamps": "Майстерність",
       "bio": "Додаткова інформація",
       "noBio": "Опис не додано"
+    },
+    "cs2": {
+      "friendCode": "Код друга",
+      "copyFriendCode": "Копіювати код друга",
+      "codeCopied": "Скопійовано!"
     }
   },
   "Navbar": {

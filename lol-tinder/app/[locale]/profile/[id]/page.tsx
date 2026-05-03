@@ -25,7 +25,7 @@ export default function PublicProfilePage() {
   const searchParams = useSearchParams()
   const id = params.id as string
   const router = useRouter()
-  const [activeGame, setActiveGame] = useState<'LOL' | 'TFT' | 'VALORANT' | null>(null);
+  const [activeGame, setActiveGame] = useState<'LOL' | 'TFT' | 'VALORANT' | 'CS2' | null>(null);
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRequesting, setIsRequesting] = useState(false)
@@ -47,9 +47,9 @@ export default function PublicProfilePage() {
   const { showToast } = useToast()
   const t = useTranslations('ProfilePage.public')
 
-  const enabledGamesList = useMemo((): ("LOL" | "TFT" | "VALORANT")[] => {
+  const enabledGamesList = useMemo((): ("LOL" | "TFT" | "VALORANT" | "CS2")[] => {
     if (!profile?.enabled_games) return [];
-    return profile.enabled_games.split(',').map((g: string) => g.trim()) as ('LOL' | 'TFT' | 'VALORANT')[];
+    return profile.enabled_games.split(',').map((g: string) => g.trim()) as ('LOL' | 'TFT' | 'VALORANT' | 'CS2')[];
   }, [profile?.enabled_games]);
 
   useEffect(() => {
@@ -74,20 +74,15 @@ export default function PublicProfilePage() {
         const prof = profileRes.data;
         const enabled = prof.enabled_games ? prof.enabled_games.split(',').map((g: string) => g.trim()) : [];
         
-        // FIX: ?game= param from search (e.g. from discovery cards) ALWAYS wins.
-        // siteTheme is only a fallback when no explicit game is requested.
         const requestedGame = searchParams.get('game')?.toUpperCase() as any;
         const siteTheme = localStorage.getItem('site-game-theme') as any;
 
-        let initialGame: 'LOL' | 'TFT' | 'VALORANT' = 'LOL';
+        let initialGame: 'LOL' | 'TFT' | 'VALORANT' | 'CS2' = 'LOL';
         if (requestedGame && enabled.includes(requestedGame)) {
-          // Explicit ?game= param — highest priority
           initialGame = requestedGame;
         } else if (siteTheme && enabled.includes(siteTheme)) {
-          // User's preferred game theme — second priority
           initialGame = siteTheme;
         } else if (enabled.length > 0) {
-          // First enabled game — fallback
           initialGame = enabled[0] as any;
         }
 
@@ -121,6 +116,13 @@ export default function PublicProfilePage() {
       setTopChamps([])
       setIsLoadingChamps(activeGame === 'LOL')
       
+      // CS2 has no external stats to fetch
+      if (activeGame === 'CS2') {
+        setIsLoadingChamps(false)
+        if (currentUser) await refreshReviews(id, currentUser.id)
+        return
+      }
+
       const puuid = getExtra(profile, activeGame.toLowerCase() as GameKey, 'puuid');
       const region = getRegion(profile, activeGame.toLowerCase() as GameKey);
 
@@ -236,7 +238,7 @@ export default function PublicProfilePage() {
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-white p-4">
       <h1 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[rgb(var(--accent-color))] to-zinc-700 bg-clip-text text-transparent uppercase tracking-tighter">{t('notFound')}</h1>
       <Link 
-        href={activeGame === 'TFT' ? '/tft' : activeGame === 'VALORANT' ? '/valorant' : '/league'} 
+        href={activeGame === 'TFT' ? '/tft' : activeGame === 'VALORANT' ? '/valorant' : activeGame === 'CS2' ? '/cs2' : '/league'} 
         className="hover:underline flex items-center gap-2 font-bold text-[rgb(var(--accent-color))]"
       >
         <ArrowLeft size={18} /> {t('back')}

@@ -31,7 +31,6 @@ import {
 
 const supabase = createClient();
 
-// Тип для активної секції форми — прокидаємо через контекст або стейт
 type NavSection = "global" | "games" | "game-settings";
 
 export default function ProfilePage() {
@@ -53,20 +52,15 @@ export default function ProfilePage() {
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
   const [visibleGames, setVisibleGames] = useState<string[]>([]);
 
-  // Відстежуємо активну секцію, щоб прев'ю адаптувалось
   const [activeSection, setActiveSection] = useState<NavSection>("global");
 
   const t = useTranslations("ProfilePage.editor");
 
   useEffect(() => {
-    if (!profile || !lastSavedProfile || isInitialLoading) {
-      setIsDirty(false);
-      return;
-    }
+    if (!profile || !lastSavedProfile || isInitialLoading) { setIsDirty(false); return; }
     setIsDirty(JSON.stringify(profile) !== JSON.stringify(lastSavedProfile));
   }, [profile, lastSavedProfile, isInitialLoading]);
 
-  // Sync enabled games into context so Navbar/GameSelector reacts instantly
   useEffect(() => {
     setEnabledGamesCtx(enabledGames);
   }, [enabledGames, setEnabledGamesCtx]);
@@ -76,14 +70,16 @@ export default function ProfilePage() {
       if (!profile) return "";
       const game = activeGame.toLowerCase() as GameKey;
       switch (field) {
-        case "game_name": return getGameName(profile, game);
-        case "tag_line":  return getTagLine(profile, game);
-        case "region":    return getRegion(profile, game);
-        case "bio":       return getBio(profile, game);
+        case "game_name":   return getGameName(profile, game);
+        case "tag_line":    return getTagLine(profile, game);
+        case "region":      return getRegion(profile, game);
+        case "bio":         return getBio(profile, game);
         case "main_role":
-        case "role":      return getRole(profile, game);
-        case "rank":      return getRank(profile, game);
-        default:          return getExtra(profile, game, field) ?? "";
+        case "role":        return getRole(profile, game);
+        case "rank":        return getRank(profile, game);
+        // friend_code зберігається на top-level profile
+        case "friend_code": return (profile?.friend_code as string) ?? "";
+        default:            return getExtra(profile, game, field) ?? "";
       }
     },
     [profile, activeGame],
@@ -103,58 +99,62 @@ export default function ProfilePage() {
   }, [profile, selectedLangs, selectedQueues, enabledGames, user, isInitialLoading, activeGame]);
 
   const handleInputChange = useCallback(
-  (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const isCheckbox = type === "checkbox";
-    const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const { name, value, type } = e.target;
+      const isCheckbox = type === "checkbox";
+      const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
 
-    setProfile((prev: any) => {
-      const next = { ...prev };
+      setProfile((prev: any) => {
+        const next = { ...prev };
 
-      if (name === "hasMic") {
-        next.has_mic = val;
-      } else if (name === "isPaused") {
-        next.is_paused = val;
+        if (name === "hasMic") {
+          next.has_mic = val;
+        } else if (name === "isPaused") {
+          next.is_paused = val;
+        } else if (name === "riot_game_name") {
+          next.game_profiles = {
+            ...prev?.game_profiles,
+            lol: { ...prev?.game_profiles?.lol, game_name: val },
+            tft: { ...prev?.game_profiles?.tft, game_name: val },
+          };
+        } else if (name === "riot_tag_line") {
+          next.game_profiles = {
+            ...prev?.game_profiles,
+            lol: { ...prev?.game_profiles?.lol, tag_line: val },
+            tft: { ...prev?.game_profiles?.tft, tag_line: val },
+          };
+        } else if (name === "riot_region") {
+          next.game_profiles = {
+            ...prev?.game_profiles,
+            lol: { ...prev?.game_profiles?.lol, region: val },
+            tft: { ...prev?.game_profiles?.tft, region: val },
+          };
+        } else {
+          next[name] = val;
+        }
 
-      // ── Riot-поля (спільні для LoL/TFT) ──
-      } else if (name === "riot_game_name") {
-        next.game_profiles = {
-          ...prev?.game_profiles,
-          lol: { ...prev?.game_profiles?.lol, game_name: val },
-          tft: { ...prev?.game_profiles?.tft, game_name: val },
-        };
-      } else if (name === "riot_tag_line") {
-        next.game_profiles = {
-          ...prev?.game_profiles,
-          lol: { ...prev?.game_profiles?.lol, tag_line: val },
-          tft: { ...prev?.game_profiles?.tft, tag_line: val },
-        };
-      } else if (name === "riot_region") {
-        next.game_profiles = {
-          ...prev?.game_profiles,
-          lol: { ...prev?.game_profiles?.lol, region: val },
-          tft: { ...prev?.game_profiles?.tft, region: val },
-        };
-
-      } else {
-        next[name] = val;
-      }
-
-      return next;
-    });
-  },
-  [],
-);
+        return next;
+      });
+    },
+    [],
+  );
 
   const handleGameInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value, type } = e.target;
       const isCheckbox = type === "checkbox";
       const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
+
       setProfile((prev: any) => {
         const gameKey = activeGame.toLowerCase() as GameKey;
+        const stateKey = name.replace(/^val_/, "").replace(/^tft_/, "");
+
+        // friend_code зберігається на top-level, не в game_profiles
+        if (stateKey === "friend_code") {
+          return { ...prev, friend_code: val };
+        }
+
         const existingGameProfile = prev?.game_profiles?.[gameKey] ?? {};
-        const stateKey = name.replace(/^val_/, '').replace(/^tft_/, '');
         return {
           ...prev,
           game_profiles: {
@@ -225,9 +225,6 @@ export default function ProfilePage() {
       const next = prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game];
       setProfile((p: any) => ({ ...p, enabled_games: next.join(",") }));
 
-      // Schedule active game switch after the current render — calling setActiveGame
-      // (a context state setter) inside a setState updater triggers the
-      // "Cannot update a component while rendering a different component" error.
       const isRemoving = prev.includes(game);
       const isFirst = !prev.includes(game) && prev.length === 0;
 
@@ -319,20 +316,25 @@ export default function ProfilePage() {
     const gameKey = activeGame.toLowerCase() as GameKey;
 
     formData.append("activeGame", activeGame.toUpperCase());
-    formData.set("language", selectedLangs.join(","));
+    formData.set("language",      selectedLangs.join(","));
     formData.set("enabled_games", enabledGames.join(","));
     formData.set("visible_games", visibleGames.join(","));
-    formData.set("has_mic", String(profile.has_mic ?? true));
-    formData.set("role",   getRole(profile, gameKey) || "");
-    formData.set("bio",    getBio(profile, gameKey) || "");
-    formData.set("queues", selectedQueues.join(","));
+    formData.set("has_mic",       String(profile.has_mic ?? true));
+    formData.set("role",          getRole(profile, gameKey) || "");
+    formData.set("bio",           getBio(profile, gameKey) || "");
+    formData.set("queues",        selectedQueues.join(","));
 
-    if (activeGame === "valorant") {
+    if (activeGame.toUpperCase() === "VALORANT") {
       formData.set("rank",   getRank(profile, "valorant") || "Unranked");
       formData.set("agents", selectedAgents.join(","));
     }
-    if (activeGame === "tft") {
+    if (activeGame.toUpperCase() === "TFT") {
       formData.set("rank", getRank(profile, "tft") || "Unranked");
+    }
+    // ── CS2: передаємо ранг і friend_code з top-level profile ──
+    if (activeGame.toUpperCase() === "CS2") {
+      formData.set("rank",        getRank(profile, "cs2") || "Unranked");
+      formData.set("friend_code", (profile?.friend_code as string) ?? "");
     }
 
     const result = await updateProfile(formData);
@@ -369,7 +371,6 @@ export default function ProfilePage() {
       </div>
     );
 
-  // Визначаємо що показувати у прев'ю
   const showGamePreview = activeSection === "game-settings" && enabledGames.length > 0;
 
   return (
@@ -381,7 +382,6 @@ export default function ProfilePage() {
 
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-8 lg:p-16">
         <div className="flex flex-col lg:flex-row gap-16">
-          {/* ── Left: Preview — адаптується до секції ── */}
           {showGamePreview ? (
             <ProfilePreview
               profile={profile}
@@ -403,7 +403,6 @@ export default function ProfilePage() {
             />
           )}
 
-          {/* ── Right: Form з навігацією ── */}
           <ProfileForm
             profile={profile}
             selectedLangs={selectedLangs}

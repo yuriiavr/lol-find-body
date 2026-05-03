@@ -9,6 +9,7 @@ const GAME_META: Record<string, { label: string; iconSrc: string }> = {
   LOL:      { label: "League of Legends", iconSrc: "/games-icons/lol.png"      },
   TFT:      { label: "Teamfight Tactics", iconSrc: "/games-icons/tft.png"      },
   VALORANT: { label: "Valorant",          iconSrc: "/games-icons/valorant.png" },
+  CS2:      { label: "Counter-Strike 2", iconSrc: "/games-icons/cs2.png"       },
 };
 
 interface GlobalPreviewProps {
@@ -27,7 +28,6 @@ const GlobalPreview = memo(({ profile, user, selectedLangs, enabledGames }: Glob
   // Riot account is shared between LOL and TFT — check lol profile
   const hasRiotAccount = !!(getGameName(profile, "lol") && getTagLine(profile, "lol"));
 
-  // Determine which warning to show (display_name check first)
   const showDisplayNameWarning = !hasDisplayName;
   const showRiotWarning = hasDisplayName && !hasRiotAccount && enabledGames.some(g => g === 'LOL' || g === 'TFT');
 
@@ -91,7 +91,6 @@ const GlobalPreview = memo(({ profile, user, selectedLangs, enabledGames }: Glob
         )}
       </div>
 
-      {/* Validation warnings shown in the preview column */}
       {(showDisplayNameWarning || showRiotWarning) && (
         <div className="mt-6 w-full space-y-2">
           {showDisplayNameWarning && (

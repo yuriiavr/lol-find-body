@@ -7,7 +7,7 @@ import { getBio, getGameName, getTagLine, getRegion, type GameKey } from '@/src/
 
 interface ProfileIntelProps {
   profile: any
-  activeGame: 'LOL' | 'TFT' | 'VALORANT' | null
+  activeGame: 'LOL' | 'TFT' | 'VALORANT' | 'CS2'| null
   topChamps: any[]
   isLoadingChamps?: boolean
   isMatched: boolean

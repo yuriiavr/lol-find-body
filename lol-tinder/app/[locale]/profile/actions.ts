@@ -29,9 +29,7 @@ async function createCookieClient() {
 }
 
 // ─── getRanksByPuuidAction ────────────────────────────────────────────────────
-// Тепер не йде напряму до Riot — спочатку перевіряє кеш в БД (1 година)
 export async function getRanksByPuuidAction(puuid: string, region: string) {
-  // Шукаємо userId по puuid в БД
   const supabase = await createCookieClient()
   const { data: profiles } = await supabase
     .from('profiles')
@@ -39,13 +37,11 @@ export async function getRanksByPuuidAction(puuid: string, region: string) {
     .filter('game_profiles->lol->>puuid', 'eq', puuid)
     .maybeSingle()
 
-  // Якщо знайшли профіль → використовуємо кеш
   if (profiles?.id) {
     const result = await refreshRankIfNeeded(supabase, profiles.id, 'lol')
     if (result) return result.data
   }
 
-  // Fallback: якщо профіль не знайдено → пряме звернення до Riot (без кешу)
   return await getRanksByPuuid(puuid, region)
 }
 
@@ -67,7 +63,6 @@ export async function getRiotTFTStatsAction(puuid: string, region: string) {
 }
 
 // ─── getTopChampionsAction ────────────────────────────────────────────────────
-// Кешується в БД на 24 години через refreshRankIfNeeded
 export async function getTopChampionsAction(puuid: string, region: string) {
   const supabase = await createCookieClient()
   const { data: profiles } = await supabase
@@ -81,7 +76,6 @@ export async function getTopChampionsAction(puuid: string, region: string) {
     if (result && result.data?.top_champions?.length > 0) return result.data.top_champions
   }
 
-  // Fallback: якщо профіль не знайдено → пряме звернення до Riot
   return await getTopChampions(puuid, region)
 }
 
@@ -99,20 +93,27 @@ export async function updateProfile(formData: FormData) {
     .maybeSingle()
 
   const activeGame   = formData.get('activeGame') as string
-  const activeKey    = activeGame.toLowerCase() as 'lol' | 'tft' | 'valorant'
+  const activeKey    = activeGame.toLowerCase() as 'lol' | 'tft' | 'valorant' | 'cs2'
   
   const display_name = (formData.get('display_name') as string)?.trim() || (currentProf as any)?.display_name || ''
-  const prefix = activeGame === 'LOL' ? '' : (activeGame === 'VALORANT' ? 'val_' : 'tft_');
 
   let gName = '', tLine = '', gRegion = 'EUW';
+  let puuid: string | null = null;
+  let apiRank: string | null = null;
 
-  if (activeGame === 'LOL' || activeGame === 'TFT') {
+  if (activeGame === 'CS2') {
+    // CS2 doesn't use Riot account — skip all Riot logic
+    gName = '';
+    tLine = '';
+    gRegion = '';
+  } else if (activeGame === 'LOL' || activeGame === 'TFT') {
     const lolGameName = getGameName(currentProf, 'lol');
     const tftGameName = getGameName(currentProf, 'tft');
     gName   = (formData.get('riot_game_name') as string)?.trim() || lolGameName || tftGameName || '';
     tLine   = (formData.get('riot_tag_line') as string)?.trim().replace('#', '') || getTagLine(currentProf, 'lol') || getTagLine(currentProf, 'tft') || '';
     gRegion = (formData.get('riot_region') as string) || getRegion(currentProf, 'lol') || getRegion(currentProf, 'tft') || 'EUW';
   } else {
+    // VALORANT
     const valGameName = getGameName(currentProf, 'valorant');
     gName   = (formData.get('val_game_name') as string)?.trim() || valGameName || '';
     tLine   = (formData.get('val_tag_line') as string)?.trim().replace('#', '') || getTagLine(currentProf, 'valorant') || '';
@@ -131,10 +132,8 @@ export async function updateProfile(formData: FormData) {
 
   const existingGameProfile = getGameProfile(currentProf, activeKey);
 
-  let puuid: string | null = null;
-  let apiRank: string | null = null;
-
-  if (activeGame !== 'VALORANT') {
+  // ─── Riot account resolution (skip for CS2) ───────────────────────────────
+  if (activeGame !== 'VALORANT' && activeGame !== 'CS2') {
     puuid = getExtra(currentProf, activeKey, 'puuid') || null;
     const hasRiotChanged = (gName !== getGameName(currentProf, activeKey)) || (tLine !== getTagLine(currentProf, activeKey)) || (gRegion !== getRegion(currentProf, activeKey));
 
@@ -152,8 +151,6 @@ export async function updateProfile(formData: FormData) {
     }
 
     if (puuid && activeGame === 'LOL') {
-      // При збереженні профілю — завжди оновлюємо ранг (скидаємо rank_updated_at)
-      // щоб наступний виклик getRanksByPuuidAction підтягнув свіжі дані
       const ranks = await getRanksByPuuid(puuid, gRegion)
       if (ranks) {
         apiRank = ranks.solo !== 'UNRANKED' ? ranks.solo : ranks.flex;
@@ -164,7 +161,6 @@ export async function updateProfile(formData: FormData) {
   const isGameVisibleRaw = formData.get('isGameVisible')
 
   let finalEnabledGames = (enabled_games || "").split(",").filter(Boolean)
-
   let finalVisibleGames = (visible_games || "").split(",").filter(Boolean)
   if (isGameVisibleRaw !== null && isGameVisibleRaw === 'on' && !finalVisibleGames.includes(activeGame)) {
     finalVisibleGames.push(activeGame)
@@ -187,33 +183,47 @@ export async function updateProfile(formData: FormData) {
     avatar_url:       user.user_metadata.avatar_url,
   }
 
+  // CS2 friend_code is stored at top-level profile
+  if (activeGame === 'CS2') {
+    updateData.friend_code = (formData.get('friend_code') as string)?.trim() ?? (currentProf as any)?.friend_code ?? '';
+  }
+
   const updatedGameProfile: any = {
     ...existingGameProfile,
     bio:       bio       || existingGameProfile?.bio       || '',
     queues:    preferred_queue || existingGameProfile?.queues || '',
-    region:    gRegion,
-    tag_line:  tLine,
-    game_name: gName,
-    puuid:     puuid,
-    // Скидаємо кеш при збереженні профілю → наступний перегляд підтягне свіжий ранг
     rank_updated_at: null,
   };
 
-  if (activeGame === 'LOL') {
-    updatedGameProfile.role = role;
-    updatedGameProfile.rank = (apiRank && apiRank !== 'UNRANKED') ? apiRank : (formData.get('solo_rank') as string || getRank(currentProf, activeKey) || 'Unranked');
-    updatedGameProfile.flex_rank = formData.get('flex_rank') as string || getExtra(currentProf, activeKey, 'flex_rank') || 'Unranked';
-  } else if (activeGame === 'VALORANT') {
-    updatedGameProfile.role   = role   || existingGameProfile?.role   || '';
-    updatedGameProfile.rank   = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
-    updatedGameProfile.agents = formData.get('agents') as string || getExtra(currentProf, activeKey, 'agents') || '';
-  } else if (activeGame === 'TFT') {
-    updatedGameProfile.rank = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
+  if (activeGame === 'CS2') {
+    // CS2-specific fields
+    updatedGameProfile.rank        = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
+    updatedGameProfile.role        = role || existingGameProfile?.role || '';
+    // friend_code is stored at top-level profile, not in game_profiles
+    // No region / game_name / tag_line / puuid for CS2
+  } else {
+    updatedGameProfile.region    = gRegion;
+    updatedGameProfile.tag_line  = tLine;
+    updatedGameProfile.game_name = gName;
+    updatedGameProfile.puuid     = puuid;
+
+    if (activeGame === 'LOL') {
+      updatedGameProfile.role = role;
+      updatedGameProfile.rank = (apiRank && apiRank !== 'UNRANKED') ? apiRank : (formData.get('solo_rank') as string || getRank(currentProf, activeKey) || 'Unranked');
+      updatedGameProfile.flex_rank = formData.get('flex_rank') as string || getExtra(currentProf, activeKey, 'flex_rank') || 'Unranked';
+    } else if (activeGame === 'VALORANT') {
+      updatedGameProfile.role   = role   || existingGameProfile?.role   || '';
+      updatedGameProfile.rank   = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
+      updatedGameProfile.agents = formData.get('agents') as string || getExtra(currentProf, activeKey, 'agents') || '';
+    } else if (activeGame === 'TFT') {
+      updatedGameProfile.rank = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
+    }
   }
 
   const finalUpdate = buildGameUpdate(currentProf, activeKey as any, updatedGameProfile);
   updateData.game_profiles = finalUpdate.game_profiles;
 
+  // Sync Riot account across LOL ↔ TFT (not CS2)
   if (activeGame === 'LOL' && getGameProfile(currentProf, 'tft')) {
     updateData.game_profiles.tft = { ...getGameProfile(currentProf, 'tft'), game_name: gName, tag_line: tLine, region: gRegion, puuid, rank_updated_at: null };
   } else if (activeGame === 'TFT' && getGameProfile(currentProf, 'lol')) {

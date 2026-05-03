@@ -10,7 +10,7 @@ interface ProfilePreviewProps {
   profile: any;
   user: any;
   selectedLangs: string[];
-  activeTab: "LOL" | "TFT" | "VALORANT";
+  activeTab: "LOL" | "TFT" | "VALORANT" | "CS2";
   riotStats: any;
   tftStats: any;
   valStats: any;
@@ -86,19 +86,24 @@ const ProfilePreview = memo(
         <div className="text-center lg:text-left space-y-2">
           <div className="flex items-start gap-3 justify-center lg:justify-start group/name">
             <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
-              {getGameValue("game_name") || t('ProfilePage.editor.summoner')}
-              {getGameValue("tag_line") && (
+              {activeTab === "CS2"
+                ? (profile?.steam_username || t('ProfilePage.editor.summoner'))
+                : (getGameValue("game_name") || t('ProfilePage.editor.summoner'))
+              }
+              {activeTab !== "CS2" && getGameValue("tag_line") && (
                 <span className="text-slate-600 block text-2xl mt-1">
                   #{getGameValue("tag_line")}
                 </span>
               )}
             </h1>
-            <button
-              onClick={handleCopy}
-              className="p-2 rounded-xl cursor-pointer text-zinc-500 hover:text-[rgb(var(--accent-color))] hover:border-[rgb(var(--accent-color)/0.2)] transition-all opacity-0 group-hover/name:opacity-100 mt-2"
-            >
-              {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
-            </button>
+            {activeTab !== "CS2" && (
+              <button
+                onClick={handleCopy}
+                className="p-2 rounded-xl cursor-pointer text-zinc-500 hover:text-[rgb(var(--accent-color))] hover:border-[rgb(var(--accent-color)/0.2)] transition-all opacity-0 group-hover/name:opacity-100 mt-2"
+              >
+                {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+              </button>
+            )}
           </div>
 
           {selectedLangs.length > 0 && (
@@ -153,7 +158,7 @@ const ProfilePreview = memo(
                   : null
               }
             />
-          ) : (
+          ) : activeTab === "VALORANT" ? (
             <RankPanel
               title={t('ProfilePage.ranks.val')}
               value={valStats?.rankName || getRank(profile, 'valorant')}
@@ -165,9 +170,18 @@ const ProfilePreview = memo(
                   : null
               }
             />
+          ) : (
+            /* CS2 */
+            <RankPanel
+              title={t('ProfilePage.ranks.cs2')}
+              value={getRank(profile, 'cs2')}
+              isActive={true}
+              isMain={true}
+              stats={null}
+            />
           )}
 
-          {activeTab !== "TFT" && (
+          {activeTab !== "TFT" && activeTab !== "CS2" && (
             <div className="p-5 bg-zinc-900/20 border border-white/5 rounded-2xl">
               <span className="text-[10px] font-black uppercase text-slate-500 block mb-2 tracking-widest">
                 {t('LandingPage.profileEditor.preview.position')}
