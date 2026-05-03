@@ -39,7 +39,6 @@ export const ProfileSidebar = memo(({
 
   const gameKey = (activeGame?.toLowerCase() ?? 'lol') as GameKey
 
-  // For CS2, display Steam username as the nickname
   const displayGameName = activeGame === 'CS2'
     ? (profile?.steam_username ?? getGameName(profile, gameKey))
     : getGameName(profile, gameKey)
@@ -49,7 +48,6 @@ export const ProfileSidebar = memo(({
 
   const queues = getQueues(profile, gameKey)
 
-  // CS2 friend code — stored in profile.friend_code (top-level)
   const cs2FriendCode = activeGame === 'CS2'
     ? (profile?.friend_code ?? '')
     : ''
@@ -120,42 +118,34 @@ export const ProfileSidebar = memo(({
         )}
       </div>
 
-      {enabledGamesList.length > 0 && (
-        <div className="mt-10 w-full flex items-center gap-3 flex-wrap">
-          {enabledGamesList.map((game) => {
-            const isActive = activeGame === game
-            const iconSrc = `/games-icons/${game.toLowerCase()}.png`
-            return (
-              <button
-                key={game}
-                onClick={() => {
-                  setActiveGame(game)
-                  localStorage.setItem('lastProfileGame', game)
-                }}
-                className={`
-                  relative flex flex-col items-center justify-center gap-2 w-25 h-25 rounded-2xl border transition-all duration-200
-                  ${isActive
-                    ? 'bg-white/[0.08] border-white/20'
-                    : 'bg-white/[0.02] border-white/5 opacity-40 grayscale hover:opacity-70 hover:grayscale-0'
-                  }
-                `}
-              >
-                <img
-                  src={iconSrc}
-                  alt={game}
-                  title={game}
-                  className="w-10 h-10 object-contain rounded-xl"
-                />
-                <span className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-white' : 'text-zinc-600'}`}>
-                  {game}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {/* ── Ranks ─────────────────────────────────────────────────────── */}
+      <div className="mt-10 w-full space-y-4">
+        {/* CS2 friend code — big prominent button */}
+        {activeGame === 'CS2' && cs2FriendCode && (
+          <button
+            onClick={handleCopyFriendCode}
+            className="w-full flex items-center gap-5 px-6 py-5 rounded-2xl border-2 border-orange-500/50 bg-gradient-to-br from-orange-500/20 to-orange-900/10 hover:from-orange-500/30 hover:border-orange-500/70 transition-all group shadow-lg shadow-orange-900/20"
+          >
+            <div className="p-3 rounded-xl bg-orange-500/20 border border-orange-500/30 shrink-0">
+              <UserPlus size={22} className="text-orange-400" />
+            </div>
+            <div className="text-left flex-1 min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-orange-400 mb-1">
+                {t('ProfilePage.cs2.friendCode')}
+              </p>
+              <p className="text-lg font-black text-white font-mono tracking-widest truncate">
+                {cs2FriendCode}
+              </p>
+            </div>
+            <div className="shrink-0 p-2 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400/70 group-hover:text-orange-300 group-hover:bg-orange-500/20 transition-all">
+              {copiedFriendCode
+                ? <Check size={20} className="text-emerald-400" />
+                : <Copy size={20} />
+              }
+            </div>
+          </button>
+        )}
 
-      <div className="mt-6 w-full space-y-4">
         {/* LOL */}
         {activeGame === 'LOL' && (
           <>
@@ -209,45 +199,16 @@ export const ProfileSidebar = memo(({
             isMain={true}
           />
         )}
-        {/* CS2 */}
+        {/* CS2 rank (without friend code — already shown above) */}
         {activeGame === 'CS2' && (
-          <>
-            <RankBox
-              title={t('ProfilePage.ranks.cs2')}
-              rank={getRank(profile, 'cs2' as GameKey) || t('ProfilePage.ranks.unranked')}
-              active={true}
-              stats={null}
-              colorClass="text-orange-400"
-              isMain={true}
-            />
-            {/* Friend Code — only shown when cs2FriendCode exists */}
-            {cs2FriendCode && (
-              <button
-                onClick={handleCopyFriendCode}
-                className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/15 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-orange-500/20">
-                    <UserPlus size={14} className="text-orange-400" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-orange-400">
-                      {t('ProfilePage.cs2.friendCode')}
-                    </p>
-                    <p className="text-xs font-bold text-zinc-300 font-mono mt-0.5 truncate max-w-[160px]">
-                      {cs2FriendCode}
-                    </p>
-                  </div>
-                </div>
-                <div className="shrink-0 text-orange-400/70 group-hover:text-orange-400 transition-colors">
-                  {copiedFriendCode
-                    ? <Check size={16} className="text-emerald-500" />
-                    : <Copy size={16} />
-                  }
-                </div>
-              </button>
-            )}
-          </>
+          <RankBox
+            title={t('ProfilePage.ranks.cs2')}
+            rank={getRank(profile, 'cs2' as GameKey) || t('ProfilePage.ranks.unranked')}
+            active={true}
+            stats={null}
+            colorClass="text-orange-400"
+            isMain={true}
+          />
         )}
       </div>
     </section>

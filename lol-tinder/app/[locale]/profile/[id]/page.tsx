@@ -116,7 +116,6 @@ export default function PublicProfilePage() {
       setTopChamps([])
       setIsLoadingChamps(activeGame === 'LOL')
       
-      // CS2 has no external stats to fetch
       if (activeGame === 'CS2') {
         setIsLoadingChamps(false)
         if (currentUser) await refreshReviews(id, currentUser.id)
@@ -262,6 +261,42 @@ export default function PublicProfilePage() {
 
           <section className="flex-1">
             <div className="space-y-8">
+
+              {/* ── Game switcher ─────────────────────────────────────── */}
+              {enabledGamesList.length > 0 && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  {enabledGamesList.map((game) => {
+                    const isActive = activeGame === game
+                    const iconSrc = `/games-icons/${game.toLowerCase()}.png`
+                    return (
+                      <button
+                        key={game}
+                        onClick={() => {
+                          setActiveGame(game)
+                          localStorage.setItem('lastProfileGame', game)
+                        }}
+                        className={`
+                          relative flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all duration-200
+                          ${isActive
+                            ? 'bg-white/[0.08] border-white/20'
+                            : 'bg-white/[0.02] border-white/5 opacity-40 grayscale hover:opacity-70 hover:grayscale-0'
+                          }
+                        `}
+                      >
+                        <img
+                          src={iconSrc}
+                          alt={game}
+                          className="w-6 h-6 object-contain rounded-lg"
+                        />
+                        <span className={`text-[11px] font-black uppercase tracking-widest ${isActive ? 'text-white' : 'text-zinc-600'}`}>
+                          {game}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
               <ProfileIntel 
                 profile={profile}
                 activeGame={activeGame}

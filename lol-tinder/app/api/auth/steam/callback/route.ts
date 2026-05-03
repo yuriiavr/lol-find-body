@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { steamIdToFriendCode } from '@/src/lib/steamFriendCode'
 
-// Верифікує підпис Steam OpenID через direct verification
 async function verifySteamOpenID(params: URLSearchParams): Promise<string | null> {
-  // Змінюємо mode на check_authentication для верифікації
   const verifyParams = new URLSearchParams(params)
   verifyParams.set('openid.mode', 'check_authentication')
 
@@ -17,8 +16,6 @@ async function verifySteamOpenID(params: URLSearchParams): Promise<string | null
   const text = await res.text()
   if (!text.includes('is_valid:true')) return null
 
-  // Витягуємо steamId з claimed_id
-  // Формат: https://steamcommunity.com/openid/id/76561198XXXXXXXXX
   const claimedId = params.get('openid.claimed_id') ?? ''
   const match = claimedId.match(/\/openid\/id\/(\d+)$/)
   return match ? match[1] : null
@@ -41,16 +38,14 @@ export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
   const params = req.nextUrl.searchParams
 
-  // 1. Верифікуємо підпис Steam
   const steamId = await verifySteamOpenID(params)
   if (!steamId) {
     return NextResponse.redirect(`${appUrl}/profile?steam_error=verification_failed`)
   }
 
-  // 2. Підтягуємо нікнейм Steam (опціонально, але зручно)
   const steamUsername = await getSteamUsername(steamId)
+  const friendCode = steamIdToFriendCode(steamId)
 
-  // 3. Знаходимо поточного юзера через Supabase session
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,12 +64,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${appUrl}/profile?steam_error=not_authenticated`)
   }
 
-  // 4. Зберігаємо steam_id і steam_username в profiles
   const { error } = await supabase
     .from('profiles')
     .update({
       steam_id:       steamId,
       steam_username: steamUsername,
+      friend_code:    friendCode,
     })
     .eq('id', user.id)
 
@@ -82,6 +77,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${appUrl}/profile?steam_error=db_error`)
   }
 
-  // 5. Редирект назад на профіль з успіхом
   return NextResponse.redirect(`${appUrl}/profile?steam_connected=1`)
 }
