@@ -42,7 +42,6 @@ export default function PublicProfilePage() {
   
   const [reviewComment, setReviewComment] = useState('')
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
-  // Статус модерації мого власного коментаря (тільки видно автору)
   const [myReviewStatus, setMyReviewStatus] = useState<'approved' | 'pending' | 'rejected' | null>(null)
 
   const { showToast } = useToast()
@@ -75,15 +74,20 @@ export default function PublicProfilePage() {
         const prof = profileRes.data;
         const enabled = prof.enabled_games ? prof.enabled_games.split(',').map((g: string) => g.trim()) : [];
         
-        const siteTheme = localStorage.getItem('site-game-theme') as any;
+        // FIX: ?game= param from search (e.g. from discovery cards) ALWAYS wins.
+        // siteTheme is only a fallback when no explicit game is requested.
         const requestedGame = searchParams.get('game')?.toUpperCase() as any;
+        const siteTheme = localStorage.getItem('site-game-theme') as any;
 
         let initialGame: 'LOL' | 'TFT' | 'VALORANT' = 'LOL';
         if (requestedGame && enabled.includes(requestedGame)) {
+          // Explicit ?game= param — highest priority
           initialGame = requestedGame;
         } else if (siteTheme && enabled.includes(siteTheme)) {
+          // User's preferred game theme — second priority
           initialGame = siteTheme;
         } else if (enabled.length > 0) {
+          // First enabled game — fallback
           initialGame = enabled[0] as any;
         }
 
@@ -142,14 +146,12 @@ export default function PublicProfilePage() {
   }, [activeGame, profile, id])
 
   const refreshReviews = async (targetId: string, authUserId: string) => {
-    // Публічні approved коментарі
     const res = await getReviewsForUser(targetId, 'LOL')
     if (res.data) {
       setReviews(res.data)
     }
     if (res.error) setReviews([])
 
-    // Власний коментар автора (може бути pending/rejected — не видно іншим)
     const myRes = await getMyReviewForUser(targetId, 'LOL')
     if (myRes.data) {
       setReviewComment(myRes.data.comment || '')
@@ -206,7 +208,6 @@ export default function PublicProfilePage() {
     setIsSubmittingReview(false)
 
     if (result.moderation === 'rejected') {
-      // Не зберігаємо — показуємо помилку
       setMyReviewStatus('rejected')
       showToast(t('toasts.reviewRejected'), 'error')
       return

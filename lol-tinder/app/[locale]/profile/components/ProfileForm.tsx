@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect, useCallback } from "react";
 import {
   Settings,
   Gamepad2,
@@ -9,6 +9,7 @@ import {
   Save,
   Loader2,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import GlobalSettingsSection from "./GlobalSettingsSection";
 import { LolForm } from "./game-forms/LolForm";
@@ -95,6 +96,7 @@ const GAMES = [
 
 type NavSection = "global" | "games" | "game-settings";
 type GameId = "LOL" | "TFT" | "VALORANT";
+
 function TabSwitcher({
   activeSection,
   onSwitch,
@@ -396,6 +398,10 @@ interface ProfileFormProps {
   onSetActiveTab: (tab: GameId) => void;
   loading: boolean;
   onSectionChange?: (section: NavSection) => void;
+  /** Called when validation fails — parent can show a toast */
+  onValidationError?: (message: string, action?: { label: string; onClick: () => void }) => void;
+  /** Navigate to global settings tab (for Riot account hint) */
+  onGoToGlobal?: () => void;
 }
 
 const ProfileForm = memo(
@@ -418,6 +424,8 @@ const ProfileForm = memo(
     onSetActiveTab,
     loading,
     onSectionChange,
+    onValidationError,
+    onGoToGlobal,
   }: ProfileFormProps) => {
     const t = useTranslations();
 
@@ -460,6 +468,60 @@ const ProfileForm = memo(
       }
     };
 
+    // ─── Validation ────────────────────────────────────────────────────────────
+    // Returns true if the form is valid, false otherwise (and fires onValidationError).
+    const validate = useCallback((): boolean => {
+      // 1. Display name is required
+      if (!profile?.display_name?.trim()) {
+        onValidationError?.(t("ProfilePage.editor.validation.missingDisplayName"));
+        // Jump to global settings so the user sees the field
+        handleSectionChange("global");
+        return false;
+      }
+
+      // 2. LOL / TFT require a linked Riot account (game_name + tag_line)
+      if (activeTab === "LOL" || activeTab === "TFT") {
+        const riotName = getGameName(profile, "lol") || getGameName(profile, "tft");
+        const riotTag  = getTagLine(profile, "lol")  || getTagLine(profile, "tft");
+
+        if (!riotName || !riotTag) {
+          onValidationError?.(
+            t("ProfilePage.editor.validation.missingRiotAccount"),
+            {
+              label: t("ProfilePage.editor.validation.goToSettings"),
+              onClick: () => {
+                handleSectionChange("global");
+                onGoToGlobal?.();
+              },
+            }
+          );
+          return false;
+        }
+      }
+
+      return true;
+    }, [profile, activeTab, onValidationError, onGoToGlobal, t]);
+
+    const handleValidatedSubmit = useCallback(
+      async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!validate()) return;
+        await handleSubmit(e);
+      },
+      [validate, handleSubmit],
+    );
+
+    // ─── Whether preview card is "ready" to show ───────────────────────────────
+    // Used to grey-out the preview hint — not blocking render, just a UX cue.
+    const hasDisplayName = !!profile?.display_name?.trim();
+    const hasRiotAccount =
+      activeTab === "VALORANT" ||
+      !!(
+        (getGameName(profile, "lol") || getGameName(profile, "tft")) &&
+        (getTagLine(profile, "lol") || getTagLine(profile, "tft"))
+      );
+    const isCardReady = hasDisplayName && hasRiotAccount;
+
     return (
       <section className="flex-1 min-w-0">
         <div className="flex items-center gap-3 mb-6">
@@ -469,7 +531,19 @@ const ProfileForm = memo(
           </h3>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        {/* Inline hint when the card is not ready yet */}
+        {!isCardReady && (
+          <div className="flex items-start gap-3 mb-6 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-400/80">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+            <p className="text-[10px] font-bold leading-relaxed">
+              {!hasDisplayName
+                ? t("ProfilePage.editor.validation.missingDisplayName")
+                : t("ProfilePage.editor.validation.missingRiotAccount")}
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleValidatedSubmit}>
           <TabSwitcher
             activeSection={activeSection}
             onSwitch={handleSectionChange}

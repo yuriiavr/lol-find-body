@@ -122,6 +122,14 @@
           "description": "Спільний ігровий акаунт для League of Legends та Teamfight Tactics.",
           "button": "Прив'язати Riot Account",
           "status": "{name}#{tag}"
+        },
+        "steamAccount": {
+          "title": "Steam Акаунт",
+          "status": "Підключено як {name}",
+          "description": "Прив'яжіть свій Steam акаунт, щоб відображати ваші ігри, час гри та досягнення у профілі.",
+          "connect": "Увійти через Steam",
+          "disconnect": "Від'єднати Steam акаунт",
+          "viewProfile": "Переглянути профіль"
         }
       }
     },
@@ -367,6 +375,16 @@
       "riotHint": {
         "text": "Riot акаунт (Game Name + Tag) підключається у",
         "link": "Основні → Riot Акаунт"
+      },
+      "validation": {
+        "missingDisplayName": "Введіть нікнейм перед збереженням",
+        "missingRiotAccount": "Додайте Riot акаунт у загальних налаштуваннях — він потрібен для LoL та TFT",
+        "goToSettings": "Перейти до налаштувань"
+      },
+      "steam": {
+        "toastSuccess": "Steam акаунт успішно підключено!",
+        "toastErrorAuth": "Ви повинні бути авторизовані, щоб підключити Steam.",
+        "toastErrorGeneric": "Не вдалося підключити Steam акаунт. Спробуйте ще раз."
       }
     },
     "public": {
@@ -410,7 +428,9 @@
     "preview": {
       "profileBadge": "Профіль",
       "nicknamePlaceholder": "Ваш нікнейм",
-      "activeGames": "Активні ігри"
+      "activeGames": "Активні ігри",
+      "missingDisplayName": "Додайте нікнейм у налаштуваннях, щоб картка відображалась",
+      "missingRiotAccount": "Додайте Riot акаунт у загальних налаштуваннях для LoL / TFT"
     },
     "intel": {
       "gamerCard": "Картка Гравця",

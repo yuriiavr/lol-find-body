@@ -121,6 +121,14 @@
           "description": "Shared identity for League of Legends and Teamfight Tactics.",
           "button": "Configure Riot Account",
           "status": "{name}#{tag}"
+        },
+        "steamAccount": {
+          "title": "Steam Account",
+          "status": "Connected as {name}",
+          "description": "Link your Steam account to display your games, playtime, and achievements on your profile.",
+          "connect": "Sign in through Steam",
+          "disconnect": "Disconnect Steam account",
+          "viewProfile": "View profile"
         }
       }
     },
@@ -364,6 +372,16 @@
       "riotHint": {
         "text": "Riot account (Game Name + Tag) is linked in",
         "link": "General → Riot Account"
+      },
+      "validation": {
+        "missingDisplayName": "Enter a display name before saving",
+        "missingRiotAccount": "Add your Riot account in global settings — it's required for LoL and TFT",
+        "goToSettings": "Go to settings"
+      },
+      "steam": {
+        "toastSuccess": "Steam account successfully connected!",
+        "toastErrorAuth": "You must be logged in to connect Steam.",
+        "toastErrorGeneric": "Failed to connect Steam account. Please try again."
       }
     },
     "public": {
@@ -407,7 +425,9 @@
     "preview": {
       "profileBadge": "Profile",
       "nicknamePlaceholder": "Your nickname",
-      "activeGames": "Active Games"
+      "activeGames": "Active Games",
+      "missingDisplayName": "Add a display name in settings so your card can be shown",
+      "missingRiotAccount": "Add your Riot account in global settings for LoL / TFT"
     },
     "intel": {
       "gamerCard": "Gamer Card",
@@ -640,5 +660,16 @@
       "privacy": "Privacy Policy",
       "backToApp": "Back to App"
     }
+  },
+  "steamAccount": {
+    "title": "Steam Account",
+    "status": "Підключено: {name}",
+    "description": "Підключи Steam акаунт для відображення в профілі",
+    "connect": "Увійти через Steam",
+    "disconnect": "Відключити Steam",
+    "viewProfile": "Переглянути",
+    "toastSuccess": "Steam акаунт підключено!",
+    "toastErrorAuth": "Спочатку увійди в акаунт",
+    "toastErrorGeneric": "Помилка підключення Steam"
   }
 }

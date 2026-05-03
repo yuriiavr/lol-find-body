@@ -1,8 +1,9 @@
 import { memo } from "react";
-import { Languages, MicOff, ExternalLink } from "lucide-react";
+import { Languages, MicOff, ExternalLink, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { getGameName, getTagLine } from "@/src/lib/profile";
 
 const GAME_META: Record<string, { label: string; iconSrc: string }> = {
   LOL:      { label: "League of Legends", iconSrc: "/games-icons/lol.png"      },
@@ -21,6 +22,14 @@ const GlobalPreview = memo(({ profile, user, selectedLangs, enabledGames }: Glob
   const t = useTranslations("ProfilePage.preview");
   const params = useParams();
   const locale = params?.locale as string ?? "en";
+
+  const hasDisplayName = !!profile?.display_name?.trim();
+  // Riot account is shared between LOL and TFT — check lol profile
+  const hasRiotAccount = !!(getGameName(profile, "lol") && getTagLine(profile, "lol"));
+
+  // Determine which warning to show (display_name check first)
+  const showDisplayNameWarning = !hasDisplayName;
+  const showRiotWarning = hasDisplayName && !hasRiotAccount && enabledGames.some(g => g === 'LOL' || g === 'TFT');
 
   return (
     <section className="w-full lg:w-96 flex flex-col items-center lg:items-start">
@@ -81,6 +90,28 @@ const GlobalPreview = memo(({ profile, user, selectedLangs, enabledGames }: Glob
           </div>
         )}
       </div>
+
+      {/* Validation warnings shown in the preview column */}
+      {(showDisplayNameWarning || showRiotWarning) && (
+        <div className="mt-6 w-full space-y-2">
+          {showDisplayNameWarning && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-400/80">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+              <p className="text-[10px] font-bold leading-relaxed">
+                {t('missingDisplayName')}
+              </p>
+            </div>
+          )}
+          {showRiotWarning && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-400/80">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+              <p className="text-[10px] font-bold leading-relaxed">
+                {t('missingRiotAccount')}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {enabledGames.length > 0 && (
         <div className="mt-10 w-full">
