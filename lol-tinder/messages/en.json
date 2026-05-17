@@ -272,7 +272,8 @@
       "noInfo": {
         "lol": "Summoner is keeping a low profile.",
         "tft": "No information added.",
-        "valorant": "No tactical briefing provided."
+        "valorant": "No tactical briefing provided.",
+        "cs2": "Operative is keeping the briefing classified."
       }
     }
   },
@@ -380,6 +381,7 @@
       "validation": {
         "missingDisplayName": "Enter a display name before saving",
         "missingRiotAccount": "Add your Riot account in global settings — it's required for LoL and TFT",
+        "missingSteamAccount": "Connect your Steam account in global settings — it's required for CS2",
         "goToSettings": "Go to settings"
       },
       "steam": {
@@ -388,7 +390,7 @@
         "toastErrorGeneric": "Failed to connect Steam account. Please try again."
       },
       "cs2": {
-        "friendCode": "Steam Friend Code",
+        "friendCode": "Steam Friend Code (visible to friends only)",
         "friendCodeHint": "Your Steam friend code so teammates can add you directly in-game.",
         "steamLinkedHint": "Tip: you can also connect your Steam account above to auto-fill this.",
         "copy": "Copy",
@@ -397,7 +399,8 @@
         "role": "Role",
         "modes": "Modes you play",
         "bio": "Bio",
-        "bioPlaceholder": "Global Elite AWPer, LF chill 5-stack for Premier grind..."
+        "bioPlaceholder": "Global Elite AWPer, LF chill 5-stack for Premier grind...",
+        "region": "Region"
       }
     },
     "public": {

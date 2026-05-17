@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useGameTheme, GameType } from "@/src/context/GameThemeContext";
+import { useClickOutside } from "@/src/hooks/useClickOutside";
 
 const GAME_META: Record<string, { label: string; shortLabel: string }> = {
   lol:      { label: "League of Legends", shortLabel: "LoL" },
@@ -37,19 +38,18 @@ export default function GameSelector({ userId }: GameSelectorProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const enabledGames: GameType[] = !userId
+  const baseEnabled: GameType[] = !userId
     ? ALL_GAMES
     : ctxGames.length > 0
       ? ctxGames.map((g) => g.toLowerCase() as GameType)
       : ALL_GAMES;
+  // Always offer the "Other Games" entry — its discovery feed is community-wide
+  // and doesn't require the current user to have custom games on their profile.
+  const enabledGames: GameType[] = baseEnabled.includes("another")
+    ? baseEnabled
+    : [...baseEnabled, "another"];
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  useClickOutside(ref, () => setIsOpen(false));
 
   const current = GAME_META[activeGame] ?? GAME_META.lol;
   const isSingleGame = enabledGames.length === 1;

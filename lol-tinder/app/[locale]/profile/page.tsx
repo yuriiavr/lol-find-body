@@ -6,8 +6,8 @@ import {
   updateProfile,
   getRanksByPuuidAction,
   getRiotTFTStatsAction,
+  OtherGameEntry,
 } from "./actions";
-import ProfilePreview from "./components/ProfilePreview";
 import GlobalPreview from "./components/GlobalPreview";
 import ProfileForm from "./components/ProfileForm";
 import UnsavedChangesBanner from "./components/UnsavedChangesBanner";
@@ -26,6 +26,7 @@ import {
   getRole,
   getExtra,
   buildGameUpdate,
+  isGameAccountReady,
   type GameKey,
 } from "@/src/lib/profile";
 
@@ -51,13 +52,26 @@ export default function ProfilePage() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [enabledGames, setEnabledGames] = useState<string[]>([]);
   const [visibleGames, setVisibleGames] = useState<string[]>([]);
+  const otherGames: OtherGameEntry[] = profile?.game_profiles?.other ?? [];
+  const setOtherGames = useCallback((entries: OtherGameEntry[]) => {
+    setProfile((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        game_profiles: { ...prev.game_profiles, other: entries },
+      };
+    });
+  }, []);
 
   const [activeSection, setActiveSection] = useState<NavSection>("global");
 
   const t = useTranslations("ProfilePage.editor");
 
   useEffect(() => {
-    if (!profile || !lastSavedProfile || isInitialLoading) { setIsDirty(false); return; }
+    if (!profile || !lastSavedProfile || isInitialLoading) {
+      setIsDirty(false);
+      return;
+    }
     setIsDirty(JSON.stringify(profile) !== JSON.stringify(lastSavedProfile));
   }, [profile, lastSavedProfile, isInitialLoading]);
 
@@ -70,16 +84,24 @@ export default function ProfilePage() {
       if (!profile) return "";
       const game = activeGame.toLowerCase() as GameKey;
       switch (field) {
-        case "game_name":   return getGameName(profile, game);
-        case "tag_line":    return getTagLine(profile, game);
-        case "region":      return getRegion(profile, game);
-        case "bio":         return getBio(profile, game);
+        case "game_name":
+          return getGameName(profile, game);
+        case "tag_line":
+          return getTagLine(profile, game);
+        case "region":
+          return getRegion(profile, game);
+        case "bio":
+          return getBio(profile, game);
         case "main_role":
-        case "role":        return getRole(profile, game);
-        case "rank":        return getRank(profile, game);
+        case "role":
+          return getRole(profile, game);
+        case "rank":
+          return getRank(profile, game);
         // friend_code зберігається на top-level profile
-        case "friend_code": return (profile?.friend_code as string) ?? "";
-        default:            return getExtra(profile, game, field) ?? "";
+        case "friend_code":
+          return (profile?.friend_code as string) ?? "";
+        default:
+          return getExtra(profile, game, field) ?? "";
       }
     },
     [profile, activeGame],
@@ -91,15 +113,33 @@ export default function ProfilePage() {
       try {
         localStorage.setItem(
           `profileFormData_${user.id}`,
-          JSON.stringify({ profile, selectedLangs, selectedQueues, enabledGames, activeGame }),
+          JSON.stringify({
+            profile,
+            selectedLangs,
+            selectedQueues,
+            enabledGames,
+            activeGame,
+          }),
         );
       } catch (e) {}
     }, 1000);
     return () => clearTimeout(saveTimeout);
-  }, [profile, selectedLangs, selectedQueues, enabledGames, user, isInitialLoading, activeGame]);
+  }, [
+    profile,
+    selectedLangs,
+    selectedQueues,
+    enabledGames,
+    user,
+    isInitialLoading,
+    activeGame,
+  ]);
 
   const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >,
+    ) => {
       const { name, value, type } = e.target;
       const isCheckbox = type === "checkbox";
       const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
@@ -140,7 +180,11 @@ export default function ProfilePage() {
   );
 
   const handleGameInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >,
+    ) => {
       const { name, value, type } = e.target;
       const isCheckbox = type === "checkbox";
       const val = isCheckbox ? (e.target as HTMLInputElement).checked : value;
@@ -169,7 +213,9 @@ export default function ProfilePage() {
 
   const toggleLang = useCallback((lang: string) => {
     setSelectedLangs((prev) => {
-      const next = prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang];
+      const next = prev.includes(lang)
+        ? prev.filter((l) => l !== lang)
+        : [...prev, lang];
       setProfile((p: any) => ({ ...p, language: next.join(",") }));
       return next;
     });
@@ -178,7 +224,9 @@ export default function ProfilePage() {
   const toggleQueue = useCallback(
     (queue: string) => {
       setSelectedQueues((prev) => {
-        const next = prev.includes(queue) ? prev.filter((q) => q !== queue) : [...prev, queue];
+        const next = prev.includes(queue)
+          ? prev.filter((q) => q !== queue)
+          : [...prev, queue];
         setProfile((p: any) => ({
           ...p,
           game_profiles: {
@@ -197,7 +245,9 @@ export default function ProfilePage() {
 
   const toggleAgent = useCallback((agent: string) => {
     setSelectedAgents((prev) => {
-      const next = prev.includes(agent) ? prev.filter((a) => a !== agent) : [...prev, agent];
+      const next = prev.includes(agent)
+        ? prev.filter((a) => a !== agent)
+        : [...prev, agent];
       setProfile((p: any) => ({
         ...p,
         game_profiles: {
@@ -211,7 +261,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!profile) return;
-    const queueStr = getExtra(profile, activeGame.toLowerCase() as GameKey, "queues") || "";
+    const queueStr =
+      getExtra(profile, activeGame.toLowerCase() as GameKey, "queues") || "";
     setSelectedQueues(queueStr ? queueStr.split(",").filter(Boolean) : []);
   }, [activeGame, profile?.game_profiles]);
 
@@ -220,57 +271,120 @@ export default function ProfilePage() {
     setSelectedAgents(agentStr ? agentStr.split(",").filter(Boolean) : []);
   }, [profile?.game_profiles]);
 
-  const toggleGame = useCallback((game: string) => {
-    setEnabledGames((prev) => {
-      const next = prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game];
-      setProfile((p: any) => ({ ...p, enabled_games: next.join(",") }));
+  // Re-fetch TFT stats when user switches to TFT tab or enables TFT after
+  // initial load (initial-mount fetch covers only the load-time state).
+  useEffect(() => {
+    if (isInitialLoading || !profile) return;
+    const wantsTft = activeGame === "tft" || enabledGames.includes("TFT");
+    if (!wantsTft || tftStats) return;
 
-      const isRemoving = prev.includes(game);
-      const isFirst = !prev.includes(game) && prev.length === 0;
+    const tftPuuid = getExtra(profile, "tft", "puuid");
+    if (!tftPuuid) return;
 
-      if (isRemoving && activeGame.toLowerCase() === game.toLowerCase()) {
-        const remaining = next.filter((g) => g.toLowerCase() !== game.toLowerCase());
-        queueMicrotask(() =>
-          setActiveGame(remaining.length > 0 ? (remaining[0].toLowerCase() as any) : "none"),
-        );
-      } else if (isFirst) {
-        queueMicrotask(() => setActiveGame(game.toLowerCase() as any));
-      }
+    const region = getRegion(profile, "tft") || getRegion(profile, "lol");
+    let cancelled = false;
+    getRiotTFTStatsAction(tftPuuid, region).then(
+      (stats) => !cancelled && setTftStats(stats),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [activeGame, enabledGames, profile?.game_profiles, isInitialLoading]);
 
-      return next;
-    });
-  }, [activeGame, setActiveGame]);
+  const toggleGame = useCallback(
+    (game: string) => {
+      setEnabledGames((prev) => {
+        const next = prev.includes(game)
+          ? prev.filter((g) => g !== game)
+          : [...prev, game];
+        setProfile((p: any) => ({ ...p, enabled_games: next.join(",") }));
+
+        const isRemoving = prev.includes(game);
+        const isFirst = !prev.includes(game) && prev.length === 0;
+
+        if (isRemoving && activeGame.toLowerCase() === game.toLowerCase()) {
+          const remaining = next.filter(
+            (g) => g.toLowerCase() !== game.toLowerCase(),
+          );
+          queueMicrotask(() =>
+            setActiveGame(
+              remaining.length > 0
+                ? (remaining[0].toLowerCase() as any)
+                : "none",
+            ),
+          );
+        } else if (isFirst) {
+          queueMicrotask(() => setActiveGame(game.toLowerCase() as any));
+        }
+
+        return next;
+      });
+    },
+    [activeGame, setActiveGame],
+  );
 
   const toggleVisibility = useCallback((game: string) => {
     setVisibleGames((prev) => {
-      const next = prev.includes(game) ? prev.filter((g) => g !== game) : [...prev, game];
+      const isEnabling = !prev.includes(game);
+      if (isEnabling && !isGameAccountReady(profile, game)) return prev;
+      const next = isEnabling
+        ? [...prev, game]
+        : prev.filter((g) => g !== game);
       setProfile((p: any) => ({ ...p, visible_games: next.join(",") }));
       return next;
     });
-  }, []);
+  }, [profile]);
 
   const { showToast } = useToast();
 
   useEffect(() => {
     let isMounted = true;
     const getProfile = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) { router.push("/"); return; }
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (!authUser) {
+        router.push("/");
+        return;
+      }
       if (!isMounted) return;
 
-      const { data } = await supabase.from("profiles").select("*").eq("id", authUser.id).single();
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser.id)
+        .single();
       if (isMounted) setUser(authUser);
       if (!isMounted) return;
 
       const defaultProfile = {
-        id: authUser.id, display_name: "", riot_game_name: "", riot_tag_line: "",
-        riot_region: "EUW", main_role: "FILL", bio: "", tft_main_role: "FILL", tft_bio: "",
-        val_game_name: "", val_tag_line: "", val_region: "EUW", val_main_role: "FILL", val_bio: "",
-        has_mic: true, is_paused: false, solo_rank: "Unranked", flex_rank: "Unranked",
-        tft_rank: "Unranked", val_rank: "Unranked", enabled_games: "", language: "",
+        id: authUser.id,
+        display_name: "",
+        riot_game_name: "",
+        riot_tag_line: "",
+        riot_region: "EUW",
+        main_role: "FILL",
+        bio: "",
+        tft_main_role: "FILL",
+        tft_bio: "",
+        val_game_name: "",
+        val_tag_line: "",
+        val_region: "EUW",
+        val_main_role: "FILL",
+        val_bio: "",
+        has_mic: true,
+        is_paused: false,
+        solo_rank: "Unranked",
+        flex_rank: "Unranked",
+        tft_rank: "Unranked",
+        val_rank: "Unranked",
+        enabled_games: "",
+        language: "",
       };
 
-      const initialProfile = data ? { ...defaultProfile, ...data } : defaultProfile;
+      const initialProfile = data
+        ? { ...defaultProfile, ...data }
+        : defaultProfile;
       Object.keys(initialProfile).forEach((key) => {
         if (initialProfile[key] === null) initialProfile[key] = "";
       });
@@ -278,35 +392,54 @@ export default function ProfilePage() {
       if (isMounted) {
         setProfile(initialProfile);
         setLastSavedProfile(JSON.parse(JSON.stringify(initialProfile)));
-        if (initialProfile.language) setSelectedLangs(initialProfile.language.split(","));
+        if (initialProfile.language)
+          setSelectedLangs(initialProfile.language.split(","));
 
-        const qStr = getExtra(initialProfile, activeGame.toLowerCase() as GameKey, "queues") || "";
+        const qStr =
+          getExtra(
+            initialProfile,
+            activeGame.toLowerCase() as GameKey,
+            "queues",
+          ) || "";
         setSelectedQueues(qStr ? qStr.split(",").filter(Boolean) : []);
 
         const agentsStr = getExtra(initialProfile, "valorant", "agents") || "";
         if (agentsStr) setSelectedAgents(agentsStr.split(",").filter(Boolean));
 
-        if (initialProfile.enabled_games) setEnabledGames(initialProfile.enabled_games.split(","));
-        if (initialProfile.visible_games) setVisibleGames(initialProfile.visible_games.split(","));
+        if (initialProfile.enabled_games)
+          setEnabledGames(initialProfile.enabled_games.split(","));
+        if (initialProfile.visible_games)
+          setVisibleGames(initialProfile.visible_games.split(","));
 
         const lolPuuid = getExtra(initialProfile, "lol", "puuid");
         const lolRegion = getRegion(initialProfile, "lol");
         if (lolPuuid) {
-          getRanksByPuuidAction(lolPuuid, lolRegion).then((stats) => isMounted && setRiotStats(stats));
+          getRanksByPuuidAction(lolPuuid, lolRegion).then(
+            (stats) => isMounted && setRiotStats(stats),
+          );
         }
 
-        const initialGames = initialProfile.enabled_games ? initialProfile.enabled_games.split(",") : [];
-        const tftPuuid = getExtra(initialProfile, "tft", "puuid") || lolPuuid;
-        if (tftPuuid && (initialGames.includes("TFT") || activeGame === "tft")) {
-          getRiotTFTStatsAction(tftPuuid, getRegion(initialProfile, "tft")).then(
-            (stats) => isMounted && setTftStats(stats),
-          );
+        const initialGames = initialProfile.enabled_games
+          ? initialProfile.enabled_games.split(",")
+          : [];
+        // PUUID per-key encrypted → не фолбечимо на lol.puuid для TFT.
+        const tftPuuid = getExtra(initialProfile, "tft", "puuid");
+        if (
+          tftPuuid &&
+          (initialGames.includes("TFT") || activeGame === "tft")
+        ) {
+          getRiotTFTStatsAction(
+            tftPuuid,
+            getRegion(initialProfile, "tft") || lolRegion,
+          ).then((stats) => isMounted && setTftStats(stats));
         }
       }
       if (isMounted) setIsInitialLoading(false);
     };
     getProfile();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -316,35 +449,36 @@ export default function ProfilePage() {
     const gameKey = activeGame.toLowerCase() as GameKey;
 
     formData.append("activeGame", activeGame.toUpperCase());
-    formData.set("language",      selectedLangs.join(","));
+    formData.set("language", selectedLangs.join(","));
     formData.set("enabled_games", enabledGames.join(","));
     formData.set("visible_games", visibleGames.join(","));
-    formData.set("has_mic",       String(profile.has_mic ?? true));
-    formData.set("role",          getRole(profile, gameKey) || "");
-    formData.set("bio",           getBio(profile, gameKey) || "");
-    formData.set("queues",        selectedQueues.join(","));
+    formData.set("has_mic", String(profile.has_mic ?? true));
+    formData.set("role", getRole(profile, gameKey) || "");
+    formData.set("bio", getBio(profile, gameKey) || "");
+    formData.set("queues", selectedQueues.join(","));
 
     if (activeGame.toUpperCase() === "VALORANT") {
-      formData.set("rank",   getRank(profile, "valorant") || "Unranked");
+      formData.set("rank", getRank(profile, "valorant") || "Unranked");
       formData.set("agents", selectedAgents.join(","));
     }
-    if (activeGame.toUpperCase() === "TFT") {
-      formData.set("rank", getRank(profile, "tft") || "Unranked");
-    }
-    // ── CS2: передаємо ранг і friend_code з top-level profile ──
+    // TFT rank is fetched from Riot API server-side — no client value sent.
     if (activeGame.toUpperCase() === "CS2") {
-      formData.set("rank",        getRank(profile, "cs2") || "Unranked");
+      formData.set("rank", getRank(profile, "cs2") || "Unranked");
       formData.set("friend_code", (profile?.friend_code as string) ?? "");
+      formData.set("region", getRegion(profile, "cs2") || "EU");
     }
 
-    const result = await updateProfile(formData);
+    console.log('[client] saving profile, otherGames=', otherGames);
+    const result = await updateProfile(formData, otherGames);
+    console.log('[client] updateProfile result:', result);
 
     if (result?.error) {
       showToast(result.error || t("toasts.error"), "error");
       setLoading(false);
     } else {
       if (result.puuid) {
-        const region = (formData.get("riot_region") as string) || getRegion(profile, "lol");
+        const region =
+          (formData.get("riot_region") as string) || getRegion(profile, "lol");
         const [stats, tft] = await Promise.all([
           getRanksByPuuidAction(result.puuid, region),
           getRiotTFTStatsAction(result.puuid, region),
@@ -371,37 +505,25 @@ export default function ProfilePage() {
       </div>
     );
 
-  const showGamePreview = activeSection === "game-settings" && enabledGames.length > 0;
-
   return (
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50 flex flex-col">
       <UnsavedChangesBanner
         isDirty={isDirty}
-        onSave={() => (document.querySelector('button[type="submit"]') as HTMLButtonElement)?.click()}
+        onSave={() =>
+          (
+            document.querySelector('button[type="submit"]') as HTMLButtonElement
+          )?.click()
+        }
       />
 
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-8 lg:p-16">
         <div className="flex flex-col lg:flex-row gap-16">
-          {showGamePreview ? (
-            <ProfilePreview
-              profile={profile}
-              user={user}
-              selectedLangs={selectedLangs}
-              activeTab={activeGame.toUpperCase() as any}
-              riotStats={riotStats}
-              tftStats={tftStats}
-              valStats={valStats}
-              selectedQueues={selectedQueues}
-              getGameValue={getGameValue}
-            />
-          ) : (
-            <GlobalPreview
-              profile={profile}
-              user={user}
-              selectedLangs={selectedLangs}
-              enabledGames={enabledGames}
-            />
-          )}
+          <GlobalPreview
+            profile={profile}
+            user={user}
+            selectedLangs={selectedLangs}
+            enabledGames={enabledGames}
+          />
 
           <ProfileForm
             profile={profile}
@@ -419,9 +541,13 @@ export default function ProfilePage() {
             enabledGames={enabledGames}
             selectedQueues={selectedQueues}
             handleSubmit={handleSubmit}
-            onSetActiveTab={(tab) => setActiveGame(tab.toLowerCase() as GameType)}
+            onSetActiveTab={(tab) =>
+              setActiveGame(tab.toLowerCase() as GameType)
+            }
             loading={loading}
             onSectionChange={setActiveSection}
+            otherGames={otherGames}
+            onOtherGamesChange={setOtherGames}
           />
         </div>
       </main>

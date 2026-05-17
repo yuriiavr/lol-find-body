@@ -2,7 +2,7 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { 
   getAccountByRiotId,
   getRanksByPuuid,
@@ -11,6 +11,16 @@ import {
 } from '@/src/lib/riot'
 import { getGameProfile, buildGameUpdate, getGameName, getTagLine, getRegion, getExtra, getRank } from '@/src/lib/profile'
 import { refreshRankIfNeeded } from '@/src/lib/rankCache'
+// Defined here to avoid circular import — must match OtherGamesForm.tsx
+export type OtherGameEntry = {
+  game_id: string
+  game_name: string
+  skill_level: string
+  bio: string
+  /** Whether this entry is shown in the /another discovery feed.
+   *  Older rows without this field are treated as visible (back-compat). */
+  visible?: boolean
+}
 
 // ─── Supabase клієнти ────────────────────────────────────────────────────────
 async function createCookieClient() {
@@ -50,13 +60,52 @@ export async function getRiotTFTStatsAction(puuid: string, region: string) {
   const supabase = await createCookieClient()
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id')
+    .select('id, game_profiles')
     .filter('game_profiles->tft->>puuid', 'eq', puuid)
     .maybeSingle()
 
   if (profiles?.id) {
     const result = await refreshRankIfNeeded(supabase, profiles.id, 'tft')
-    if (result) return result.data
+    if (result) {
+      // Auto-міграція: якщо ранг UNRANKED, а у нас є збережений Riot ID —
+      // спробуємо переретайнути puuid через TFT-ключ (попередній міг бути
+      // lol-shifted з старої sync-логіки). Один раз — якщо новий рейз дає
+      // не-UNRANKED, оновлюємо БД.
+      const data: any = result.data
+      if (data?.rank === 'UNRANKED' || data?.rank === 'Unranked') {
+        const tftProfile = profiles.game_profiles?.tft
+        const gName = tftProfile?.game_name
+        const tagLine = tftProfile?.tag_line
+        const tftRegion = tftProfile?.region || region
+        if (gName && tagLine) {
+          const account = await getAccountByRiotId(gName, tagLine, tftRegion, 'tft')
+          if (account && account.puuid !== puuid) {
+            const fresh = await getRiotTFTStats(account.puuid, tftRegion)
+            if (fresh.rank !== 'UNRANKED') {
+              // Записуємо свіжий TFT-puuid + ранг у БД
+              await supabase
+                .from('profiles')
+                .update({
+                  game_profiles: {
+                    ...profiles.game_profiles,
+                    tft: {
+                      ...tftProfile,
+                      puuid: account.puuid,
+                      rank: fresh.rank,
+                      wins: fresh.wins,
+                      losses: fresh.losses,
+                      rank_updated_at: new Date().toISOString(),
+                    },
+                  },
+                })
+                .eq('id', profiles.id)
+              return fresh
+            }
+          }
+        }
+      }
+      return data
+    }
   }
 
   return await getRiotTFTStats(puuid, region)
@@ -79,8 +128,125 @@ export async function getTopChampionsAction(puuid: string, region: string) {
   return await getTopChampions(puuid, region)
 }
 
+// ─── upsertCustomGames ────────────────────────────────────────────────────────
+// Keeps the `custom_games` registry in sync with what users put on their
+// profile.game_profiles.other. Identifies rows by game_name (case-insensitive)
+// since the table only has (id, game_name, player_count) — no slug column.
+async function upsertCustomGames(
+  supabase: Awaited<ReturnType<typeof createCookieClient>>,
+  newEntries: OtherGameEntry[],
+  keptEntries: OtherGameEntry[],
+  removedEntries: OtherGameEntry[],
+) {
+  console.log('[custom_games] upsertCustomGames called with', {
+    newEntries: newEntries.map(e => e.game_name),
+    keptEntries: keptEntries.map(e => e.game_name),
+    removedEntries: removedEntries.map(e => e.game_name),
+  })
+
+  // ── 1. Newly added games on the profile → +1 (or insert with count=1)
+  for (const entry of newEntries) {
+    const name = entry.game_name?.trim()
+    if (!name) continue
+
+    const lookup = await supabase
+      .from('custom_games')
+      .select('id, player_count')
+      .ilike('game_name', name)
+      .limit(1)
+      .maybeSingle()
+
+    if (lookup.error) {
+      console.error('[custom_games] lookup failed for', name, lookup.error)
+      continue
+    }
+
+    if (lookup.data) {
+      const upd = await supabase
+        .from('custom_games')
+        .update({ player_count: (lookup.data.player_count ?? 0) + 1 })
+        .eq('id', lookup.data.id)
+      console.log('[custom_games] +1', name, 'error:', upd.error)
+    } else {
+      const ins = await supabase
+        .from('custom_games')
+        .insert({ game_name: name, player_count: 1 })
+        .select()
+      console.log('[custom_games] INSERT', name, 'data:', ins.data, 'error:', ins.error)
+    }
+  }
+
+  // ── 2. Kept games (already on profile) → backfill row if missing,
+  //       without changing the count (the user was already counted before).
+  for (const entry of keptEntries) {
+    const name = entry.game_name?.trim()
+    if (!name) continue
+
+    const lookup = await supabase
+      .from('custom_games')
+      .select('id')
+      .ilike('game_name', name)
+      .limit(1)
+      .maybeSingle()
+
+    if (lookup.error) {
+      console.error('[custom_games] backfill lookup failed for', name, lookup.error)
+      continue
+    }
+
+    if (!lookup.data) {
+      // The row never made it into custom_games (earlier INSERT failed).
+      // Default to player_count=1 since at least this user has it. If actual
+      // player counts are needed, run a recalc SQL once (see comments below).
+      const ins = await supabase
+        .from('custom_games')
+        .insert({ game_name: name, player_count: 1 })
+        .select()
+      console.log('[custom_games] BACKFILL', name, 'data:', ins.data, 'error:', ins.error)
+    }
+  }
+
+  // ── 3. Removed games → -1, or DELETE the row entirely if it would hit 0.
+  for (const entry of removedEntries) {
+    const name = entry.game_name?.trim()
+    if (!name) continue
+
+    const lookup = await supabase
+      .from('custom_games')
+      .select('id, player_count')
+      .ilike('game_name', name)
+      .limit(1)
+      .maybeSingle()
+
+    if (lookup.error || !lookup.data) continue
+
+    const newCount = (lookup.data.player_count ?? 0) - 1
+    if (newCount <= 0) {
+      const del = await supabase
+        .from('custom_games')
+        .delete()
+        .eq('id', lookup.data.id)
+        .select()
+      console.log('[custom_games] DELETE', name, 'rows:', del.data?.length ?? 0, 'error:', del.error)
+      if ((del.data?.length ?? 0) === 0 && !del.error) {
+        console.warn('[custom_games] DELETE returned 0 rows — likely missing RLS DELETE policy on custom_games')
+      }
+    } else {
+      const upd = await supabase
+        .from('custom_games')
+        .update({ player_count: newCount })
+        .eq('id', lookup.data.id)
+        .select()
+      console.log('[custom_games] -1', name, '→', newCount, 'rows:', upd.data?.length ?? 0, 'error:', upd.error)
+    }
+  }
+}
+
 // ─── updateProfile ────────────────────────────────────────────────────────────
-export async function updateProfile(formData: FormData) {
+export async function updateProfile(
+  formData: FormData,
+  otherGames?: OtherGameEntry[],   // passed separately — not serialisable in FormData as JSON
+) {
   const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -100,9 +266,9 @@ export async function updateProfile(formData: FormData) {
   let gName = '', tLine = '', gRegion = 'EUW';
   let puuid: string | null = null;
   let apiRank: string | null = null;
+  let tftApiStats: { rank: string; wins: number; losses: number } | null = null;
 
   if (activeGame === 'CS2') {
-    // CS2 doesn't use Riot account — skip all Riot logic
     gName = '';
     tLine = '';
     gRegion = '';
@@ -133,16 +299,16 @@ export async function updateProfile(formData: FormData) {
   const existingGameProfile = getGameProfile(currentProf, activeKey);
 
   // ─── Riot account resolution (skip for CS2) ───────────────────────────────
-  if (activeGame !== 'VALORANT' && activeGame !== 'CS2') {
-    puuid = getExtra(currentProf, activeKey, 'puuid') || null;
-    const hasRiotChanged = (gName !== getGameName(currentProf, activeKey)) || (tLine !== getTagLine(currentProf, activeKey)) || (gRegion !== getRegion(currentProf, activeKey));
+  // Важливо: Riot шифрує PUUID per-key, тож LOL-puuid не валідний для TFT
+  // API і навпаки. Резолвимо account окремо під ключ кожної гри.
+  if (activeGame === 'LOL') {
+    puuid = getExtra(currentProf, 'lol', 'puuid') || null;
+    const hasRiotChanged = (gName !== getGameName(currentProf, 'lol')) || (tLine !== getTagLine(currentProf, 'lol')) || (gRegion !== getRegion(currentProf, 'lol'));
 
-    if (hasRiotChanged) {
-      puuid = null;
-    }
+    if (hasRiotChanged) puuid = null;
 
     if (gName && tLine && !puuid) {
-      const account = await getAccountByRiotId(gName, tLine, gRegion);
+      const account = await getAccountByRiotId(gName, tLine, gRegion, 'lol');
       if (account) {
         puuid = account.puuid;
       } else {
@@ -150,11 +316,34 @@ export async function updateProfile(formData: FormData) {
       }
     }
 
-    if (puuid && activeGame === 'LOL') {
+    if (puuid) {
       const ranks = await getRanksByPuuid(puuid, gRegion)
       if (ranks) {
         apiRank = ranks.solo !== 'UNRANKED' ? ranks.solo : ranks.flex;
       }
+    }
+  } else if (activeGame === 'TFT') {
+    // TFT-puuid у БД може бути «LoL-shifted» з попередніх збережень (стара
+    // sync-логіка). Якщо Riot ID не змінився, спробуємо переставити збережений
+    // — інакше резолвимо account ще раз через TFT-ключ.
+    const storedPuuid = getExtra(currentProf, 'tft', 'puuid') || null;
+    const hasRiotChanged = (gName !== getGameName(currentProf, 'tft')) || (tLine !== getTagLine(currentProf, 'tft')) || (gRegion !== getRegion(currentProf, 'tft'));
+
+    puuid = hasRiotChanged ? null : storedPuuid;
+
+    if (gName && tLine) {
+      // Завжди резолвимо TFT account через TFT-ключ — це cheap (cached 24h)
+      // і гарантує правильний per-key encrypted PUUID.
+      const account = await getAccountByRiotId(gName, tLine, gRegion, 'tft');
+      if (account) {
+        puuid = account.puuid;
+      } else if (!puuid) {
+        return { error: `Account not found: ${gName}#${tLine} in ${gRegion}` };
+      }
+    }
+
+    if (puuid) {
+      tftApiStats = await getRiotTFTStats(puuid, gRegion);
     }
   }
 
@@ -196,11 +385,9 @@ export async function updateProfile(formData: FormData) {
   };
 
   if (activeGame === 'CS2') {
-    // CS2-specific fields
     updatedGameProfile.rank        = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
     updatedGameProfile.role        = role || existingGameProfile?.role || '';
-    // friend_code is stored at top-level profile, not in game_profiles
-    // No region / game_name / tag_line / puuid for CS2
+    updatedGameProfile.region      = formData.get('region') as string || getRegion(currentProf, activeKey) || 'EU';
   } else {
     updatedGameProfile.region    = gRegion;
     updatedGameProfile.tag_line  = tLine;
@@ -216,18 +403,75 @@ export async function updateProfile(formData: FormData) {
       updatedGameProfile.rank   = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
       updatedGameProfile.agents = formData.get('agents') as string || getExtra(currentProf, activeKey, 'agents') || '';
     } else if (activeGame === 'TFT') {
-      updatedGameProfile.rank = formData.get('rank') as string || getRank(currentProf, activeKey) || 'Unranked';
+      if (tftApiStats) {
+        updatedGameProfile.rank            = tftApiStats.rank;
+        updatedGameProfile.wins            = tftApiStats.wins;
+        updatedGameProfile.losses          = tftApiStats.losses;
+        updatedGameProfile.rank_updated_at = new Date().toISOString();
+      } else {
+        // No Riot account linked yet — preserve whatever was there.
+        updatedGameProfile.rank = getRank(currentProf, activeKey) || 'Unranked';
+      }
     }
   }
 
   const finalUpdate = buildGameUpdate(currentProf, activeKey as any, updatedGameProfile);
   updateData.game_profiles = finalUpdate.game_profiles;
 
-  // Sync Riot account across LOL ↔ TFT (not CS2)
+  // Синхронізуємо Riot ID між LOL ↔ TFT (game_name/tag_line/region — одне і те ж
+  // у Riot-акаунті), але НЕ puuid: він per-key encrypted і у LOL та TFT різний.
+  // Інвалідуємо rank-кеш суміжної гри, щоб вона при наступному відкритті
+  // переретайнила свій puuid через свій ключ.
   if (activeGame === 'LOL' && getGameProfile(currentProf, 'tft')) {
-    updateData.game_profiles.tft = { ...getGameProfile(currentProf, 'tft'), game_name: gName, tag_line: tLine, region: gRegion, puuid, rank_updated_at: null };
+    const tftExisting = getGameProfile(currentProf, 'tft');
+    updateData.game_profiles.tft = {
+      ...tftExisting,
+      game_name: gName,
+      tag_line: tLine,
+      region: gRegion,
+      // якщо Riot ID змінився — обнуляємо tft.puuid, бо він тепер не відповідає акаунту
+      puuid: (gName !== tftExisting.game_name || tLine !== tftExisting.tag_line || gRegion !== tftExisting.region) ? null : tftExisting.puuid,
+      rank_updated_at: null,
+    };
   } else if (activeGame === 'TFT' && getGameProfile(currentProf, 'lol')) {
-    updateData.game_profiles.lol = { ...getGameProfile(currentProf, 'lol'), game_name: gName, tag_line: tLine, region: gRegion, puuid, rank_updated_at: null };
+    const lolExisting = getGameProfile(currentProf, 'lol');
+    updateData.game_profiles.lol = {
+      ...lolExisting,
+      game_name: gName,
+      tag_line: tLine,
+      region: gRegion,
+      puuid: (gName !== lolExisting.game_name || tLine !== lolExisting.tag_line || gRegion !== lolExisting.region) ? null : lolExisting.puuid,
+      rank_updated_at: null,
+    };
+  }
+
+  // ─── Merge other games ───────────────────────────────────────────────────
+  // Always preserve the existing `other` array; overwrite only if otherGames was passed
+  const previousOther: OtherGameEntry[] = currentProf?.game_profiles?.other ?? []
+
+  console.log('[updateProfile] otherGames param:', otherGames === undefined ? 'undefined' : otherGames)
+  console.log('[updateProfile] previousOther from DB:', previousOther)
+
+  if (otherGames !== undefined) {
+    updateData.game_profiles.other = otherGames
+
+    // Figure out which entries were added / kept / removed to keep custom_games in sync
+    const previousIds = new Set(previousOther.map((e) => e.game_id))
+    const nextIds     = new Set(otherGames.map((e) => e.game_id))
+
+    const addedEntries   = otherGames.filter((e) => !previousIds.has(e.game_id))
+    const keptEntries    = otherGames.filter((e) => previousIds.has(e.game_id))
+    const removedEntries = previousOther.filter((e) => !nextIds.has(e.game_id))
+
+    console.log('[updateProfile] diff: added=', addedEntries.map(e => e.game_name),
+      'kept=', keptEntries.map(e => e.game_name),
+      'removed=', removedEntries.map(e => e.game_name))
+
+    await upsertCustomGames(supabase, addedEntries, keptEntries, removedEntries)
+  } else {
+    // Not provided — keep existing
+    updateData.game_profiles.other = previousOther
+    console.log('[updateProfile] otherGames is undefined — keeping previous')
   }
 
   const { error } = await supabase

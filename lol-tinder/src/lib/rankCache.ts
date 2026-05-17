@@ -6,7 +6,12 @@ import {
 } from "@/src/lib/riot";
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 година  (ранг)
+const UNRANKED_CACHE_TTL_MS = 5 * 60 * 1000; // 5 хв — щоб не залипати в UNRANKED, поки Riot не оновився
 const MASTERY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 години (майстерність)
+
+function isUnranked(value: unknown): boolean {
+  return typeof value === "string" && value.trim().toUpperCase() === "UNRANKED";
+}
 
 export async function refreshRankIfNeeded(
   supabaseRead: any,
@@ -52,8 +57,18 @@ export async function refreshRankIfNeeded(
   }
 
   // ─── Перевірка кешу рангу ───────────────────────────────────────────────
+  // UNRANKED у БД може бути результатом тимчасової помилки Riot API або
+  // застарілих кодом-багів — даємо такому значенню короткий TTL, щоб
+  // користувач швидко побачив свій ранг, як тільки логіка/Riot оновляться.
+  const cachedRankValue =
+    game === "lol"
+      ? gameProfile.rank ?? gameProfile.flex_rank
+      : gameProfile.rank;
+  const effectiveTtl = isUnranked(cachedRankValue)
+    ? UNRANKED_CACHE_TTL_MS
+    : CACHE_TTL_MS;
   const rankFresh =
-    lastUpdated && Date.now() - new Date(lastUpdated).getTime() < CACHE_TTL_MS;
+    lastUpdated && Date.now() - new Date(lastUpdated).getTime() < effectiveTtl;
 
   if (rankFresh) {
     // Ранг свіжий — але якщо майстерність оновилась, зберігаємо тільки її

@@ -3,6 +3,9 @@ import { X, Plus, Loader2, ChevronDown, Gamepad2, Shield, Globe, Languages } fro
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { useToast } from '@/src/components/ToastProvider';
+import { useClickOutside } from '@/src/hooks/useClickOutside';
+import { ROOM_LANGUAGES } from '@/src/constants/languages';
+import { ROOM_LOL_REGIONS, ROOM_CS2_REGIONS } from '@/src/constants/regions';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -12,13 +15,13 @@ interface CreateRoomModalProps {
   isLoading: boolean;
   modes?: string[];
   ranks?: string[];
+  regions?: string[];
 }
 
-const LANGUAGES = ['ANY', 'Ukrainian', 'English', 'Polish', 'German', 'French', 'Spanish', 'Romanian', 'Czech', 'Hungarian'];
+const LANGUAGES = ROOM_LANGUAGES;
+const DEFAULT_REGIONS = ROOM_LOL_REGIONS;
+const CS2_REGIONS = ROOM_CS2_REGIONS;
 
-const REGIONS = ['ANY', 'EUW', 'EUNE', 'NA', 'KR'];
-
-// Reusable navbar-style dropdown
 interface NavDropdownProps<T extends string | number> {
   value: T;
   options: T[];
@@ -106,7 +109,7 @@ function NavDropdown<T extends string | number>({
   );
 }
 
-export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoading, modes: customModes, ranks: customRanks }: CreateRoomModalProps) {
+export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoading, modes: customModes, ranks: customRanks, regions: customRegions }: CreateRoomModalProps) {
   const t = useTranslations('Rooms');
   const { showToast } = useToast();
   const [description, setDescription] = useState('');
@@ -130,8 +133,9 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
   const langRef = useRef<HTMLDivElement>(null);
   const regionRef = useRef<HTMLDivElement>(null);
 
-  const modes = customModes || ['FLEX', 'NORMAL', 'ARAM', 'ARAM: MAYHEM', 'ARENA', 'QUICK PLAY', 'CUSTOM'];
-  const ranks = customRanks || ['ALL', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER+'];
+  const modes   = customModes   || ['FLEX', 'NORMAL', 'ARAM', 'ARAM: MAYHEM', 'ARENA', 'QUICK PLAY', 'CUSTOM'];
+  const ranks   = customRanks   || ['ALL', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER+'];
+  const regions = customRegions || DEFAULT_REGIONS;
 
   useEffect(() => {
     if (isOpen) {
@@ -147,18 +151,12 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
     }
   }, [isOpen, initialMode, modes]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modeRef.current && !modeRef.current.contains(event.target as Node)) setIsModeOpen(false);
-      if (playersRef.current && !playersRef.current.contains(event.target as Node)) setIsPlayersOpen(false);
-      if (rankRef.current && !rankRef.current.contains(event.target as Node)) setIsRankOpen(false);
-      if (maxRankRef.current && !maxRankRef.current.contains(event.target as Node)) setIsMaxRankOpen(false);
-      if (langRef.current && !langRef.current.contains(event.target as Node)) setIsLangOpen(false);
-      if (regionRef.current && !regionRef.current.contains(event.target as Node)) setIsRegionOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(modeRef, () => setIsModeOpen(false));
+  useClickOutside(playersRef, () => setIsPlayersOpen(false));
+  useClickOutside(rankRef, () => setIsRankOpen(false));
+  useClickOutside(maxRankRef, () => setIsMaxRankOpen(false));
+  useClickOutside(langRef, () => setIsLangOpen(false));
+  useClickOutside(regionRef, () => setIsRegionOpen(false));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,7 +196,6 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="modern-panel w-full max-w-lg p-8 relative bg-zinc-900/95 backdrop-blur-2xl border-white/10 shadow-[0_0_80px_-20px_rgba(0,0,0,0.8)]"
           >
-            {/* Decorative Accent Line */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[rgb(var(--accent-color))] to-transparent opacity-50" />
 
             <button
@@ -342,7 +339,7 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
                   </label>
                   <NavDropdown
                     value={region}
-                    options={REGIONS}
+                    options={regions}
                     isOpen={isRegionOpen}
                     onToggle={() => setIsRegionOpen((v) => !v)}
                     onSelect={(v) => { setRegion(v); setIsRegionOpen(false); }}
@@ -385,3 +382,5 @@ export function CreateRoomModal({ isOpen, onClose, initialMode, onSubmit, isLoad
     </AnimatePresence>
   );
 }
+
+export { CS2_REGIONS };

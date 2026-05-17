@@ -7,19 +7,19 @@ import { DiscoverySidebar } from "../components/DiscoverySidebar";
 import { FilterSelect, LanguageFilter, OnlineToggle } from "../components/DiscoveryFilters";
 import { DiscoveryPlayerCard } from "../components/DiscoveryPlayerCard";
 import { DiscoveryGrid } from "../components/DiscoveryGrid";
+import { DiscoveryPagination } from "../components/DiscoveryPagination";
+import { useDiscoveryPagination } from "../components/useDiscoveryPagination";
+import { useSupabaseAuth } from "@/src/hooks/useSupabaseAuth";
+import { LOL_QUEUES as AVAILABLE_QUEUES } from "@/src/constants/queues";
+import { LOL_DISCOVERY_RANKS } from "@/src/constants/ranks";
+import { LOL_DISCOVERY_REGIONS } from "@/src/constants/regions";
 import { useTranslations } from "next-intl";
-
-const AVAILABLE_QUEUES = [
-
-  "Solo/Duo", "Flex", "Draft", "ARAM", "Arena", "Quick Play", "Clash"
-];
 
 const supabase = createClient();
 
 export default function LeagueDiscoveryPage() {
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading } = useSupabaseAuth();
   const [players, setPlayers] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRole, setFilterRole] = useState<string>("ALL");
@@ -27,17 +27,13 @@ export default function LeagueDiscoveryPage() {
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
   const [filterQueue, setFilterQueue] = useState<string>("ALL");
   const [onlyOnline, setOnlyOnline] = useState<boolean>(false);
+  const {
+    page, setPage, pageSize, setPageSize,
+    totalCount, setTotalCount, totalPages,
+    rangeFrom, rangeTo,
+  } = useDiscoveryPagination();
   const t = useTranslations("Discovery");
   const tFilters = useTranslations("LandingPage.discovery.filters");
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-      setIsLoading(false);
-    };
-    getUser();
-  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("lol-match-filters");
@@ -62,16 +58,19 @@ export default function LeagueDiscoveryPage() {
   }, [filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline]);
 
   useEffect(() => {
+    setPage(1);
+  }, [filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline]);
+
+  useEffect(() => {
     const fetchPlayers = async () => {
       if (isLoading) return;
       setIsFetching(true);
 
       let query = supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, language, last_seen, has_mic, enabled_games, game_profiles")
+        .select("id, display_name, avatar_url, language, last_seen, has_mic, enabled_games, game_profiles", { count: "exact" })
         .eq("is_paused", false)
         .ilike("enabled_games", "%LOL%")
-        // game_profiles->lol->>'region'
         .filter("game_profiles->lol->>region", "eq", filterRegion);
 
       if (user) {
@@ -89,30 +88,23 @@ export default function LeagueDiscoveryPage() {
         query = query.not("id", "in", `(${excludedIds.join(",")})`);
       }
 
-      if (filterRole !== "ALL") {
-        query = query.filter("game_profiles->lol->>role", "eq", filterRole);
-      }
-
-      if (filterRank !== "ALL") {
-        query = query.filter("game_profiles->lol->>rank", "ilike", `%${filterRank}%`);
-      }
-
+      if (filterRole !== "ALL") query = query.filter("game_profiles->lol->>role", "eq", filterRole);
+      if (filterRank !== "ALL") query = query.filter("game_profiles->lol->>rank", "ilike", `%${filterRank}%`);
       if (filterLangs.length > 0) {
         const orConditions = filterLangs.map((lang) => `language.ilike.%${lang}%`).join(",");
         query = query.or(orConditions);
       }
-
-      if (filterQueue !== "ALL") {
-        query = query.filter("game_profiles->lol->>queues", "ilike", `%${filterQueue}%`);
-      }
-
+      if (filterQueue !== "ALL") query = query.filter("game_profiles->lol->>queues", "ilike", `%${filterQueue}%`);
       if (onlyOnline) {
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
         query = query.gt("last_seen", tenMinutesAgo);
       }
 
-      const { data, error } = await query.limit(20);
-      if (!error && data) setPlayers(data);
+      const { data, error, count } = await query.range(rangeFrom, rangeTo);
+      if (!error && data) {
+        setPlayers(data);
+        setTotalCount(count ?? 0);
+      }
       setIsFetching(false);
     };
 
@@ -121,7 +113,7 @@ export default function LeagueDiscoveryPage() {
     if (user) {
       supabase.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", user.id).then();
     }
-  }, [user, isLoading, filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline]);
+  }, [user, isLoading, filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline, page, pageSize]);
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50">
@@ -130,24 +122,17 @@ export default function LeagueDiscoveryPage() {
           {t("title")}
         </h2>
         <div className="flex flex-col lg:flex-row gap-8">
-          <DiscoverySidebar title={tFilters("title")} Icon={Filter} accentColor="orange">
+          <DiscoverySidebar title={tFilters("title")} Icon={Filter}>
             <FilterSelect
               label={tFilters("region.label")}
               value={filterRegion}
               onChange={setFilterRegion}
-              accentColor="orange"
-              options={[
-                { label: "Europe West", value: "EUW" },
-                { label: "Europe Nordic & East", value: "EUNE" },
-                { label: "North America", value: "NA" },
-                { label: "Korea", value: "KR" },
-              ]}
+              options={LOL_DISCOVERY_REGIONS}
             />
             <FilterSelect
               label={tFilters("role.label")}
               value={filterRole}
               onChange={setFilterRole}
-              accentColor="orange"
               options={[
                 { label: "All Positions", value: "ALL" },
                 { label: "TOP LANE", value: "TOP" },
@@ -161,8 +146,7 @@ export default function LeagueDiscoveryPage() {
               label={tFilters("rank.label")}
               value={filterRank}
               onChange={setFilterRank}
-              accentColor="orange"
-              options={["ALL", "IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD", "DIAMOND", "MASTER"].map(
+              options={LOL_DISCOVERY_RANKS.map(
                 (r) => ({ label: r === "ALL" ? tFilters("rank.value") : r.charAt(0) + r.slice(1).toLowerCase(), value: r })
               )}
             />
@@ -170,7 +154,6 @@ export default function LeagueDiscoveryPage() {
               label={tFilters("queue.label")}
               value={filterQueue}
               onChange={setFilterQueue}
-              accentColor="orange"
               options={[
                 { label: tFilters("queue.value"), value: "ALL" },
                 ...AVAILABLE_QUEUES.map((q) => ({ label: q.toUpperCase(), value: q })),
@@ -183,21 +166,27 @@ export default function LeagueDiscoveryPage() {
                   prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
                 )
               }
-              accentColor="orange"
             />
             <OnlineToggle
               onlyOnline={onlyOnline}
               onToggle={() => setOnlyOnline(!onlyOnline)}
-              accentColor="orange"
             />
           </DiscoverySidebar>
 
           <div className="flex-1">
-            <DiscoveryGrid isFetching={isFetching} players={players} accentColor="orange" emptyMessage="No players found with current filters">
+            <DiscoveryGrid isFetching={isFetching} players={players} emptyMessage="No players found with current filters">
               {players.map((player) => (
-                <DiscoveryPlayerCard key={player.id} player={player} game="LOL" accentColor="orange" filterQueue={filterQueue} />
+                <DiscoveryPlayerCard key={player.id} player={player} game="LOL" filterQueue={filterQueue} />
               ))}
             </DiscoveryGrid>
+            <DiscoveryPagination
+              page={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         </div>
       </main>

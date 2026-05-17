@@ -15,6 +15,7 @@ import { useToast } from '@/src/components/ToastProvider'
 import { ProfileSidebar } from './components/ProfileSidebar'
 import { ProfileIntel } from './components/ProfileIntel'
 import { ProfileReviews } from './components/ProfileReviews'
+import { OtherGamesShowcase } from './components/OtherGamesShowcase'
 import { useTranslations } from 'next-intl'
 
 const supabase = createClient()
@@ -109,41 +110,58 @@ export default function PublicProfilePage() {
 
   useEffect(() => {
     if (!profile || !activeGame) return
+    // Guard: при швидкому перемиканні табів старий fetch може повернутись
+    // ПІСЛЯ нового і затерти його стейт (особливо setIsLoadingChamps).
+    let cancelled = false
     const fetchGameSpecificData = async () => {
       setRiotStats(null)
       setTftStats(null)
       setValStats(null)
       setTopChamps([])
       setIsLoadingChamps(activeGame === 'LOL')
-      
+
       if (activeGame === 'CS2') {
+        if (cancelled) return
         setIsLoadingChamps(false)
         if (currentUser) await refreshReviews(id, currentUser.id)
         return
       }
 
-      const puuid = getExtra(profile, activeGame.toLowerCase() as GameKey, 'puuid');
-      const region = getRegion(profile, activeGame.toLowerCase() as GameKey);
+      const gameKey = activeGame.toLowerCase() as GameKey;
+      // Riot шифрує PUUID per-key, тож lol.puuid НЕ можна використовувати для TFT.
+      // Region можна фолбечити на lol.region (Riot-регіон однаковий для одного акаунту).
+      const puuid = getExtra(profile, gameKey, 'puuid');
+      const region =
+        gameKey === 'tft'
+          ? getRegion(profile, 'tft') || getRegion(profile, 'lol')
+          : getRegion(profile, gameKey);
 
       if (activeGame === 'LOL' && puuid) {
         const [ranks, champs] = await Promise.all([
           getRanksByPuuidAction(puuid, region),
           getTopChampionsAction(puuid, region)
         ])
+        if (cancelled) return
         setRiotStats(ranks)
         setTopChamps(champs)
         setIsLoadingChamps(false)
       } else if (activeGame === 'TFT' && puuid) {
         const tft = await getRiotTFTStatsAction(puuid, region)
+        if (cancelled) return
         setTftStats(tft)
         setIsLoadingChamps(false)
       } else {
+        if (cancelled) return
         setIsLoadingChamps(false)
       }
 
+      if (cancelled) return
       if (currentUser) await refreshReviews(id, currentUser.id)
     }
     fetchGameSpecificData()
+    return () => {
+      cancelled = true
+    }
   }, [activeGame, profile, id])
 
   const refreshReviews = async (targetId: string, authUserId: string) => {
@@ -257,6 +275,7 @@ export default function PublicProfilePage() {
             riotStats={riotStats}
             tftStats={tftStats}
             valStats={valStats}
+            isMatched={isMatched}
           />
 
           <section className="flex-1">
@@ -297,7 +316,7 @@ export default function PublicProfilePage() {
                 </div>
               )}
 
-              <ProfileIntel 
+              <ProfileIntel
                 profile={profile}
                 activeGame={activeGame}
                 topChamps={topChamps}
@@ -307,7 +326,8 @@ export default function PublicProfilePage() {
                 requestSent={requestSent}
                 handleMatch={handleMatch}
               />
-              <ProfileReviews 
+              <OtherGamesShowcase profile={profile} />
+              <ProfileReviews
                 id={id}
                 isMatched={isMatched}
                 reviews={reviews}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Gamepad } from "lucide-react";
+import { Filter } from "lucide-react";
 import { createClient } from "@/src/utils/supabase/client";
 import { DiscoverySidebar } from "../components/DiscoverySidebar";
 import { FilterSelect, LanguageFilter, OnlineToggle } from "../components/DiscoveryFilters";
@@ -10,20 +10,19 @@ import { DiscoveryGrid } from "../components/DiscoveryGrid";
 import { DiscoveryPagination } from "../components/DiscoveryPagination";
 import { useDiscoveryPagination } from "../components/useDiscoveryPagination";
 import { useSupabaseAuth } from "@/src/hooks/useSupabaseAuth";
-import { TFT_QUEUES as AVAILABLE_QUEUES } from "@/src/constants/queues";
-import { LOL_DISCOVERY_REGIONS } from "@/src/constants/regions";
+import { CS2_DISCOVERY_RANKS } from "@/src/constants/ranks";
+import { CS2_REGIONS } from "@/src/constants/regions";
 import { useTranslations } from "next-intl";
 
 const supabase = createClient();
 
-export default function TFTDiscoveryPage() {
+export default function CS2DiscoveryPage() {
   const { user, isLoading } = useSupabaseAuth();
   const [players, setPlayers] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState(false);
-  const [filterRegion, setFilterRegion] = useState<string>("EUW");
+  const [filterRegion, setFilterRegion] = useState<string>("EU");
   const [filterRank, setFilterRank] = useState<string>("ALL");
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
-  const [filterQueue, setFilterQueue] = useState<string>("ALL");
   const [onlyOnline, setOnlyOnline] = useState<boolean>(false);
   const {
     page, setPage, pageSize, setPageSize,
@@ -35,7 +34,7 @@ export default function TFTDiscoveryPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [filterRegion, filterRank, filterLangs, filterQueue, onlyOnline]);
+  }, [filterRegion, filterRank, filterLangs, onlyOnline]);
 
   useEffect(() => {
     const fetchPlayers = async () => {
@@ -46,8 +45,8 @@ export default function TFTDiscoveryPage() {
         .from("profiles")
         .select("id, display_name, avatar_url, language, last_seen, enabled_games, game_profiles", { count: "exact" })
         .eq("is_paused", false)
-        .ilike("enabled_games", "%TFT%")
-        .filter("game_profiles->tft->>region", "eq", filterRegion);
+        .ilike("enabled_games", "%CS2%")
+        .filter("game_profiles->cs2->>region", "eq", filterRegion);
 
       if (user) {
         const { data: existingMatches } = await supabase
@@ -65,11 +64,7 @@ export default function TFTDiscoveryPage() {
       }
 
       if (filterRank !== "ALL") {
-        query = query.filter("game_profiles->tft->>rank", "ilike", `%${filterRank}%`);
-      }
-
-      if (filterQueue !== "ALL") {
-        query = query.filter("game_profiles->tft->>queues", "ilike", `%${filterQueue}%`);
+        query = query.filter("game_profiles->cs2->>rank", "ilike", `%${filterRank}%`);
       }
 
       if (filterLangs.length > 0) {
@@ -91,7 +86,7 @@ export default function TFTDiscoveryPage() {
     };
 
     fetchPlayers();
-  }, [user, isLoading, filterRegion, filterRank, filterLangs, filterQueue, onlyOnline, page, pageSize]);
+  }, [user, isLoading, filterRegion, filterRank, filterLangs, onlyOnline, page, pageSize]);
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50">
@@ -100,36 +95,23 @@ export default function TFTDiscoveryPage() {
           {t("title")}
         </h2>
         <div className="flex flex-col lg:flex-row gap-8">
-          <DiscoverySidebar title={t("tabs.tft")} Icon={Gamepad} accentColor="blue">
+          <DiscoverySidebar title="CS2 Filters" Icon={Filter} accentColor="orange">
             <FilterSelect
-              label={tFilters("region.label")}
+              label="Region"
               value={filterRegion}
               onChange={setFilterRegion}
-              accentColor="blue"
-              options={LOL_DISCOVERY_REGIONS}
+              accentColor="orange"
+              options={CS2_REGIONS}
             />
             <FilterSelect
               label={tFilters("rank.label")}
               value={filterRank}
               onChange={setFilterRank}
-              accentColor="blue"
-              options={[
-                { label: tFilters("rank.value"), value: "ALL" },
-                { label: "Diamond", value: "DIAMOND" },
-                { label: "Master+", value: "MASTER" },
-                { label: "Platinum", value: "PLATINUM" },
-                { label: "Gold", value: "GOLD" },
-              ]}
-            />
-            <FilterSelect
-              label={tFilters("queue.label")}
-              value={filterQueue}
-              onChange={setFilterQueue}
-              accentColor="blue"
-              options={[
-                { label: tFilters("queue.value"), value: "ALL" },
-                ...AVAILABLE_QUEUES.map((q) => ({ label: q.toUpperCase(), value: q })),
-              ]}
+              accentColor="orange"
+              options={CS2_DISCOVERY_RANKS.map((r) => ({
+                label: r === "ALL" ? "All Ranks" : r,
+                value: r,
+              }))}
             />
             <LanguageFilter
               selectedLangs={filterLangs}
@@ -138,19 +120,19 @@ export default function TFTDiscoveryPage() {
                   prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
                 )
               }
-              accentColor="blue"
+              accentColor="orange"
             />
             <OnlineToggle
               onlyOnline={onlyOnline}
               onToggle={() => setOnlyOnline(!onlyOnline)}
-              accentColor="blue"
+              accentColor="orange"
             />
           </DiscoverySidebar>
 
           <div className="flex-1">
-            <DiscoveryGrid isFetching={isFetching} players={players} accentColor="blue" emptyMessage="No tacticians found">
+            <DiscoveryGrid isFetching={isFetching} players={players} accentColor="orange" emptyMessage="No players found in this sector">
               {players.map((player) => (
-                <DiscoveryPlayerCard key={player.id} player={player} game="TFT" accentColor="blue" />
+                <DiscoveryPlayerCard key={player.id} player={player} game="CS2" accentColor="orange" />
               ))}
             </DiscoveryGrid>
             <DiscoveryPagination

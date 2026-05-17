@@ -54,3 +54,25 @@ export function buildGameUpdate(
     }
   }
 }
+
+export function hasRiotAccount(profile: any): boolean {
+  const name = getGameName(profile, 'lol') || getGameName(profile, 'tft')
+  const tag = getTagLine(profile, 'lol') || getTagLine(profile, 'tft')
+  return !!(name && tag)
+}
+
+export function hasSteamAccount(profile: any): boolean {
+  return !!profile?.steam_id
+}
+
+/** Whether the linked external account required for a given game is connected.
+ *  LOL/TFT need Riot, CS2 needs Steam, VALORANT has no requirement (always true). */
+export function isGameAccountReady(profile: any, game: GameKey | string): boolean {
+  if (game === 'LOL' || game === 'TFT' || game === 'lol' || game === 'tft') {
+    return hasRiotAccount(profile)
+  }
+  if (game === 'CS2' || game === 'cs2') {
+    return hasSteamAccount(profile)
+  }
+  return true
+}

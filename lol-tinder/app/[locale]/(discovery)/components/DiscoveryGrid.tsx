@@ -5,15 +5,17 @@ import { Loader2, Search } from "lucide-react";
 interface DiscoveryGridProps {
   isFetching: boolean;
   players: any[];
-  accentColor: 'orange' | 'blue' | 'red';
   emptyMessage: string;
   children: React.ReactNode;
 }
 
-export function DiscoveryGrid({ isFetching, players, accentColor, emptyMessage, children }: DiscoveryGridProps) {
+export function DiscoveryGrid({ isFetching, players, emptyMessage, children }: DiscoveryGridProps) {
   if (isFetching) {
-    const loaderColors = { orange: 'text-orange-500/50', blue: 'text-blue-500/50', red: 'text-red-500/50' };
-    return <div className="w-full h-96 flex items-center justify-center"><Loader2 className={`animate-spin ${loaderColors[accentColor]}`} size={32} /></div>;
+    return (
+      <div className="w-full h-96 flex items-center justify-center">
+        <Loader2 className="animate-spin discovery-accent-icon opacity-50" size={32} />
+      </div>
+    );
   }
 
   return (

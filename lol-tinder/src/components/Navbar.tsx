@@ -13,6 +13,8 @@ import { useToast } from "@/src/components/ToastProvider";
 import { useTranslations } from "next-intl";
 import { useGameTheme } from "@/src/context/GameThemeContext";
 import GameSelector, { GAME_URL_SLUG } from "@/src/components/GameSelector";
+import { useClickOutside } from "@/src/hooks/useClickOutside";
+import { useSupabaseAuth } from "@/src/hooks/useSupabaseAuth";
 
 const supabase = createClient();
 
@@ -22,7 +24,7 @@ const LANGUAGES = [
 ];
 
 export function Navbar() {
-  const [user, setUser] = useState<any>(null);
+  const { user } = useSupabaseAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLangOpen, setIsLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
@@ -33,15 +35,7 @@ export function Navbar() {
   const { activeGame } = useGameTheme();
   const t = useTranslations("Navbar");
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (langRef.current && !langRef.current.contains(e.target as Node)) {
-        setIsLangOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  useClickOutside(langRef, () => setIsLangOpen(false));
 
   const [pendingCount, setPendingCount] = useState(0);
   const { showToast } = useToast();
@@ -53,14 +47,6 @@ export function Navbar() {
       .eq("target_id", userId)
       .eq("status", "PENDING");
     setPendingCount(pCount || 0);
-  }, []);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {

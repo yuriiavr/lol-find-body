@@ -1,5 +1,7 @@
 import { Zap, Target, Map, Shield, LayoutGrid, BookOpen, Users, User as UserIcon, Tag, Globe, Trophy } from "lucide-react";
 import { FormInput, FormSelect, FormTextArea } from "@/src/components/ui/FormFields";
+import { VALORANT_QUEUES } from "@/src/constants/queues";
+import { VALORANT_RANKS_FULL } from "@/src/constants/ranks";
 
 function fireChange(handler: (e: any) => void, name: string, value: string) {
   handler({ target: { name, value, type: "select" } } as any);
@@ -22,18 +24,7 @@ function Section({ icon: Icon, title, accentClass, children, trailing }: {
   );
 }
 
-const VALORANT_RANKS = [
-  "Unranked",
-  "Iron 1", "Iron 2", "Iron 3",
-  "Bronze 1", "Bronze 2", "Bronze 3",
-  "Silver 1", "Silver 2", "Silver 3",
-  "Gold 1", "Gold 2", "Gold 3",
-  "Platinum 1", "Platinum 2", "Platinum 3",
-  "Diamond 1", "Diamond 2", "Diamond 3",
-  "Ascendant 1", "Ascendant 2", "Ascendant 3",
-  "Immortal 1", "Immortal 2", "Immortal 3",
-  "Radiant",
-];
+const VALORANT_RANKS = VALORANT_RANKS_FULL;
 
 const VALORANT_AGENTS = [
   "Astra", "Breach", "Brimstone", "Chamber", "Clove", "Cypher",
@@ -60,7 +51,7 @@ export function ValorantForm({
     { value: "CONTROLLER", label: "Controller", icon: Map,    desc: "Hold space" },
     { value: "SENTINEL",   label: "Sentinel",   icon: Shield, desc: "Lock down" },
   ];
-  const queues = ["Competitive", "Unrated", "Swiftplay", "Spike Rush", "Deathmatch", "Premier"];
+  const queues = VALORANT_QUEUES;
   const currentRole = getGameValue("role") || "DUELIST";
 
   return (

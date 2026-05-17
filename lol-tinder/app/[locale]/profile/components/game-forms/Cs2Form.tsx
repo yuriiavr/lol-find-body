@@ -1,7 +1,10 @@
-import { Target, LayoutGrid, BookOpen, Hash, Copy, Check, Info } from "lucide-react";
+import { Target, LayoutGrid, BookOpen, Hash, Copy, Check, Globe } from "lucide-react";
 import { FormTextArea } from "@/src/components/ui/FormFields";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useCopyToClipboard } from "@/src/hooks/useCopyToClipboard";
+import { CS2_QUEUES } from "@/src/constants/queues";
+import { CS2_RANKS } from "@/src/constants/ranks";
+import { CS2_REGIONS as CS2_REGION_OPTIONS } from "@/src/constants/regions";
 
 function fireChange(handler: (e: any) => void, name: string, value: string) {
   handler({ target: { name, value, type: "select" } } as any);
@@ -36,36 +39,8 @@ function Section({
   );
 }
 
-const CS2_RANKS = [
-  "Unranked",
-  "Silver I",
-  "Silver II",
-  "Silver III",
-  "Silver IV",
-  "Silver Elite",
-  "Silver Elite Master",
-  "Gold Nova I",
-  "Gold Nova II",
-  "Gold Nova III",
-  "Gold Nova Master",
-  "Master Guardian I",
-  "Master Guardian II",
-  "Master Guardian Elite",
-  "Distinguished Master Guardian",
-  "Legendary Eagle",
-  "Legendary Eagle Master",
-  "Supreme Master First Class",
-  "Global Elite",
-];
-
-const CS2_ROLES = [
-  { value: "ENTRY",   label: "Entry Fragger",  desc: "First in, win the duel" },
-  { value: "LURKER",  label: "Lurker",         desc: "Flank & distract" },
-  { value: "SUPPORT", label: "Support",        desc: "Flash & trade" },
-  { value: "AWP",     label: "AWPer",          desc: "Long-range carry" },
-  { value: "IGL",     label: "IGL",            desc: "In-game leader" },
-  { value: "FILL",    label: "Fill",           desc: "Play what's needed" },
-];
+// Re-exported under the original name to keep the rest of this file unchanged.
+const CS2_REGIONS = CS2_REGION_OPTIONS;
 
 interface Cs2FormProps {
   getGameValue: (field: string) => string;
@@ -81,18 +56,13 @@ export function Cs2Form({
   toggleQueue,
 }: Cs2FormProps) {
   const t = useTranslations("ProfilePage.editor.cs2");
-  const [copiedCode, setCopiedCode] = useState(false);
-  const queues = ["Competitive", "Premier", "Wingman", "Casual", "Deathmatch", "Workshop"];
-  const currentRole = getGameValue("role") || "FILL";
-  const currentRank = getGameValue("rank") || "Unranked";
-  const friendCode  = getGameValue("friend_code") || "";
+  const { copied: copiedCode, copy } = useCopyToClipboard();
+  const queues = CS2_QUEUES;
+  const currentRank   = getGameValue("rank")   || "Unranked";
+  const currentRegion = getGameValue("region") || "EU";
+  const friendCode    = getGameValue("friend_code") || "";
 
-  const handleCopyCode = () => {
-    if (!friendCode) return;
-    navigator.clipboard.writeText(friendCode);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
+  const handleCopyCode = () => copy(friendCode);
 
   return (
     <div className="space-y-4">
@@ -119,11 +89,31 @@ export function Cs2Form({
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-orange-500/5 border border-orange-500/10">
             <span className="text-sm font-mono font-bold text-zinc-200">{friendCode}</span>
           </div>
-          <p className="text-[10px] text-zinc-500 leading-relaxed italic mt-2">
-            {t("friendCodeAutoHint")}
-          </p>
         </Section>
       )}
+
+      {/* Region */}
+      <Section icon={Globe} title={t("region")} accentClass="text-orange-400">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {CS2_REGIONS.map(({ value, label }) => {
+            const on = currentRegion === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => fireChange(handleGameInputChange, "region", value)}
+                className={`py-3 px-3 rounded-xl text-[11px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                  on
+                    ? "bg-orange-500/15 border-orange-500/40 text-orange-300"
+                    : "bg-white/[0.02] border-white/5 text-zinc-500 hover:border-white/15 hover:text-zinc-300"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </Section>
 
       {/* Rank */}
       <Section icon={Target} title={t("rank")} accentClass="text-orange-400">

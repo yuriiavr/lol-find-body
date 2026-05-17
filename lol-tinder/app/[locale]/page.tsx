@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   LogIn,
@@ -29,6 +29,7 @@ import { createClient } from "@/src/utils/supabase/client";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { useGameTheme } from "@/src/context/GameThemeContext";
+import { useSupabaseAuth } from "@/src/hooks/useSupabaseAuth";
 
 /* ─────────────────────────── types ─────────────────────────── */
 interface StatProps {
@@ -192,8 +193,7 @@ export default function LandingPage() {
   const t = useTranslations('LandingPage');
   const locale = useLocale();
   const supabase = createClient();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading: loading } = useSupabaseAuth();
   const { activeGame, setActiveGame } = useGameTheme();
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -207,13 +207,6 @@ export default function LandingPage() {
   const getDiscoveryPath = (game: string) => {
     return `/${locale}/${game === 'lol' ? 'league' : game}`;
   };
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setLoading(false);
-    });
-  }, [supabase]);
 
   const handleLogin = async () => {
     const redirectTo =

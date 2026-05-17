@@ -9,6 +9,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreateRoomModal } from '@/src/components/CreateRoomModal';
 import { useToast } from '@/src/components/ToastProvider';
 import { getRank, GameKey } from '@/src/lib/profile';
+import { useClickOutside } from '@/src/hooks/useClickOutside';
+import { ROOM_LANGUAGES } from '@/src/constants/languages';
+import { ROOM_LOL_REGIONS } from '@/src/constants/regions';
 
 const supabase = createClient();
 
@@ -18,6 +21,7 @@ export interface GameRoomsConfig {
   modes: string[];
   rankOrder: string[];
   modalRanks: string[];
+  regions?: string[];
 }
 
 interface RoomsPageProps {
@@ -25,7 +29,7 @@ interface RoomsPageProps {
 }
 
 export default function RoomsPage({ config }: RoomsPageProps) {
-  const { gameType, channelKey, modes, rankOrder, modalRanks } = config;
+  const { gameType, channelKey, modes, rankOrder, modalRanks, regions } = config;
 
   const { showToast } = useToast();
   const t = useTranslations('Rooms');
@@ -45,6 +49,8 @@ export default function RoomsPage({ config }: RoomsPageProps) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
 
+  const regionOptions = regions || ROOM_LOL_REGIONS;
+
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -56,16 +62,9 @@ export default function RoomsPage({ config }: RoomsPageProps) {
     fetchUser();
   }, []);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setIsFilterOpen(false);
-      if (langFilterRef.current && !langFilterRef.current.contains(e.target as Node)) setIsLangFilterOpen(false);
-      if (regionFilterRef.current && !regionFilterRef.current.contains(e.target as Node)) setIsRegionFilterOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  useClickOutside(filterRef, () => setIsFilterOpen(false));
+  useClickOutside(langFilterRef, () => setIsLangFilterOpen(false));
+  useClickOutside(regionFilterRef, () => setIsRegionFilterOpen(false));
 
   const fetchRooms = useCallback(async () => {
     let query = supabase.from('rooms').select('*, participants:room_participants(count)').eq('game_type', gameType);
@@ -116,97 +115,96 @@ export default function RoomsPage({ config }: RoomsPageProps) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Mode filter */}
+          <div className="relative" ref={filterRef}>
+            <button
+              onClick={() => setIsFilterOpen((v) => !v)}
+              className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
+            >
+              <span style={{ color: 'rgb(var(--accent-color))' }}>{filterMode}</span>
+              <ChevronDown size={10} strokeWidth={2} style={{ transform: isFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
+            </button>
+            <AnimatePresence>
+              {isFilterOpen && (
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
+                  className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-hidden z-[110]"
+                  style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '140px' }}
+                >
+                  {modes.map((m) => (
+                    <button key={m} onClick={() => { setFilterMode(m); setIsFilterOpen(false); }}
+                      className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
+                      style={{ color: filterMode === m ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
+                    >
+                      {m}
+                      {filterMode === m && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-      <div className="flex flex-wrap gap-2 items-center">
-        {/* Mode filter */}
-        <div className="relative" ref={filterRef}>
-          <button
-            onClick={() => setIsFilterOpen((v) => !v)}
-            className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
-          >
-            <span style={{ color: 'rgb(var(--accent-color))' }}>{filterMode}</span>
-            <ChevronDown size={10} strokeWidth={2} style={{ transform: isFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
-          </button>
-          <AnimatePresence>
-            {isFilterOpen && (
-              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
-                className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-hidden z-[110]"
-                style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '140px' }}
-              >
-                {modes.map((m) => (
-                  <button key={m} onClick={() => { setFilterMode(m); setIsFilterOpen(false); }}
-                    className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
-                    style={{ color: filterMode === m ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
-                  >
-                    {m}
-                    {filterMode === m && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+          {/* Language filter */}
+          <div className="relative" ref={langFilterRef}>
+            <button
+              onClick={() => setIsLangFilterOpen((v) => !v)}
+              className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
+            >
+              <Languages size={10} />
+              <span style={{ color: filterLang !== 'ANY' ? 'rgb(var(--accent-color))' : undefined }}>{filterLang}</span>
+              <ChevronDown size={10} strokeWidth={2} style={{ transform: isLangFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
+            </button>
+            <AnimatePresence>
+              {isLangFilterOpen && (
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
+                  className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-y-auto z-[110]"
+                  style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '150px', maxHeight: '220px' }}
+                >
+                  {ROOM_LANGUAGES.map((l) => (
+                    <button key={l} onClick={() => { setFilterLang(l); setIsLangFilterOpen(false); }}
+                      className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
+                      style={{ color: filterLang === l ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
+                    >
+                      {l}
+                      {filterLang === l && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-        {/* Language filter */}
-        <div className="relative" ref={langFilterRef}>
-          <button
-            onClick={() => setIsLangFilterOpen((v) => !v)}
-            className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
-          >
-            <Languages size={10} />
-            <span style={{ color: filterLang !== 'ANY' ? 'rgb(var(--accent-color))' : undefined }}>{filterLang}</span>
-            <ChevronDown size={10} strokeWidth={2} style={{ transform: isLangFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
-          </button>
-          <AnimatePresence>
-            {isLangFilterOpen && (
-              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
-                className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-y-auto z-[110]"
-                style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '150px', maxHeight: '220px' }}
-              >
-                {['ANY', 'Ukrainian', 'English', 'Polish', 'German', 'French', 'Spanish', 'Romanian', 'Czech', 'Hungarian'].map((l) => (
-                  <button key={l} onClick={() => { setFilterLang(l); setIsLangFilterOpen(false); }}
-                    className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
-                    style={{ color: filterLang === l ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
-                  >
-                    {l}
-                    {filterLang === l && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Region filter */}
+          <div className="relative" ref={regionFilterRef}>
+            <button
+              onClick={() => setIsRegionFilterOpen((v) => !v)}
+              className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
+            >
+              <Globe size={10} />
+              <span style={{ color: filterRegion !== 'ANY' ? 'rgb(var(--accent-color))' : undefined }}>{filterRegion}</span>
+              <ChevronDown size={10} strokeWidth={2} style={{ transform: isRegionFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
+            </button>
+            <AnimatePresence>
+              {isRegionFilterOpen && (
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
+                  className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-hidden z-[110]"
+                  style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '120px' }}
+                >
+                  {regionOptions.map((r) => (
+                    <button key={r} onClick={() => { setFilterRegion(r); setIsRegionFilterOpen(false); }}
+                      className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
+                      style={{ color: filterRegion === r ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
+                    >
+                      {r}
+                      {filterRegion === r && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-
-        {/* Region filter */}
-        <div className="relative" ref={regionFilterRef}>
-          <button
-            onClick={() => setIsRegionFilterOpen((v) => !v)}
-            className="flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[10px] font-bold uppercase tracking-[1.5px] text-zinc-500 hover:text-zinc-300 transition-colors duration-150 border border-white/[0.06] hover:border-white/[0.12]"
-          >
-            <Globe size={10} />
-            <span style={{ color: filterRegion !== 'ANY' ? 'rgb(var(--accent-color))' : undefined }}>{filterRegion}</span>
-            <ChevronDown size={10} strokeWidth={2} style={{ transform: isRegionFilterOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }} />
-          </button>
-          <AnimatePresence>
-            {isRegionFilterOpen && (
-              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}
-                className="absolute left-0 top-[calc(100%+6px)] rounded-lg overflow-hidden z-[110]"
-                style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', minWidth: '120px' }}
-              >
-                {['ANY', 'EUW', 'EUNE', 'NA', 'KR', 'BR', 'LAN', 'LAS', 'OCE', 'RU', 'TR'].map((r) => (
-                  <button key={r} onClick={() => { setFilterRegion(r); setIsRegionFilterOpen(false); }}
-                    className="w-full px-3 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] text-left transition-colors flex items-center justify-between whitespace-nowrap"
-                    style={{ color: filterRegion === r ? 'rgb(var(--accent-color))' : 'rgb(113,113,122)' }}
-                  >
-                    {r}
-                    {filterRegion === r && <span className="w-1 h-1 rounded-full ml-2 flex-shrink-0" style={{ background: 'rgb(var(--accent-color))' }} />}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
 
         <button onClick={() => setIsCreateRoomModalOpen(true)} className="btn-modern flex items-center gap-3 py-3 px-8 text-xs font-black uppercase tracking-[0.2em]">
           <Plus size={20} strokeWidth={3} /> {t('createRoom')}
@@ -271,6 +269,7 @@ export default function RoomsPage({ config }: RoomsPageProps) {
         isLoading={loading}
         modes={modes.filter(m => m !== 'ALL')}
         ranks={modalRanks}
+        regions={regionOptions}
       />
     </div>
   );

@@ -40,15 +40,15 @@ export const FormTextArea = ({ label, className = "", ...props }: BaseProps & Re
   </div>
 );
 
-export const FormSwitch = ({ label, description, checked, onChange, name, className = "" }: BaseProps & { description?: string, checked: boolean, onChange: (e: any) => void, name?: string }) => {
+export const FormSwitch = ({ label, description, checked, onChange, name, className = "", disabled = false }: BaseProps & { description?: string, checked: boolean, onChange: (e: any) => void, name?: string, disabled?: boolean }) => {
   return (
   <div className={`p-6 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between ${className}`}>
     <div className="space-y-1">
       {label && <h4 className="text-sm font-bold uppercase tracking-widest">{label}</h4>}
       {description && <p className="text-xs text-zinc-500">{description}</p>}
     </div>
-    <label className="relative inline-flex items-center cursor-pointer">
-      <input type="checkbox" name={name} checked={checked} onChange={onChange} className="sr-only peer" />
+    <label className={`relative inline-flex items-center ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}>
+      <input type="checkbox" name={name} checked={checked} onChange={onChange} disabled={disabled} className="sr-only peer" />
       <div className={`w-11 h-6 bg-zinc-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[rgb(var(--accent-color))]`}></div>
     </label>
   </div>

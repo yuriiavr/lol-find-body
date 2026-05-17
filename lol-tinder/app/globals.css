@@ -9,14 +9,14 @@
   /* Obsidian & Ember Palette */
   --bg-primary: 10 10 10;      /* Near black */
   --bg-secondary: 24 24 24;    /* Dark charcoal */
-  --accent-color: 251 146 60; /* Default (LOL - Orange) */
+  --accent-color: 5 150 105;   /* emerald-500 */
   --text-primary: 250 250 250;
   --text-secondary: 161 161 170;
   --border-color: 39 39 42;    /* zinc-800 */
 }
 
 [data-game-theme="lol"] {
-  --accent-color: 255 127 0; /* orange-400 */
+  --accent-color: 5 150 105; /* emerald-500 */
 }
 
 [data-game-theme="tft"] {
@@ -24,7 +24,15 @@
 }
 
 [data-game-theme="valorant"] {
-  --accent-color: 196 32 60; /* red-500 */
+  --accent-color: 196 32 60; /* red */
+}
+
+[data-game-theme="cs2"] {
+  --accent-color: 255 127 0; /* orange */
+}
+
+[data-game-theme="another"] {
+  --accent-color: 168 169 173; /* silver */
 }
 
 body {
@@ -33,26 +41,27 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   @apply min-h-screen antialiased selection:bg-[rgb(var(--accent-color)/0.3)];
 }
-
+ 
 /* Discovery Grid for PC */
 .main-grid {
   @apply grid w-full gap-6;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
 }
-
+ 
 /* Glassmorphism Panel */
 .modern-panel {
-  @apply rounded-xl border border-white/[0.03] transition-all duration-300;
+  @apply rounded-xl transition-all duration-300;
+  border: 1px solid rgba(255, 255, 255, 0.03);
   background: rgba(var(--bg-secondary), 0.7);
   backdrop-filter: blur(8px);
 }
-
+ 
 .modern-panel:hover {
-  @apply border-white/[0.08];
+  border-color: rgba(255, 255, 255, 0.08);
   background: rgba(var(--bg-secondary), 0.8);
   box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.5);
 }
-
+ 
 /* Modern Action Button */
 .btn-modern {
   @apply px-6 py-3 rounded-lg font-bold uppercase tracking-wider text-sm transition-all active:scale-95 flex items-center justify-center gap-2;
@@ -60,22 +69,22 @@ body {
   @apply text-black shadow-lg;
   box-shadow: 0 10px 15px -3px rgb(var(--accent-color) / 0.15);
 }
-
+ 
 /* Tech Input */
 .modern-input {
   @apply w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[rgb(var(--accent-color)/0.5)] transition-all text-base;
 }
-
+ 
 /* Gradient Heading Text */
 .text-tech-gradient {
   @apply bg-clip-text text-transparent;
   background-image: linear-gradient(to right, rgb(var(--accent-color)), rgb(var(--text-primary)));
 }
-
+ 
 * {
   @apply transition-colors duration-200;
 }
-
+ 
 ::-webkit-scrollbar {
   width: 10px;
 }
@@ -89,7 +98,64 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgb(var(--accent-color));
 }
-
+ 
 button{
   cursor: pointer;
+}
+/* ─── Discovery: accent-color driven utilities ─────────────────────────────── */
+ 
+/* Icon / text in accent color */
+.discovery-accent-icon {
+  color: rgb(var(--accent-color));
+}
+.discovery-accent-text {
+  color: rgb(var(--accent-color));
+}
+ 
+/* Dot (dropdown selected indicator) */
+.discovery-accent-dot {
+  background: rgb(var(--accent-color));
+}
+ 
+/* Role badge */
+.discovery-badge {
+  background: rgba(var(--accent-color), 0.1);
+  color: rgb(var(--accent-color));
+  border-color: rgba(var(--accent-color), 0.2);
+}
+ 
+/* Agent / queue tag (solid) */
+.discovery-tag {
+  background: rgba(var(--accent-color), 0.1);
+  border: 1px solid rgba(var(--accent-color), 0.2);
+  color: rgb(var(--accent-color));
+}
+ 
+/* Queue tag (subtle) */
+.discovery-tag-subtle {
+  background: rgba(var(--accent-color), 0.05);
+  border: 1px solid rgba(var(--accent-color), 0.1);
+  color: rgba(var(--accent-color), 0.7);
+}
+ 
+/* Language pill — active */
+.discovery-lang-active {
+  background: rgba(var(--accent-color), 0.2);
+  border-color: rgb(var(--accent-color));
+  color: rgb(var(--accent-color));
+}
+ 
+/* Online toggle — active */
+.discovery-online-active {
+  border-color: rgba(var(--accent-color), 0.5);
+  background: rgba(var(--accent-color), 0.08);
+  color: rgb(var(--accent-color));
+}
+ 
+/* Dropdown item */
+.discovery-dropdown-item {
+  color: rgb(113, 113, 122);
+}
+.discovery-dropdown-item[data-active="true"] {
+  color: rgb(var(--accent-color));
 }

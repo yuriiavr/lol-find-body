@@ -4,11 +4,8 @@ import { memo, useState, useRef, useEffect, useCallback } from "react";
 import {
   Settings,
   Gamepad2,
-  Sword,
-  Zap,
   Save,
   Loader2,
-  ChevronRight,
   AlertTriangle,
 } from "lucide-react";
 import GlobalSettingsSection from "./GlobalSettingsSection";
@@ -16,6 +13,8 @@ import { LolForm } from "./game-forms/LolForm";
 import { TftForm } from "./game-forms/TftForm";
 import { ValorantForm } from "./game-forms/ValorantForm";
 import { Cs2Form } from "./game-forms/Cs2Form";
+import { OtherGamesForm } from "./game-forms/OtherGamesForm";
+import type { OtherGameEntry } from "../actions";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { FormSwitch } from "@/src/components/ui/FormFields";
@@ -27,22 +26,12 @@ import {
   getBio,
   getRole,
   getExtra,
+  hasRiotAccount,
+  isGameAccountReady,
   type GameKey,
 } from "@/src/lib/profile";
 
-const POPULAR_LANGUAGES = [
-  "Ukrainian",
-  "English",
-  "Polish",
-  "German",
-  "French",
-  "Spanish",
-  "Italian",
-  "Romanian",
-  "Dutch",
-  "Hungarian",
-  "Czech",
-];
+import { POPULAR_LANGUAGES } from "@/src/constants/languages";
 
 const GAMES = [
   {
@@ -114,14 +103,18 @@ const GAMES = [
 type NavSection = "global" | "games" | "game-settings";
 type GameId = "LOL" | "TFT" | "VALORANT" | "CS2";
 
+// ─── TabSwitcher (unchanged) ──────────────────────────────────────────────────
+
 function TabSwitcher({
   activeSection,
   onSwitch,
   enabledGames,
+  otherGamesCount,
 }: {
   activeSection: NavSection;
   onSwitch: (section: NavSection) => void;
   enabledGames: string[];
+  otherGamesCount: number;
 }) {
   const t = useTranslations("ProfilePage.editor.nav");
 
@@ -195,27 +188,17 @@ function TabSwitcher({
         return (
           <button
             key={tab.id}
-            ref={(el) => {
-              btnRefs.current[tab.id] = el;
-            }}
+            ref={(el) => { btnRefs.current[tab.id] = el; }}
             type="button"
-            onClick={() => {
-              if (tab.id !== activeSection) onSwitch(tab.id);
-            }}
+            onClick={() => { if (tab.id !== activeSection) onSwitch(tab.id); }}
             className="relative flex items-center gap-2 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[1.4px] transition-colors duration-200 select-none whitespace-nowrap"
-            style={{
-              color: isActive ? "rgb(var(--accent-color))" : "rgb(90,90,105)",
-            }}
+            style={{ color: isActive ? "rgb(var(--accent-color))" : "rgb(90,90,105)" }}
           >
             {tab.label}
-
             {tab.badge != null && tab.badge > 0 && (
               <span
                 className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-black px-1"
-                style={{
-                  background: "rgb(var(--accent-color))",
-                  color: "#000",
-                }}
+                style={{ background: "rgb(var(--accent-color))", color: "#000" }}
               >
                 {tab.badge > 9 ? "9+" : tab.badge}
               </span>
@@ -226,6 +209,8 @@ function TabSwitcher({
     </div>
   );
 }
+
+// ─── GamesSection ─────────────────────────────────────────────────────────────
 
 function GamesSection({
   enabledGames,
@@ -247,7 +232,6 @@ function GamesSection({
       <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3">
         {GAMES.map((game) => {
           const isEnabled = enabledGames.includes(game.id);
-
           return (
             <button
               key={game.id}
@@ -263,23 +247,15 @@ function GamesSection({
                 }
               `}
               style={{ transform: "translateY(0)" }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.transform =
-                  "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.transform =
-                  "translateY(0)";
-              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
             >
               <img
                 src={game.iconSrc}
                 alt={game.shortName}
                 className="w-12 h-12 object-contain drop-shadow-sm"
               />
-              <span
-                className={`text-[10px] font-bold text-center leading-tight tracking-wide ${isEnabled ? "text-white" : "text-zinc-500"}`}
-              >
+              <span className={`text-[10px] font-bold text-center leading-tight tracking-wide ${isEnabled ? "text-white" : "text-zinc-500"}`}>
                 {game.name}
               </span>
             </button>
@@ -290,21 +266,33 @@ function GamesSection({
   );
 }
 
+// ─── GameTabSwitcher — now includes "Other" tab ───────────────────────────────
+
 function GameTabSwitcher({
   enabledGames,
   activeGame,
   onSelect,
+  showOther,
+  otherGamesCount,
+  isOtherActive,
+  onSelectOther,
 }: {
   enabledGames: string[];
   activeGame: GameId;
   onSelect: (game: GameId) => void;
+  showOther: boolean;
+  otherGamesCount: number;
+  isOtherActive: boolean;
+  onSelectOther: () => void;
 }) {
   const tabs = GAMES.filter((g) => enabledGames.includes(g.id));
 
   const containerRef = useRef<HTMLDivElement>(null);
   const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const prevTabRef = useRef<GameId>(activeGame);
+  const prevTabRef = useRef<string>(isOtherActive ? "OTHER" : activeGame);
   const [bar, setBar] = useState({ left: 0, right: 0 });
+
+  const currentTabId = isOtherActive ? "OTHER" : activeGame;
 
   const getEdges = (id: string) => {
     const btn = btnRefs.current[id];
@@ -316,20 +304,20 @@ function GameTabSwitcher({
   };
 
   useEffect(() => {
-    const r = getEdges(activeGame);
+    const r = getEdges(currentTabId);
     if (r) setBar(r);
   }, [enabledGames.join(",")]);
 
   useEffect(() => {
     const prev = prevTabRef.current;
-    if (prev === activeGame) return;
+    if (prev === currentTabId) return;
 
     const rPrev = getEdges(prev);
-    const rNext = getEdges(activeGame);
+    const rNext = getEdges(currentTabId);
     if (!rPrev || !rNext) return;
 
-    const tabIds = tabs.map((t) => t.id);
-    const goingRight = tabIds.indexOf(activeGame) > tabIds.indexOf(prev);
+    const tabIds = [...tabs.map((t) => t.id), "OTHER"];
+    const goingRight = tabIds.indexOf(currentTabId) > tabIds.indexOf(prev);
 
     if (goingRight) {
       setBar({ left: rPrev.left, right: rNext.right });
@@ -338,22 +326,22 @@ function GameTabSwitcher({
     }
 
     const tid = setTimeout(() => {
-      const r = getEdges(activeGame);
+      const r = getEdges(currentTabId);
       if (r) setBar(r);
     }, 130);
 
-    prevTabRef.current = activeGame;
+    prevTabRef.current = currentTabId;
     return () => clearTimeout(tid);
-  }, [activeGame]);
+  }, [currentTabId]);
 
   const spring = { type: "spring" as const, stiffness: 460, damping: 36 };
 
-  if (tabs.length === 0) return null;
+  if (tabs.length === 0 && !showOther) return null;
 
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center border-b border-white/[0.06] mb-6"
+      className="relative flex items-center border-b border-white/[0.06] mb-6 overflow-x-auto"
     >
       <motion.span
         className="absolute bottom-0 h-[2px] rounded-full pointer-events-none"
@@ -363,45 +351,55 @@ function GameTabSwitcher({
       />
 
       {tabs.map((game) => {
-        const isActive = activeGame === game.id;
+        const isActive = !isOtherActive && activeGame === game.id;
         return (
           <button
             key={game.id}
-            ref={(el) => {
-              btnRefs.current[game.id] = el;
-            }}
+            ref={(el) => { btnRefs.current[game.id] = el; }}
             type="button"
-            onClick={() => {
-              if (game.id !== activeGame) onSelect(game.id);
-            }}
-            className="relative flex items-center gap-2 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[1.4px] transition-colors duration-200 select-none"
-            style={{
-              color: isActive ? "rgb(var(--accent-color))" : "rgb(90,90,105)",
-            }}
+            onClick={() => { if (game.id !== activeGame || isOtherActive) onSelect(game.id); }}
+            className="relative flex items-center gap-2 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[1.4px] transition-colors duration-200 select-none whitespace-nowrap"
+            style={{ color: isActive ? "rgb(var(--accent-color))" : "rgb(90,90,105)" }}
           >
-            <img
-              src={game.iconSrc}
-              alt={game.shortName}
-              className="w-8 h-8 object-contain drop-shadow-sm"
-            />
+            <img src={game.iconSrc} alt={game.shortName} className="w-8 h-8 object-contain drop-shadow-sm" />
             {game.shortName}
           </button>
         );
       })}
+
+      {/* Other tab */}
+      {showOther && (
+        <button
+          ref={(el) => { btnRefs.current["OTHER"] = el; }}
+          type="button"
+          onClick={onSelectOther}
+          className="relative flex items-center gap-2 px-5 py-3.5 text-[11px] font-bold uppercase tracking-[1.4px] transition-colors duration-200 select-none whitespace-nowrap"
+          style={{ color: isOtherActive ? "rgb(var(--accent-color))" : "rgb(90,90,105)" }}
+        >
+          <Gamepad2 size={16} />
+          Other
+          {otherGamesCount > 0 && (
+            <span
+              className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-black px-1"
+              style={{ background: "rgb(var(--accent-color))", color: "#000" }}
+            >
+              {otherGamesCount}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }
+
+// ─── ProfileFormProps ─────────────────────────────────────────────────────────
 
 interface ProfileFormProps {
   profile: any;
   selectedLangs: string[];
   onToggleLang: (lang: string) => void;
-  onInputChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) => void;
-  handleGameInputChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) => void;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+  handleGameInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   toggleQueue: (queue: string) => void;
   toggleGame: (game: string) => void;
   visibleGames: string[];
@@ -417,225 +415,250 @@ interface ProfileFormProps {
   onSectionChange?: (section: NavSection) => void;
   onValidationError?: (message: string, action?: { label: string; onClick: () => void }) => void;
   onGoToGlobal?: () => void;
+  // ── NEW: other games ──
+  otherGames: OtherGameEntry[];
+  onOtherGamesChange: (entries: OtherGameEntry[]) => void;
 }
 
-const ProfileForm = memo(
-  ({
-    profile,
-    selectedLangs,
-    onToggleLang,
-    onInputChange,
-    handleGameInputChange,
-    toggleQueue,
-    toggleGame,
-    visibleGames,
-    toggleVisibility,
-    activeTab,
-    enabledGames,
-    selectedQueues,
-    selectedAgents = [],
-    onToggleAgent,
-    handleSubmit,
-    onSetActiveTab,
-    loading,
-    onSectionChange,
-    onValidationError,
-    onGoToGlobal,
-  }: ProfileFormProps) => {
-    const t = useTranslations();
+// ─── ProfileForm ──────────────────────────────────────────────────────────────
 
-    const [activeSection, setActiveSection] = useState<NavSection>("global");
-    const [prevSection, setPrevSection] = useState<NavSection>("global");
+const ProfileForm = memo(({
+  profile,
+  selectedLangs,
+  onToggleLang,
+  onInputChange,
+  handleGameInputChange,
+  toggleQueue,
+  toggleGame,
+  visibleGames,
+  toggleVisibility,
+  activeTab,
+  enabledGames,
+  selectedQueues,
+  selectedAgents = [],
+  onToggleAgent,
+  handleSubmit,
+  onSetActiveTab,
+  loading,
+  onSectionChange,
+  onValidationError,
+  onGoToGlobal,
+  otherGames,
+  onOtherGamesChange,
+}: ProfileFormProps) => {
+  const t = useTranslations();
 
-    const sectionOrder: NavSection[] = ["global", "games", "game-settings"];
+  const [activeSection, setActiveSection] = useState<NavSection>("global");
+  const [prevSection, setPrevSection] = useState<NavSection>("global");
+  // Whether the "Other" sub-tab is active inside game-settings.
+  // Запам'ятовуємо вибір юзера у localStorage, щоб при наступному відкритті
+  // /profile сторінка показала ту ж вкладку, що й востаннє.
+  const PROFILE_TAB_KEY = "lastProfileGameTab";
+  const [isOtherTabActive, setIsOtherTabActive] = useState(false);
 
-    const handleSectionChange = (section: NavSection) => {
-      setPrevSection(activeSection);
-      setActiveSection(section);
-      onSectionChange?.(section);
-    };
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(PROFILE_TAB_KEY) === "OTHER") {
+      setIsOtherTabActive(true);
+    }
+  }, []);
 
-    const direction =
-      sectionOrder.indexOf(activeSection) >= sectionOrder.indexOf(prevSection)
-        ? 1
-        : -1;
+  const persistTab = (tab: string) => {
+    try {
+      if (tab === "OTHER") localStorage.setItem(PROFILE_TAB_KEY, "OTHER");
+      // Для основних ігор — прибираємо override, щоб надалі визначала тема.
+      else localStorage.removeItem(PROFILE_TAB_KEY);
+    } catch {}
+  };
 
-    const gameKey = activeTab.toLowerCase() as GameKey;
+  // Якщо activeTab не серед увімкнених основних ігор (тема "another"/"none"
+  // або юзер не вмикав цю гру) — показуємо OtherGamesForm. Без цього у Tab-
+  // індикатора немає кнопки для підсвічення (бо в списку лише увімкнені ігри
+  // + "Other"), а у формі рендериться лише "post this card" без жодного інпуту.
+  const isOnEnabledMainGame =
+    (["LOL", "TFT", "VALORANT", "CS2"] as string[]).includes(activeTab) &&
+    enabledGames.includes(activeTab);
+  const showOtherForm = isOtherTabActive || !isOnEnabledMainGame;
 
-    const getGameValue = (field: string): string => {
-      if (!profile) return "";
-      switch (field) {
-        case "game_name":
-          return getGameName(profile, gameKey);
-        case "tag_line":
-          return getTagLine(profile, gameKey);
-        case "region":
-          return getRegion(profile, gameKey);
-        case "bio":
-          return getBio(profile, gameKey);
-        case "main_role":
-        case "role":
-          return getRole(profile, gameKey);
-        case "rank":
-          return getRank(profile, gameKey);
-        case "friend_code":
-          // friend_code is stored at top-level profile.friend_code for CS2
-          return (profile?.friend_code as string) ?? getExtra(profile, gameKey, field) ?? "";
-        default:
-          return getExtra(profile, gameKey, field) ?? "";
-      }
-    };
+  const sectionOrder: NavSection[] = ["global", "games", "game-settings"];
 
-    // ─── Validation ────────────────────────────────────────────────────────────
-    const validate = useCallback((): boolean => {
-      if (!profile?.display_name?.trim()) {
-        onValidationError?.(t("ProfilePage.editor.validation.missingDisplayName"));
-        handleSectionChange("global");
-        return false;
-      }
+  const handleSectionChange = (section: NavSection) => {
+    setPrevSection(activeSection);
+    setActiveSection(section);
+    onSectionChange?.(section);
+  };
 
-      if (activeTab === "LOL" || activeTab === "TFT") {
-        const riotName = getGameName(profile, "lol") || getGameName(profile, "tft");
-        const riotTag  = getTagLine(profile, "lol")  || getTagLine(profile, "tft");
+  const direction =
+    sectionOrder.indexOf(activeSection) >= sectionOrder.indexOf(prevSection) ? 1 : -1;
 
-        if (!riotName || !riotTag) {
-          onValidationError?.(
-            t("ProfilePage.editor.validation.missingRiotAccount"),
-            {
-              label: t("ProfilePage.editor.validation.goToSettings"),
-              onClick: () => {
-                handleSectionChange("global");
-                onGoToGlobal?.();
-              },
-            }
-          );
-          return false;
+  const gameKey = activeTab.toLowerCase() as GameKey;
+
+  const getGameValue = (field: string): string => {
+    if (!profile) return "";
+    switch (field) {
+      case "game_name":   return getGameName(profile, gameKey);
+      case "tag_line":    return getTagLine(profile, gameKey);
+      case "region":      return getRegion(profile, gameKey);
+      case "bio":         return getBio(profile, gameKey);
+      case "main_role":
+      case "role":        return getRole(profile, gameKey);
+      case "rank":        return getRank(profile, gameKey);
+      case "friend_code": return (profile?.friend_code as string) ?? getExtra(profile, gameKey, field) ?? "";
+      default:            return getExtra(profile, gameKey, field) ?? "";
+    }
+  };
+
+  // ─── Validation ─────────────────────────────────────────────────────────────
+  const validate = useCallback((): boolean => {
+    if (!profile?.display_name?.trim()) {
+      onValidationError?.(t("ProfilePage.editor.validation.missingDisplayName"));
+      handleSectionChange("global");
+      return false;
+    }
+    if ((activeTab === "LOL" || activeTab === "TFT") && !hasRiotAccount(profile)) {
+      onValidationError?.(
+        t("ProfilePage.editor.validation.missingRiotAccount"),
+        {
+          label: t("ProfilePage.editor.validation.goToSettings"),
+          onClick: () => { handleSectionChange("global"); onGoToGlobal?.(); },
         }
-      }
-
-      return true;
-    }, [profile, activeTab, onValidationError, onGoToGlobal, t]);
-
-    const handleValidatedSubmit = useCallback(
-      async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        if (!validate()) return;
-        await handleSubmit(e);
-      },
-      [validate, handleSubmit],
-    );
-
-    const hasDisplayName = !!profile?.display_name?.trim();
-    const hasRiotAccount =
-      activeTab === "VALORANT" ||
-      activeTab === "CS2" ||
-      !!(
-        (getGameName(profile, "lol") || getGameName(profile, "tft")) &&
-        (getTagLine(profile, "lol") || getTagLine(profile, "tft"))
       );
-    const isCardReady = hasDisplayName && hasRiotAccount;
+      return false;
+    }
+    return true;
+  }, [profile, activeTab, onValidationError, onGoToGlobal, t]);
 
-    return (
-      <section className="flex-1 min-w-0">
-        <div className="flex items-center gap-3 mb-6">
-          <Settings size={22} className="text-[rgb(var(--accent-color))]" />
-          <h3 className="text-2xl font-black uppercase tracking-tighter italic">
-            {t("LandingPage.profileEditor.header.title")}
-          </h3>
+  const handleValidatedSubmit = useCallback(
+    async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (!validate()) return;
+      await handleSubmit(e);
+    },
+    [validate, handleSubmit],
+  );
+
+  const hasDisplayName = !!profile?.display_name?.trim();
+  // Riot link is the gate for the legacy “card ready” banner (LOL/TFT cases).
+  // VALORANT/CS2 don't surface that banner here, so we treat them as ready for it.
+  const isCardReady =
+    hasDisplayName &&
+    (activeTab === "VALORANT" || activeTab === "CS2" || hasRiotAccount(profile));
+
+  const isVisibilityLocked =
+    !isGameAccountReady(profile, activeTab) && !visibleGames.includes(activeTab);
+  const lockedHintKey = activeTab === "CS2"
+    ? "ProfilePage.editor.validation.missingSteamAccount"
+    : "ProfilePage.editor.validation.missingRiotAccount";
+
+  // "Other" tab is always visible in game-settings (even if 0 entries — let user add)
+  const showOtherTab = true;
+
+  return (
+    <section className="flex-1 min-w-0">
+      <div className="flex items-center gap-3 mb-6">
+        <Settings size={22} className="text-[rgb(var(--accent-color))]" />
+        <h3 className="text-2xl font-black uppercase tracking-tighter italic">
+          {t("LandingPage.profileEditor.header.title")}
+        </h3>
+      </div>
+
+      {!isCardReady && (
+        <div className="flex items-start gap-3 mb-6 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-400/80">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <p className="text-[10px] font-bold leading-relaxed">
+            {!hasDisplayName
+              ? t("ProfilePage.editor.validation.missingDisplayName")
+              : t("ProfilePage.editor.validation.missingRiotAccount")}
+          </p>
         </div>
+      )}
 
-        {!isCardReady && (
-          <div className="flex items-start gap-3 mb-6 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-400/80">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-            <p className="text-[10px] font-bold leading-relaxed">
-              {!hasDisplayName
-                ? t("ProfilePage.editor.validation.missingDisplayName")
-                : t("ProfilePage.editor.validation.missingRiotAccount")}
-            </p>
-          </div>
-        )}
+      <form onSubmit={handleValidatedSubmit}>
+        <TabSwitcher
+          activeSection={activeSection}
+          onSwitch={handleSectionChange}
+          enabledGames={enabledGames}
+          otherGamesCount={otherGames.length}
+        />
 
-        <form onSubmit={handleValidatedSubmit}>
-          <TabSwitcher
-            activeSection={activeSection}
-            onSwitch={handleSectionChange}
-            enabledGames={enabledGames}
-          />
+        <div className="mt-6 overflow-hidden">
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={activeSection}
+              custom={direction}
+              initial={{ opacity: 0, x: direction * 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction * -30 }}
+              transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+            >
+              {activeSection === "global" && (
+                <GlobalSettingsSection
+                  profile={profile}
+                  selectedLangs={selectedLangs}
+                  onToggleLang={onToggleLang}
+                  onInputChange={onInputChange}
+                  popularLanguages={POPULAR_LANGUAGES}
+                />
+              )}
 
-          <div className="mt-6 overflow-hidden">
-            <AnimatePresence mode="wait" custom={direction}>
-              <motion.div
-                key={activeSection}
-                custom={direction}
-                initial={{ opacity: 0, x: direction * 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: direction * -30 }}
-                transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                {activeSection === "global" && (
-                  <GlobalSettingsSection
-                    profile={profile}
-                    selectedLangs={selectedLangs}
-                    onToggleLang={onToggleLang}
-                    onInputChange={onInputChange}
-                    popularLanguages={POPULAR_LANGUAGES}
+              {activeSection === "games" && (
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-8">
+                  <GamesSection
+                    enabledGames={enabledGames}
+                    toggleGame={toggleGame}
+                    onGoToGameSettings={(game) => {
+                      onSetActiveTab(game);
+                      setIsOtherTabActive(false);
+                      persistTab(game);
+                      handleSectionChange("game-settings");
+                    }}
                   />
-                )}
+                </div>
+              )}
 
-                {activeSection === "games" && (
-                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-8">
-                    <GamesSection
-                      enabledGames={enabledGames}
-                      toggleGame={toggleGame}
-                      onGoToGameSettings={(game) => {
-                        onSetActiveTab(game);
-                        handleSectionChange("game-settings");
-                      }}
-                    />
-                  </div>
-                )}
+              {activeSection === "game-settings" && (
+                <div className="space-y-4">
+                  {enabledGames.length === 0 && otherGames.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 border border-dashed border-white/10 rounded-2xl gap-3">
+                      <Gamepad2 size={28} className="text-zinc-700" />
+                      <p className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest text-center px-4">
+                        {t("ProfilePage.editor.gameSettings.emptyState")}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <GameTabSwitcher
+                        enabledGames={enabledGames}
+                        activeGame={activeTab}
+                        onSelect={(game) => { onSetActiveTab(game); setIsOtherTabActive(false); persistTab(game); }}
+                        showOther={showOtherTab}
+                        otherGamesCount={otherGames.length}
+                        isOtherActive={showOtherForm}
+                        onSelectOther={() => {
+                          setIsOtherTabActive(true);
+                          persistTab("OTHER");
+                          // Синхронізуємо site-theme на "another", щоб Navbar,
+                          // акцент-кольори і всі залежні від теми компоненти
+                          // переключилися разом із вкладкою у формі.
+                          onSetActiveTab("ANOTHER" as any);
+                        }}
+                      />
 
-                {activeSection === "game-settings" && (
-                  <div className="space-y-4">
-                    {enabledGames.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-16 border border-dashed border-white/10 rounded-2xl gap-3">
-                        <Gamepad2 size={28} className="text-zinc-700" />
-                        <p className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest text-center px-4">
-                          {t("ProfilePage.editor.gameSettings.emptyState")}
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <GameTabSwitcher
-                          enabledGames={enabledGames}
-                          activeGame={activeTab}
-                          onSelect={onSetActiveTab}
-                        />
-
-                        <div
-                          className={`flex items-center justify-between px-5 py-4 rounded-2xl border mb-2 ${
-                            GAMES.find((g) => g.id === activeTab)?.accent.activeBg
-                          } ${GAMES.find((g) => g.id === activeTab)?.accent.activeBorder}`}
-                        >
-                          <div>
-                            <p className="text-xs font-bold text-white mb-0.5">
-                              {t("ProfilePage.editor.postCard")}
-                            </p>
-                            <p className="text-[10px] text-zinc-500">
-                              {t("ProfilePage.editor.postCardDesc", {
-                                game: activeTab,
-                              })}
-                            </p>
-                          </div>
-                          <FormSwitch
-                            label=""
-                            checked={visibleGames.includes(activeTab)}
-                            onChange={() => toggleVisibility(activeTab)}
-                            name="isGameVisible"
-                          />
-                        </div>
-
-                        <AnimatePresence mode="wait">
+                      <AnimatePresence mode="wait">
+                        {showOtherForm ? (
+                          <motion.div
+                            key="other"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.15 }}
+                          >
+                            <OtherGamesForm
+                              entries={otherGames}
+                              onChange={onOtherGamesChange}
+                            />
+                          </motion.div>
+                        ) : (
                           <motion.div
                             key={activeTab}
                             initial={{ opacity: 0, y: 10 }}
@@ -643,6 +666,37 @@ const ProfileForm = memo(
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.15 }}
                           >
+                            {/* Visibility toggle — only for main games */}
+                            <div
+                              className="flex items-center justify-between px-5 py-4 rounded-2xl border mb-2 bg-[rgb(var(--accent-color)/0.15)] border-[rgb(var(--accent-color)/0.4)]"
+                            >
+                              <div className="min-w-0 pr-4">
+                                <p className="text-xs font-bold text-white mb-0.5">
+                                  {t("ProfilePage.editor.postCard")}
+                                </p>
+                                <p className="text-[10px] text-zinc-500">
+                                  {t("ProfilePage.editor.postCardDesc", { game: activeTab })}
+                                </p>
+                                {isVisibilityLocked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { handleSectionChange("global"); onGoToGlobal?.(); }}
+                                    className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--accent-color)/0.8)] hover:text-[rgb(var(--accent-color))] transition-colors"
+                                  >
+                                    <AlertTriangle size={11} />
+                                    {t(lockedHintKey)}
+                                  </button>
+                                )}
+                              </div>
+                              <FormSwitch
+                                label=""
+                                checked={visibleGames.includes(activeTab)}
+                                onChange={() => toggleVisibility(activeTab)}
+                                name="isGameVisible"
+                                disabled={isVisibilityLocked}
+                              />
+                            </div>
+
                             {activeTab === "LOL" && (
                               <LolForm
                                 getGameValue={getGameValue}
@@ -678,38 +732,38 @@ const ProfileForm = memo(
                               />
                             )}
                           </motion.div>
-                        </AnimatePresence>
-                      </>
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          <div className="pt-6 pb-2 flex justify-end">
-            <button
-              disabled={loading}
-              type="submit"
-              className="btn-modern w-full md:w-auto px-10 py-4 bg-[rgb(var(--accent-color))] hover:brightness-110 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" size={18} />
-                  {t("ProfilePage.editor.saving")}
-                </>
-              ) : (
-                <>
-                  <Save size={18} />
-                  {t("ProfilePage.editor.save")}
-                </>
+                        )}
+                      </AnimatePresence>
+                    </>
+                  )}
+                </div>
               )}
-            </button>
-          </div>
-        </form>
-      </section>
-    );
-  },
-);
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <div className="pt-6 pb-2 flex justify-end">
+          <button
+            disabled={loading}
+            type="submit"
+            className="btn-modern w-full md:w-auto px-10 py-4 bg-[rgb(var(--accent-color))] hover:brightness-110 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin" size={18} />
+                {t("ProfilePage.editor.saving")}
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                {t("ProfilePage.editor.save")}
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+});
 
 export default ProfileForm;

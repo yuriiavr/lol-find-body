@@ -1,10 +1,11 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useCallback } from "react";
 import { MicOff, Languages, Sword, Copy, Check, ExternalLink } from "lucide-react";
 import RankPanel from "./RankPanel";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getRank, getExtra, type GameKey } from "@/src/lib/profile";
+import { useCopyToClipboard } from "@/src/hooks/useCopyToClipboard";
 
 interface ProfilePreviewProps {
   profile: any;
@@ -30,7 +31,7 @@ const ProfilePreview = memo(
     selectedQueues,
     getGameValue,
   }: ProfilePreviewProps) => {
-    const [copied, setCopied] = useState(false);
+    const { copied, copy } = useCopyToClipboard();
     const t = useTranslations();
     const params = useParams();
     const locale = params?.locale as string ?? "en";
@@ -38,12 +39,8 @@ const ProfilePreview = memo(
     const handleCopy = useCallback(() => {
       const name = getGameValue("game_name");
       const tag = getGameValue("tag_line");
-      if (name && tag) {
-        navigator.clipboard.writeText(`${name}#${tag}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    }, [getGameValue]);
+      if (name && tag) copy(`${name}#${tag}`);
+    }, [getGameValue, copy]);
 
     return (
       <section className="w-full lg:w-96 flex flex-col items-center lg:items-start">

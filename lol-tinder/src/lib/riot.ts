@@ -1,6 +1,10 @@
 import { unstable_cache } from 'next/cache';
 
+// Riot шифрує PUUIDs per-key, тому LoL і TFT API ключі повертають різні
+// PUUIDs для одного й того ж акаунту і одним ключем не можна викликати
+// ендпоінти іншої гри. Тримаємо ключі окремо.
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
+const TFT_API_KEY = process.env.TFT_API_KEY || RIOT_API_KEY;
 
 interface LeagueEntry {
   queueType: string;
@@ -30,29 +34,18 @@ const REGION_MAP: Record<string, { platform: string; regional: string; shard: st
   KR:   { platform: "kr",   regional: "asia",     shard: "kr" },
 };
 
-const VALORANT_RANKS = [
-  "Unranked",
-  "Iron 1", "Iron 2", "Iron 3",
-  "Bronze 1", "Bronze 2", "Bronze 3",
-  "Silver 1", "Silver 2", "Silver 3",
-  "Gold 1", "Gold 2", "Gold 3",
-  "Platinum 1", "Platinum 2", "Platinum 3",
-  "Diamond 1", "Diamond 2", "Diamond 3",
-  "Ascendant 1", "Ascendant 2", "Ascendant 3",
-  "Immortal 1", "Immortal 2", "Immortal 3",
-  "Radiant",
-];
-
 export async function getAccountByRiotId(
   gameName: string,
   tagLine: string,
   regionKey: string,
+  game: "lol" | "tft" = "lol",
 ): Promise<RiotAccount | null> {
   const route = REGION_MAP[regionKey]?.regional || "europe";
-  const url = `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}?api_key=${RIOT_API_KEY}`;
+  const key = game === "tft" ? TFT_API_KEY : RIOT_API_KEY;
+  const url = `https://${route}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}?api_key=${key}`;
 
   const res = await fetch(url, { next: { revalidate: 86400 } });
-  if (!res.ok) { console.error(`[Riot API] Account not found: ${res.status}`); return null; }
+  if (!res.ok) { console.error(`[Riot API] Account not found (game=${game}): ${res.status}`); return null; }
   return res.json();
 }
 
@@ -111,23 +104,48 @@ export const getRanksByPuuid = unstable_cache(
 export const getRiotTFTStats = unstable_cache(
   async (puuid: string, regionKey: string) => {
     const platform = REGION_MAP[regionKey]?.platform || "eun1";
-    const url = `https://${platform}.api.riotgames.com/tft/league/v1/by-puuid/${encodeURIComponent(puuid)}?api_key=${RIOT_API_KEY}`;
+    const url = `https://${platform}.api.riotgames.com/tft/league/v1/by-puuid/${encodeURIComponent(puuid)}?api_key=${TFT_API_KEY}`;
 
     try {
       const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) return { rank: 'UNRANKED', wins: 0, losses: 0 };
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        console.error(`[Riot API] TFT error ${res.status} for puuid=${puuid.slice(0, 8)}… region=${regionKey} platform=${platform}: ${body}`);
+        return { rank: 'UNRANKED', wins: 0, losses: 0 };
+      }
 
       const data = await res.json();
-      
-      const entry = data.find((e: any) => e.queueType === 'RANKED_TFT');
-      if (!entry) return { rank: 'UNRANKED', wins: 0, losses: 0 };
+      if (!Array.isArray(data)) {
+        console.error(`[Riot API] TFT unexpected response shape for puuid=${puuid.slice(0, 8)}…:`, data);
+        return { rank: 'UNRANKED', wins: 0, losses: 0 };
+      }
+
+      // Prefer the standard ranked queue; fall back to any TFT queue the
+      // player is ranked in (Double Up, Hyper Roll, etc.) so we still show
+      // something useful instead of UNRANKED.
+      const priority = ['RANKED_TFT', 'RANKED_TFT_DOUBLE_UP', 'RANKED_TFT_TURBO'];
+      let entry = priority
+        .map((q) => data.find((e: any) => e.queueType === q))
+        .find(Boolean);
+      if (!entry) entry = data[0];
+
+      if (!entry) {
+        console.log(`[Riot API] TFT no entries for puuid=${puuid.slice(0, 8)}… region=${regionKey}`);
+        return { rank: 'UNRANKED', wins: 0, losses: 0 };
+      }
+
+      const apexTiers = ['MASTER', 'GRANDMASTER', 'CHALLENGER'];
+      const rank = apexTiers.includes(String(entry.tier).toUpperCase())
+        ? entry.tier
+        : `${entry.tier} ${entry.rank}`;
 
       return {
-        rank:   `${entry.tier} ${entry.rank}`,
-        wins:   entry.wins,
-        losses: entry.losses,
+        rank,
+        wins:   entry.wins   ?? 0,
+        losses: entry.losses ?? 0,
       };
-    } catch {
+    } catch (err) {
+      console.error(`[Riot API] TFT exception for puuid=${puuid.slice(0, 8)}… region=${regionKey}:`, err);
       return { rank: 'UNRANKED', wins: 0, losses: 0 };
     }
   },

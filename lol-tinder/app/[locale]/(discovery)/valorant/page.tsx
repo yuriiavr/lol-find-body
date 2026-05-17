@@ -7,31 +7,35 @@ import { DiscoverySidebar } from "../components/DiscoverySidebar";
 import { FilterSelect, LanguageFilter, OnlineToggle } from "../components/DiscoveryFilters";
 import { DiscoveryPlayerCard } from "../components/DiscoveryPlayerCard";
 import { DiscoveryGrid } from "../components/DiscoveryGrid";
+import { DiscoveryPagination } from "../components/DiscoveryPagination";
+import { useDiscoveryPagination } from "../components/useDiscoveryPagination";
+import { useSupabaseAuth } from "@/src/hooks/useSupabaseAuth";
+import { VALORANT_DISCOVERY_RANKS } from "@/src/constants/ranks";
+import { VALORANT_DISCOVERY_REGIONS } from "@/src/constants/regions";
 import { useTranslations } from "next-intl";
 
 const supabase = createClient();
 
 export default function ValorantDiscoveryPage() {
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading } = useSupabaseAuth();
   const [players, setPlayers] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRole, setFilterRole] = useState<string>("ALL");
   const [filterRank, setFilterRank] = useState<string>("ALL");
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
   const [onlyOnline, setOnlyOnline] = useState<boolean>(false);
+  const {
+    page, setPage, pageSize, setPageSize,
+    totalCount, setTotalCount, totalPages,
+    rangeFrom, rangeTo,
+  } = useDiscoveryPagination();
   const t = useTranslations("Discovery");
   const tFilters = useTranslations("LandingPage.discovery.filters");
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-      setIsLoading(false);
-    };
-    getUser();
-  }, []);
+    setPage(1);
+  }, [filterRegion, filterRole, filterRank, filterLangs, onlyOnline]);
 
   useEffect(() => {
     const fetchPlayers = async () => {
@@ -40,7 +44,7 @@ export default function ValorantDiscoveryPage() {
 
       let query = supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, language, last_seen, enabled_games, game_profiles")
+        .select("id, display_name, avatar_url, language, last_seen, enabled_games, game_profiles", { count: "exact" })
         .eq("is_paused", false)
         .ilike("enabled_games", "%VALORANT%")
         .filter("game_profiles->valorant->>region", "eq", filterRegion);
@@ -78,13 +82,16 @@ export default function ValorantDiscoveryPage() {
         query = query.gt("last_seen", tenMinutesAgo);
       }
 
-      const { data, error } = await query.limit(20);
-      if (!error && data) setPlayers(data);
+      const { data, error, count } = await query.range(rangeFrom, rangeTo);
+      if (!error && data) {
+        setPlayers(data);
+        setTotalCount(count ?? 0);
+      }
       setIsFetching(false);
     };
 
     fetchPlayers();
-  }, [user, isLoading, filterRegion, filterRole, filterRank, filterLangs, onlyOnline]);
+  }, [user, isLoading, filterRegion, filterRole, filterRank, filterLangs, onlyOnline, page, pageSize]);
 
   return (
     <div className="min-h-screen bg-[rgb(var(--bg-primary))] text-slate-50">
@@ -99,12 +106,7 @@ export default function ValorantDiscoveryPage() {
               value={filterRegion}
               onChange={setFilterRegion}
               accentColor="red"
-              options={[
-                { label: "Europe", value: "EUW" },
-                { label: "North America", value: "NA" },
-                { label: "Korea", value: "KR" },
-                { label: "LATAM", value: "LATAM" },
-              ]}
+              options={VALORANT_DISCOVERY_REGIONS}
             />
             <FilterSelect
               label="Agent Role"
@@ -124,10 +126,7 @@ export default function ValorantDiscoveryPage() {
               value={filterRank}
               onChange={setFilterRank}
               accentColor="red"
-              options={[
-                "ALL", "IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM",
-                "DIAMOND", "ASCENDANT", "IMMORTAL", "RADIANT",
-              ].map((r) => ({
+              options={VALORANT_DISCOVERY_RANKS.map((r) => ({
                 label: r === "ALL" ? "All Ranks" : r.charAt(0) + r.slice(1).toLowerCase(),
                 value: r,
               }))}
@@ -154,6 +153,14 @@ export default function ValorantDiscoveryPage() {
                 <DiscoveryPlayerCard key={player.id} player={player} game="VALORANT" accentColor="red" />
               ))}
             </DiscoveryGrid>
+            <DiscoveryPagination
+              page={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         </div>
       </main>

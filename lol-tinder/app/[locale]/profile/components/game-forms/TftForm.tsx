@@ -1,10 +1,7 @@
-import { Crown, LayoutGrid, BookOpen, Info } from "lucide-react";
+import { LayoutGrid, BookOpen, Info } from "lucide-react";
 import { FormTextArea } from "@/src/components/ui/FormFields";
 import { useTranslations } from "next-intl";
-
-function fireChange(handler: (e: any) => void, name: string, value: string) {
-  handler({ target: { name, value, type: "select" } } as any);
-}
+import { TFT_QUEUES } from "@/src/constants/queues";
 
 function Section({ icon: Icon, title, accentClass, children }: {
   icon: any; title: string; accentClass?: string; children: React.ReactNode;
@@ -29,9 +26,7 @@ interface TftFormProps {
 
 export function TftForm({ getGameValue, handleGameInputChange, selectedQueues, toggleQueue }: TftFormProps) {
   const t = useTranslations("ProfilePage.editor.riotHint");
-  const tftRanks = ["Unranked", "Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master", "Grandmaster", "Challenger"];
-  const queues = ["Ranked", "Normal", "Hyper Roll", "Double Up"];
-  const currentRank = getGameValue("rank") || "Unranked";
+  const queues = TFT_QUEUES;
 
   return (
     <div className="space-y-4">
@@ -42,22 +37,6 @@ export function TftForm({ getGameValue, handleGameInputChange, selectedQueues, t
           <span className="text-blue-400 font-black">{t("link")}</span>
         </p>
       </div>
-      <Section icon={Crown} title="Rank" accentClass="text-blue-400">
-        <div className="grid grid-cols-5 gap-2">
-          {tftRanks.map((rank) => {
-            const on = currentRank === rank;
-            return (
-              <button key={rank} type="button"
-                onClick={() => fireChange(handleGameInputChange, "rank", rank)}
-                className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer ${
-                  on ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
-                     : "bg-white/[0.02] border-white/5 text-zinc-500 hover:border-white/15 hover:text-zinc-300"
-                }`}
-              >{rank}</button>
-            );
-          })}
-        </div>
-      </Section>
 
       <Section icon={LayoutGrid} title="Mode" accentClass="text-blue-400">
         <div className="grid grid-cols-2 gap-2">
