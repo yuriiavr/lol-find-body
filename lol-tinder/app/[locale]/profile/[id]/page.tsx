@@ -123,7 +123,7 @@ export default function PublicProfilePage() {
       if (activeGame === 'CS2') {
         if (cancelled) return
         setIsLoadingChamps(false)
-        if (currentUser) await refreshReviews(id, currentUser.id)
+        if (currentUser) await refreshReviews(id, currentUser.id, 'CS2')
         return
       }
 
@@ -156,7 +156,7 @@ export default function PublicProfilePage() {
       }
 
       if (cancelled) return
-      if (currentUser) await refreshReviews(id, currentUser.id)
+      if (currentUser) await refreshReviews(id, currentUser.id, activeGame ?? 'LOL')
     }
     fetchGameSpecificData()
     return () => {
@@ -164,14 +164,18 @@ export default function PublicProfilePage() {
     }
   }, [activeGame, profile, id])
 
-  const refreshReviews = async (targetId: string, authUserId: string) => {
-    const res = await getReviewsForUser(targetId, 'LOL')
+  const refreshReviews = async (
+    targetId: string,
+    authUserId: string,
+    game: 'LOL' | 'TFT' | 'VALORANT' | 'CS2' = 'LOL',
+  ) => {
+    const res = await getReviewsForUser(targetId, game)
     if (res.data) {
       setReviews(res.data)
     }
     if (res.error) setReviews([])
 
-    const myRes = await getMyReviewForUser(targetId, 'LOL')
+    const myRes = await getMyReviewForUser(targetId, game)
     if (myRes.data) {
       setReviewComment(myRes.data.comment || '')
       setMyReviewStatus(myRes.data.moderation_status as any)
@@ -223,8 +227,13 @@ export default function PublicProfilePage() {
 
   const handleSubmitReview = async () => {
     setIsSubmittingReview(true)
-    const result = await upsertReview(id, reviewComment, 5, 5, 'LOL')
+    const result = await upsertReview(id, reviewComment, 5, 5, activeGame ?? 'LOL')
     setIsSubmittingReview(false)
+
+    if (result.error) {
+      showToast(result.error, 'error')
+      return
+    }
 
     if (result.moderation === 'rejected') {
       setMyReviewStatus('rejected')

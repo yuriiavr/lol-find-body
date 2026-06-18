@@ -15,12 +15,16 @@ export const ROOM_LOL_REGIONS = [
 ];
 
 // ─── VALORANT ───────────────────────────────────────────────────────────────
-export const VALORANT_DISCOVERY_REGIONS: RegionOption[] = [
-  { value: "EUW",   label: "Europe" },
-  { value: "NA",    label: "North America" },
-  { value: "KR",    label: "Korea" },
-  { value: "LATAM", label: "LATAM" },
+// Має збігатися з варіантами у ValorantForm (EUW/EUNE/NA/KR), інакше частина
+// гравців стає недосяжною в пошуку, а зайві фільтри — завжди порожні.
+export const VALORANT_REGIONS: RegionOption[] = [
+  { value: "EUW",  label: "Europe West" },
+  { value: "EUNE", label: "Europe NE" },
+  { value: "NA",   label: "North America" },
+  { value: "KR",   label: "Korea" },
 ];
+
+export const VALORANT_DISCOVERY_REGIONS: RegionOption[] = VALORANT_REGIONS;
 
 // ─── CS2 ────────────────────────────────────────────────────────────────────
 export const CS2_REGIONS: RegionOption[] = [

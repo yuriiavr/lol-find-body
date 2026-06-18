@@ -1,18 +1,30 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getBaseUrl } from '@/src/lib/baseUrl'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const origin = getBaseUrl()
+
+  const cookieStore = await cookies()
+  const locale = cookieStore.get('NEXT_LOCALE')?.value === 'uk' ? 'uk' : 'en'
+  const profilePath = `/${locale}/profile`
 
   if (!code) {
-    return NextResponse.redirect(new URL('/profile?error=no_code', origin))
+    return NextResponse.redirect(new URL(`${profilePath}?error=no_code`, origin))
+  }
+
+  // ─── CSRF state ─────────────────────────────────────────────────────────
+  const stateFromQuery = searchParams.get('state')
+  const stateFromCookie = cookieStore.get('riot_oauth_state')?.value
+  if (!stateFromQuery || !stateFromCookie || stateFromQuery !== stateFromCookie) {
+    return NextResponse.redirect(new URL(`${profilePath}?error=state_mismatch`, origin))
   }
 
   try {
-    const tokenResponse = await fetch('<https://auth.riotgames.com/token>', {
+    const tokenResponse = await fetch('https://auth.riotgames.com/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -26,15 +38,14 @@ export async function GET(request: Request) {
     })
 
     const tokens = await tokenResponse.json()
-    if (!tokens.access_token) throw new Error('Failed to exchange code for Riot token')
+    if (!tokens.access_token) throw new Error('token_exchange_failed')
 
-    const userinfoResponse = await fetch('<https://auth.riotgames.com/userinfo>', {
+    const userinfoResponse = await fetch('https://auth.riotgames.com/userinfo', {
       headers: { 'Authorization': `Bearer ${tokens.access_token}` }
     })
     const userinfo = await userinfoResponse.json()
     const puuid = userinfo.sub
 
-    const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -48,17 +59,21 @@ export async function GET(request: Request) {
     )
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('No active session found')
+    if (!user) throw new Error('no_session')
 
     const { error } = await supabase
       .from('profiles')
       .update({ puuid: puuid })
       .eq('id', user.id)
 
-    if (error) throw error
+    if (error) throw new Error('db_error')
 
-    return NextResponse.redirect(new URL('/profile?success=riot_connected', origin))
+    const res = NextResponse.redirect(new URL(`${profilePath}?success=riot_connected`, origin))
+    res.cookies.delete('riot_oauth_state')
+    return res
   } catch (err: any) {
-    return NextResponse.redirect(new URL(`/profile?error=${encodeURIComponent(err.message)}`, origin))
+    // Не світимо внутрішні повідомлення про помилки в URL — лише стабільний код.
+    const code = typeof err?.message === 'string' && /^[a-z_]+$/.test(err.message) ? err.message : 'riot_failed'
+    return NextResponse.redirect(new URL(`${profilePath}?error=${code}`, origin))
   }
 }

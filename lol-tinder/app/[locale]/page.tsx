@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   LogIn,
@@ -203,6 +203,21 @@ export default function LandingPage() {
   const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
+  // Реальна кількість зареєстрованих профілів для блоку статистики.
+  // Поки не завантажилось / при помилці — показуємо статичне значення з i18n.
+  const [playerCount, setPlayerCount] = useState<number | null>(null);
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => {
+        if (active && typeof count === "number") setPlayerCount(count);
+      });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Helper to get correct path based on active game
   const getDiscoveryPath = (game: string) => {
     return `/${locale}/${game === 'lol' ? 'league' : game}`;
@@ -355,7 +370,10 @@ export default function LandingPage() {
           {(
             [
               { value: t('stats.alpha.value'), label: t('stats.alpha.label') },
-              { value: t('stats.profiles.value'), label: t('stats.profiles.label') },
+              {
+                value: playerCount !== null ? `${playerCount.toLocaleString(locale)}+` : t('stats.profiles.value'),
+                label: t('stats.profiles.label'),
+              },
               { value: t('stats.regions.value'), label: t('stats.regions.label') },
               { value: t('stats.toxicity.value'), label: t('stats.toxicity.label') },
             ] as StatProps[]

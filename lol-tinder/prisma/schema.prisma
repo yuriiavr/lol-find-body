@@ -23,13 +23,6 @@ enum Rank {
   CHALLENGER
 }
 
-// Статуси для системи друзів/запитів (з 3.csv)
-enum RequestStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
-
 // --- Models ---
 
 model User {
@@ -49,21 +42,30 @@ model User {
   bio           String?   @db.Text
   updatedAt     DateTime? @updatedAt @map("updated_at")
 
-  // Відносини зі свайпами
-  likesSent      Like[]    @relation("LikesSent")
-  likesReceived  Like[]    @relation("LikesReceived")
+  // Поля, які реально читає/пише застосунок (Supabase). Раніше були відсутні
+  // у схемі — додані як довідка, щоб схема не вводила в оману.
+  displayName     String?  @map("display_name")
+  avatarUrl       String?  @map("avatar_url")
+  discordId       String?  @map("discord_id")
+  discordUsername String?  @map("discord_username")
+  steamId         String?  @map("steam_id")
+  steamUsername   String?  @map("steam_username")
+  friendCode      String?  @map("friend_code")
+  language        String?
+  enabledGames    String?  @map("enabled_games")
+  visibleGames    String?  @map("visible_games")
+  hasMic          Boolean? @default(true) @map("has_mic")
+  isPaused        Boolean? @default(false) @map("is_paused")
+  lastSeen        DateTime? @map("last_seen")
+  gameProfiles    Json?    @map("game_profiles")
 
-  // Нові відносини з файлу 1.csv (Відгуки)
+  // Відгуки (reviews)
   reviewsGiven    Review[] @relation("Reviewer")
   reviewsReceived Review[] @relation("ReviewTarget")
 
-  // Нові відносини з файлу 2.csv (Повідомлення)
+  // Повідомлення в матчах
   messages SentMessage[]
 
-  // Нові відносини з файлу 3.csv (Друзі/Запити)
-  friendRequestsSent     FriendRequest[] @relation("FriendRequestSender")
-  friendRequestsReceived FriendRequest[] @relation("FriendRequestTarget")
-  
   // Відносини з кімнатами
   roomParticipants       RoomParticipant[]
 
@@ -72,15 +74,19 @@ model User {
 
 // Модель з файлу 1.csv (Система відгуків/поведінки)
 model Review {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  reviewerId     String   @map("reviewer_id") @db.Uuid
-  targetId       String   @map("target_id") @db.Uuid
-  comment        String?  @db.Text
-  createdAt      DateTime @default(now()) @map("created_at")
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reviewerId       String   @map("reviewer_id") @db.Uuid
+  targetId         String   @map("target_id") @db.Uuid
+  comment          String?  @db.Text
+  gameType         String   @default("LOL") @map("game_type")
+  moderationStatus String   @default("pending") @map("moderation_status")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime? @map("updated_at")
 
   reviewer User @relation("Reviewer", fields: [reviewerId], references: [id])
   target   User @relation("ReviewTarget", fields: [targetId], references: [id])
 
+  @@unique([reviewerId, targetId, gameType])
   @@map("reviews")
 }
 
@@ -90,40 +96,12 @@ model SentMessage {
   matchId   String   @map("match_id") @db.Uuid
   senderId  String   @map("sender_id") @db.Uuid
   content   String   @db.Text
+  isRead    Boolean  @default(false) @map("is_read")
   createdAt DateTime @default(now()) @map("created_at")
 
   sender User @relation(fields: [senderId], references: [id])
 
   @@map("messages")
-}
-
-// Модель з файлу 3.csv (Запити на дружбу/гру)
-model FriendRequest {
-  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String        @map("user_id") @db.Uuid
-  targetId  String        @map("target_id") @db.Uuid
-  status    RequestStatus @default(PENDING)
-  createdAt DateTime      @default(now()) @map("created_at")
-
-  sender User @relation("FriendRequestSender", fields: [userId], references: [id])
-  target User @relation("FriendRequestTarget", fields: [targetId], references: [id])
-
-  @@map("friend_requests")
-}
-
-// Оригінальна модель Like
-model Like {
-  id        String   @id @default(cuid())
-  fromId    String   @map("from_id")
-  toId      String   @map("to_id")
-  isMatch   Boolean  @default(false) @map("is_match")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  from User @relation("LikesSent", fields: [fromId], references: [id])
-  to   User @relation("LikesReceived", fields: [toId], references: [id])
-
-  @@unique([fromId, toId])
-  @@map("likes")
 }
 
 model Room {
@@ -133,6 +111,9 @@ model Room {
   mode         String
   maxPlayers   Int      @map("max_players")
   description  String?  @db.Text
+  minRank      String?  @map("min_rank")
+  maxRank      String?  @map("max_rank")
+  region       String?
   createdAt    DateTime @default(now()) @map("created_at")
 
   participants RoomParticipant[]
@@ -151,4 +132,47 @@ model RoomParticipant {
 
   @@unique([roomId, userId])
   @@map("room_participants")
+}
+
+// ─── Таблиці, які раніше були відсутні у схемі, але використовуються кодом ───
+// (Довідкові моделі без Prisma-relations — застосунок працює з ними напряму
+//  через Supabase. Статус матчу: PENDING | ACCEPTED | DECLINED.)
+
+model Match {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  targetId  String   @map("target_id") @db.Uuid
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, targetId])
+  @@map("matches")
+}
+
+model CustomGame {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gameName    String @map("game_name")
+  playerCount Int    @default(0) @map("player_count")
+
+  @@map("custom_games")
+}
+
+model RoomBan {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roomId    String   @map("room_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([roomId, userId])
+  @@map("room_bans")
+}
+
+model RoomMessage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roomId    String   @map("room_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("room_messages")
 }

@@ -136,6 +136,18 @@ export default function LiveRoomPage() {
         }
       }
 
+      // Перевірка місткості: не даємо перевищити max_players.
+      // (Остаточно атомарно це робить RPC join_room — див. supabase/migrations.)
+      const { data: currentParts } = await supabase
+        .from('room_participants')
+        .select('user_id')
+        .eq('room_id', roomId);
+      const alreadyIn = currentParts?.some((p: any) => p.user_id === user.id);
+      if (!alreadyIn && (currentParts?.length ?? 0) >= roomData.max_players) {
+        showToast(t('roomFull'), 'error');
+        return router.push(`${getBackPath(roomData.game_type)}?error=room_full`);
+      }
+
       await supabase
         .from('room_participants')
         .upsert({ room_id: roomId, user_id: user.id }, { onConflict: 'room_id,user_id' });
@@ -341,11 +353,17 @@ export default function LiveRoomPage() {
                   {p ? (
                     <div className="relative z-10 flex items-center gap-4 w-full">
                       <div className="relative">
-                        <img
-                          src={p.profiles?.avatar_url || ''}
-                          className="w-16 h-16 rounded-xl object-cover border-2 border-white/5 group-hover:border-[rgb(var(--accent-color)/0.3)] transition-all duration-300"
-                          alt=""
-                        />
+                        {p.profiles?.avatar_url ? (
+                          <img
+                            src={p.profiles.avatar_url}
+                            className="w-16 h-16 rounded-xl object-cover border-2 border-white/5 group-hover:border-[rgb(var(--accent-color)/0.3)] transition-all duration-300"
+                            alt=""
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-xl bg-zinc-800 border-2 border-white/5 flex items-center justify-center">
+                            <Users size={24} className="text-zinc-600" />
+                          </div>
+                        )}
                         {p.user_id === room.owner_id && (
                           <div className="absolute -top-2 -right-2 w-7 h-7 bg-amber-500 rounded-full flex items-center justify-center text-zinc-900 shadow-xl border-2 border-zinc-900 ring-4 ring-amber-500/20">
                             <Crown size={14} fill="currentColor" />

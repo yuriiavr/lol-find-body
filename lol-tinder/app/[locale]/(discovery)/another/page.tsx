@@ -23,6 +23,7 @@ export default function AnotherDiscoveryPage() {
   const [game, setGame] = useState<CustomGame | null>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterSkill, setFilterSkill] = useState<string>("ALL");
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
   const [onlyOnline, setOnlyOnline] = useState<boolean>(false);
@@ -40,6 +41,7 @@ export default function AnotherDiscoveryPage() {
   }, [game?.game_id, filterSkill, filterLangs, onlyOnline]);
 
   useEffect(() => {
+    let active = true;
     const fetchPlayers = async () => {
       if (isLoading) return;
       if (!game) {
@@ -83,22 +85,40 @@ export default function AnotherDiscoveryPage() {
       }
 
       const { data, error, count } = await query.range(rangeFrom, rangeTo);
+      if (!active) return; // ігноруємо застарілу відповідь
 
-      if (!error && data) {
-        // Visibility + skill filtering happen client-side because they live
-        // inside a JSONB array entry; Postgres `.contains` can only match an
-        // exact subset. Pagination count is therefore approximate.
-        const filtered = (data as any[]).filter((p) => {
-          const others: OtherGameEntry[] = p.game_profiles?.other ?? [];
-          const entry = others.find((e) => e.game_id === game.game_id);
-          if (!entry) return false;
-          if (entry.visible === false) return false;
-          if (filterSkill !== "ALL" && entry.skill_level !== filterSkill) return false;
-          return true;
-        });
-        setPlayers(filtered);
-        setTotalCount(count ?? 0);
+      if (error) {
+        setFetchError(error.message);
+        setPlayers([]);
+        setTotalCount(0);
+        setIsFetching(false);
+        return;
       }
+
+      // Visibility + skill фільтри застосовуємо на клієнті, бо вони живуть
+      // всередині елемента JSONB-масиву (Postgres `.contains` так не вміє).
+      const rows = (data as any[]) ?? [];
+      const filtered = rows.filter((p) => {
+        const others: OtherGameEntry[] = p.game_profiles?.other ?? [];
+        const entry = others.find((e) => e.game_id === game.game_id);
+        if (!entry) return false;
+        if (entry.visible === false) return false;
+        if (filterSkill !== "ALL" && entry.skill_level !== filterSkill) return false;
+        return true;
+      });
+      setFetchError(null);
+      setPlayers(filtered);
+
+      // Серверний count не враховує клієнтські фільтри, тож не можна довіряти
+      // йому напряму. Гарантуємо, що пагінатор НЕ обіцяє сторінок більше, ніж
+      // сервер реально може віддати: якщо серверна сторінка повна — може бути
+      // ще; якщо ні — це остання сторінка.
+      const serverPageWasFull = rows.length === pageSize;
+      const safeTotal = serverPageWasFull
+        ? Math.max(count ?? 0, rangeFrom + filtered.length + 1)
+        : rangeFrom + filtered.length;
+      setTotalCount(safeTotal);
+
       setIsFetching(false);
     };
 
@@ -107,6 +127,8 @@ export default function AnotherDiscoveryPage() {
     if (user) {
       supabase.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", user.id).then();
     }
+
+    return () => { active = false; };
   }, [user, isLoading, game?.game_id, filterSkill, filterLangs, onlyOnline, page, pageSize]);
 
   return (
@@ -158,6 +180,7 @@ export default function AnotherDiscoveryPage() {
                 <DiscoveryGrid
                   isFetching={isFetching}
                   players={players}
+                  error={fetchError}
                   emptyMessage={`No players for ${game.game_name} yet`}
                 >
                   {players.map((player) => (

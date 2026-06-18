@@ -1,34 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createBrowserClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 import { getRanksByPuuid, getRiotTFTStats } from '@/src/lib/riot';
+import { rateLimit } from '@/src/lib/rateLimit';
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 година
 
-// Anon client — для читання (підпадає під RLS)
-function createClient() {
-  return createBrowserClient(
+// Cookie-bound client — автентифікує користувача за його сесією (підпадає під RLS).
+async function createAuthClient() {
+  const cookieStore = await cookies();
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) { return cookieStore.get(name)?.value; },
+        set(name: string, value: string, options: CookieOptions) { cookieStore.set(name, value, options); },
+        remove(name: string, options: CookieOptions) { cookieStore.delete(name); },
+      },
+    }
   );
 }
 
-// Service role client — для запису (обходить RLS, тільки на сервері!)
-// Ключ: Supabase → Project Settings → API → service_role
+// Service-role client — для запису (обходить RLS, ТІЛЬКИ на сервері!).
+// Справжній серверний клієнт без персистенції сесії.
 function createServiceClient() {
-  return createBrowserClient(
+  return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
   );
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, game } = await req.json();
-    if (!userId || !game) {
-      return NextResponse.json({ error: 'Missing userId or game' }, { status: 400 });
+    const { game } = await req.json();
+    if (!game || typeof game !== 'string') {
+      return NextResponse.json({ error: 'Missing game' }, { status: 400 });
     }
 
-    const supabase = createClient();
+    // ─── Автентифікація: userId беремо З СЕСІЇ, а не з тіла запиту ──────────
+    const supabase = await createAuthClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = user.id;
+
+    // ─── Rate limit: не дозволяємо обходити кеш і довбати Riot API ─────────
+    if (!rateLimit(`rank-refresh:${userId}`, 10, 60_000)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const supabaseAdmin = createServiceClient();
 
     // ─── Беремо профіль з БД ──────────────────────────────────────────────

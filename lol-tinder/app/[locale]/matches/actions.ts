@@ -84,12 +84,20 @@ export async function getMatches() {
 export async function updateMatchStatus(matchId: string, status: 'ACCEPTED' | 'DECLINED') {
   const supabase = await createCookieClient()
 
-  const { error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  // Тільки отримувач заявки (target_id) може її прийняти/відхилити.
+  // .select() підтверджує, що рядок реально оновлено (інакше no-op повертає success).
+  const { data, error } = await supabase
     .from('matches')
     .update({ status })
     .eq('id', matchId)
+    .eq('target_id', user.id)
+    .select('id')
 
   if (error) return { error: error.message }
+  if (!data || data.length === 0) return { error: 'Match not found or not permitted' }
   return { success: true }
 }
 
@@ -99,12 +107,17 @@ export async function upsertReview(
   comment: string,
   behaviorRating?: number, // залишаємо для сумісності, але не використовуємо
   skillRating?: number,
-  gameType: 'LOL' | 'TFT' | 'VALORANT' = 'LOL'
+  gameType: 'LOL' | 'TFT' | 'VALORANT' | 'CS2' = 'LOL'
 ) {
   const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
+
+  const trimmed = (comment ?? '').trim()
+  if (!trimmed) return { error: 'Comment cannot be empty' }
+  if (trimmed.length > 1000) return { error: 'Comment too long' }
+  if (user.id === targetId) return { error: 'You cannot review yourself' }
 
   const { data: match } = await supabase
     .from('matches')
@@ -116,7 +129,7 @@ export async function upsertReview(
   if (!match) return { error: 'You can only review players you are matched with' }
 
   // ── Модерація через Gemini ──
-  const modStatus = await moderateComment(comment)
+  const modStatus = await moderateComment(trimmed)
 
   if (modStatus === 'rejected') {
     return {
@@ -131,7 +144,7 @@ export async function upsertReview(
     .upsert({
       reviewer_id: user.id,
       target_id: targetId,
-      comment,
+      comment: trimmed,
       game_type: gameType,
       moderation_status: modStatus, // 'approved' або 'pending'
       updated_at: new Date().toISOString()
@@ -153,12 +166,14 @@ export async function getReviewsForUser(targetId: string, gameType?: string) {
     { cookies: { get: () => '' } as any }
   )
 
-  const query = supabase
+  let query = supabase
     .from('reviews')
     .select('*, reviewer:profiles!reviewer_id(display_name, avatar_url)')
     .eq('target_id', targetId)
     .eq('moderation_status', 'approved') // ← тільки схвалені коментарі видимі іншим
     .order('updated_at', { ascending: false })
+
+  if (gameType) query = query.eq('game_type', gameType)
 
   const { data, error } = await query
 
@@ -183,18 +198,42 @@ export async function getMyReviewForUser(targetId: string, gameType: string = 'L
   return { data, error }
 }
 
+// Перевіряє, що поточний користувач — учасник матчу. Повертає id матчу або null.
+async function findMyMatch(
+  supabase: Awaited<ReturnType<typeof createCookieClient>>,
+  matchId: string,
+  userId: string,
+) {
+  const { data } = await supabase
+    .from('matches')
+    .select('id, status')
+    .eq('id', matchId)
+    .or(`user_id.eq.${userId},target_id.eq.${userId}`)
+    .maybeSingle()
+  return data
+}
+
 export async function sendMessage(matchId: string, content: string) {
   const supabase = await createCookieClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
+  const trimmed = content.trim()
+  if (!trimmed) return { error: 'Empty message' }
+  if (trimmed.length > 2000) return { error: 'Message too long' }
+
+  // Користувач має бути учасником матчу, а матч — прийнятим.
+  const match = await findMyMatch(supabase, matchId, user.id)
+  if (!match) return { error: 'Not a participant of this match' }
+  if (match.status !== 'ACCEPTED') return { error: 'Match is not accepted' }
+
   const { error } = await supabase
     .from('messages')
     .insert({
       match_id: matchId,
       sender_id: user.id,
-      content: content.trim()
+      content: trimmed
     })
 
   if (error) return { error: error.message }
@@ -203,6 +242,13 @@ export async function sendMessage(matchId: string, content: string) {
 
 export async function getMessages(matchId: string) {
   const supabase = await createCookieClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: { message: 'Unauthorized' } as any }
+
+  // Тільки учасник матчу може читати його повідомлення.
+  const match = await findMyMatch(supabase, matchId, user.id)
+  if (!match) return { data: null, error: { message: 'Forbidden' } as any }
 
   const { data, error } = await supabase
     .from('messages')
@@ -218,6 +264,10 @@ export async function markMessagesAsRead(matchId: string) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
+
+  // Позначати прочитаним можна лише у власному матчі.
+  const match = await findMyMatch(supabase, matchId, user.id)
+  if (!match) return { error: 'Forbidden' }
 
   const { error } = await supabase
     .from('messages')

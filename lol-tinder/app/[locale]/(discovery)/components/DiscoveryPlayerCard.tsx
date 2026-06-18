@@ -15,26 +15,7 @@ import {
   getQueues,
   type GameKey,
 } from "@/src/lib/profile";
-
-const RANK_PRIORITY = [
-  "CHALLENGER",
-  "GRANDMASTER",
-  "MASTER",
-  "DIAMOND",
-  "EMERALD",
-  "PLATINUM",
-  "GOLD",
-  "SILVER",
-  "BRONZE",
-  "IRON",
-  "UNRANKED",
-];
-const getRankWeight = (r: string | null) => {
-  if (!r) return 100;
-  const tier = r.split(" ")[0].toUpperCase();
-  const idx = RANK_PRIORITY.indexOf(tier);
-  return idx === -1 ? 100 : idx;
-};
+import { getRankWeight, computeWinrate } from "@/src/lib/rank";
 
 interface DiscoveryPlayerCardProps {
   player: any;
@@ -87,11 +68,17 @@ export function DiscoveryPlayerCard({
   } else if (game === "VALORANT") {
     displayedRank = getRank(player, "valorant") || "Unranked";
     queueLabel = "Competitive";
+  } else if (game === "CS2") {
+    displayedRank = getRank(player, "cs2") || "Unranked";
+    queueLabel = "Premier";
   }
 
-  // Winrate (LOL only, shown if >= 55%)
+  // Winrate (LOL only, shown if >= 55%). Рахуємо з solo_wins/solo_losses,
+  // які реально зберігає rankCache (поля `winrate` не існує).
   const winrate =
-    game === "LOL" ? parseFloat(getExtra(player, "lol", "winrate") || "0") : 0;
+    game === "LOL"
+      ? computeWinrate(getExtra(player, "lol", "solo_wins"), getExtra(player, "lol", "solo_losses"))
+      : 0;
   const showWinrate = game === "LOL" && winrate >= 55;
 
   const profileUrl =

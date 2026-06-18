@@ -21,6 +21,7 @@ export default function LeagueDiscoveryPage() {
   const { user, isLoading } = useSupabaseAuth();
   const [players, setPlayers] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRole, setFilterRole] = useState<string>("ALL");
   const [filterRank, setFilterRank] = useState<string>("ALL");
@@ -62,15 +63,17 @@ export default function LeagueDiscoveryPage() {
   }, [filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline]);
 
   useEffect(() => {
+    let active = true;
     const fetchPlayers = async () => {
       if (isLoading) return;
       setIsFetching(true);
 
       let query = supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, language, last_seen, has_mic, enabled_games, game_profiles", { count: "exact" })
+        .select("id, display_name, avatar_url, language, last_seen, has_mic, visible_games, game_profiles", { count: "exact" })
         .eq("is_paused", false)
-        .ilike("enabled_games", "%LOL%")
+        // visible_games — це opt-in «показувати в пошуку», а не просто «гра налаштована».
+        .ilike("visible_games", "%LOL%")
         .filter("game_profiles->lol->>region", "eq", filterRegion);
 
       if (user) {
@@ -89,7 +92,8 @@ export default function LeagueDiscoveryPage() {
       }
 
       if (filterRole !== "ALL") query = query.filter("game_profiles->lol->>role", "eq", filterRole);
-      if (filterRank !== "ALL") query = query.filter("game_profiles->lol->>rank", "ilike", `%${filterRank}%`);
+      // Префікс-матч: «MASTER» не повинен ловити «GRANDMASTER», «GOLD» → «GOLD II».
+      if (filterRank !== "ALL") query = query.filter("game_profiles->lol->>rank", "ilike", `${filterRank}%`);
       if (filterLangs.length > 0) {
         const orConditions = filterLangs.map((lang) => `language.ilike.%${lang}%`).join(",");
         query = query.or(orConditions);
@@ -101,8 +105,14 @@ export default function LeagueDiscoveryPage() {
       }
 
       const { data, error, count } = await query.range(rangeFrom, rangeTo);
-      if (!error && data) {
-        setPlayers(data);
+      if (!active) return; // ігноруємо застарілу відповідь (race на швидкій зміні фільтрів)
+      if (error) {
+        setFetchError(error.message);
+        setPlayers([]);
+        setTotalCount(0);
+      } else {
+        setFetchError(null);
+        setPlayers(data ?? []);
         setTotalCount(count ?? 0);
       }
       setIsFetching(false);
@@ -113,6 +123,8 @@ export default function LeagueDiscoveryPage() {
     if (user) {
       supabase.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", user.id).then();
     }
+
+    return () => { active = false; };
   }, [user, isLoading, filterRegion, filterRole, filterRank, filterLangs, filterQueue, onlyOnline, page, pageSize]);
 
   return (
@@ -174,7 +186,7 @@ export default function LeagueDiscoveryPage() {
           </DiscoverySidebar>
 
           <div className="flex-1">
-            <DiscoveryGrid isFetching={isFetching} players={players} emptyMessage="No players found with current filters">
+            <DiscoveryGrid isFetching={isFetching} players={players} error={fetchError} emptyMessage="No players found with current filters">
               {players.map((player) => (
                 <DiscoveryPlayerCard key={player.id} player={player} game="LOL" filterQueue={filterQueue} />
               ))}

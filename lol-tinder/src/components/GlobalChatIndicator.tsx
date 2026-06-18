@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/src/utils/supabase/client'
 import { MessageCircle, X, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
@@ -25,6 +25,13 @@ export function GlobalChatIndicator() {
   const router = useRouter()
   const t = useTranslations('Chat')
   const { showToast } = useToast()
+
+  // Тримаємо актуальні pathname/showToast у ref, щоб realtime-канал не
+  // перестворювався на кожній навігації (раніше це спричиняло churn і пропуск подій).
+  const pathnameRef = useRef(pathname)
+  useEffect(() => { pathnameRef.current = pathname }, [pathname])
+  const showToastRef = useRef(showToast)
+  useEffect(() => { showToastRef.current = showToast }, [showToast])
 
   const fetchMatchesAndUnread = async (userId: string) => {
     const res = await getMatches()
@@ -74,8 +81,8 @@ export function GlobalChatIndicator() {
       channel
         .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
           fetchMatchesAndUnread(authUser.id)
-          if (payload.eventType === 'INSERT' && payload.new.sender_id !== authUser.id && !pathname.includes('/matches')) {
-            showToast("New message received!", "success");
+          if (payload.eventType === 'INSERT' && payload.new.sender_id !== authUser.id && !pathnameRef.current.includes('/matches')) {
+            showToastRef.current("New message received!", "success");
           }
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => fetchMatchesAndUnread(authUser.id))
@@ -93,7 +100,8 @@ export function GlobalChatIndicator() {
       window.removeEventListener('open-global-chat', handleOpenChat)
       supabase.removeChannel(channel)
     }
-  }, [pathname, showToast])
+    // Підписуємось один раз; pathname/showToast читаються через ref.
+  }, [])
 
   useEffect(() => {
     const totalNotifications = unreadCount + pendingMatchesCount;

@@ -9,7 +9,9 @@ export async function GET(request: Request) {
   // Отримуємо шлях для повернення. 
   // Якщо ми прийшли з /en/profile, то next буде /en/profile
   let next = searchParams.get('next') ?? '/'
-  if (!next.startsWith('/')) next = '/'
+  // Лише внутрішні шляхи. "//evil.com" та "/\evil.com" — протокол-відносні
+  // редіректи, які new URL() резолвить як зовнішній хост, тож відкидаємо їх.
+  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) next = '/'
 
   if (code) {
     const cookieStore = await cookies()

@@ -20,7 +20,7 @@ export const LOL_ROOM_MODAL_RANKS = [
 // TFT discovery currently shows only top tiers (intentional — most players
 // browse for diamond+).
 export const TFT_DISCOVERY_RANKS = [
-  "ALL", "DIAMOND", "MASTER", "PLATINUM", "GOLD",
+  "ALL", "MASTER", "DIAMOND", "PLATINUM", "GOLD",
 ];
 
 // TFT rooms reuse the LoL ladder.

@@ -51,7 +51,9 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
         setHasMore(data.length === 50);
       }
       setLoading(false)
-      markMessagesAsRead(matchId)
+      // markMessagesAsRead працює лише для match-чатів (таблиця messages).
+      // Для кімнат (room_messages) це звернення нічого не робить — пропускаємо.
+      if (!isRoomChat) markMessagesAsRead(matchId)
       // Скролимо вниз лише при першому завантаженні
       setTimeout(() => {
         if (scrollRef.current) {
@@ -84,19 +86,28 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
         }
 
         setMessages((prev) => {
-          const existingOptimisticIndex = prev.findIndex(
-            (msg) => msg.sender_id === realMsg.sender_id && msg.content === realMsg.content && msg.status === 'sending'
-          );
+          // Дедуп за реальним id — захист від подвійних realtime-подій.
+          if (prev.some((m) => m.id === realMsg.id)) return prev;
           const msgWithSender = { ...realMsg, sender: senderInfo, status: 'sent' as const };
+          const existingOptimisticIndex = prev.findIndex(
+            (msg) => msg.status === 'sending' && msg.sender_id === realMsg.sender_id && msg.content === realMsg.content
+          );
           if (existingOptimisticIndex !== -1) {
             const newMessages = [...prev];
             newMessages[existingOptimisticIndex] = msgWithSender;
             return newMessages;
-          } else {
-            return [...prev, msgWithSender];
           }
+          return [...prev, msgWithSender];
         });
-        if (realMsg.sender_id !== currentUser.id) markMessagesAsRead(matchId);
+        if (realMsg.sender_id !== currentUser.id) {
+          if (!isRoomChat) markMessagesAsRead(matchId);
+          // Прокрутка вниз і на вхідні повідомлення від співрозмовника.
+          setTimeout(() => {
+            if (scrollRef.current) {
+              scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+            }
+          }, 50);
+        }
       })
       .subscribe()
 
@@ -118,7 +129,11 @@ export function Chat({ matchId, currentUser, targetProfile, onClose, onBack }: {
       .limit(50);
 
     if (data && data.length > 0) {
-      setMessages(prev => [...(data as any).reverse(), ...prev]);
+      setMessages(prev => {
+        const existing = new Set(prev.map((m) => m.id));
+        const older = (data as any[]).reverse().filter((m) => !existing.has(m.id));
+        return [...older, ...prev];
+      });
       setHasMore(data.length === 50);
     } else {
       setHasMore(false);

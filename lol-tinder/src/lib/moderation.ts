@@ -18,7 +18,9 @@ Comment: "${comment.replace(/"/g, '\\"')}"`
 export async function moderateComment(comment: string): Promise<ModerationResult> {
   if (!process.env.GEMINI_API_KEY) {
     console.error('[moderation] ❌ GEMINI_API_KEY is not set in environment variables')
-    return 'approved'
+    // Fail-closed: без модерації не публікуємо одразу — ставимо в чергу (pending),
+    // щоб коментар не став видимим іншим до перевірки.
+    return 'pending'
   }
 
   try {

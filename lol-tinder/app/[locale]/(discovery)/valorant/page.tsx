@@ -20,6 +20,7 @@ export default function ValorantDiscoveryPage() {
   const { user, isLoading } = useSupabaseAuth();
   const [players, setPlayers] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRole, setFilterRole] = useState<string>("ALL");
   const [filterRank, setFilterRank] = useState<string>("ALL");
@@ -38,15 +39,16 @@ export default function ValorantDiscoveryPage() {
   }, [filterRegion, filterRole, filterRank, filterLangs, onlyOnline]);
 
   useEffect(() => {
+    let active = true;
     const fetchPlayers = async () => {
       if (isLoading) return;
       setIsFetching(true);
 
       let query = supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, language, last_seen, enabled_games, game_profiles", { count: "exact" })
+        .select("id, display_name, avatar_url, language, last_seen, visible_games, game_profiles", { count: "exact" })
         .eq("is_paused", false)
-        .ilike("enabled_games", "%VALORANT%")
+        .ilike("visible_games", "%VALORANT%")
         .filter("game_profiles->valorant->>region", "eq", filterRegion);
 
       if (user) {
@@ -69,7 +71,8 @@ export default function ValorantDiscoveryPage() {
       }
 
       if (filterRank !== "ALL") {
-        query = query.filter("game_profiles->valorant->>rank", "ilike", `%${filterRank}%`);
+        // Префікс-матч (case-insensitive): «GOLD» → «Gold 1/2/3».
+        query = query.filter("game_profiles->valorant->>rank", "ilike", `${filterRank}%`);
       }
 
       if (filterLangs.length > 0) {
@@ -83,14 +86,21 @@ export default function ValorantDiscoveryPage() {
       }
 
       const { data, error, count } = await query.range(rangeFrom, rangeTo);
-      if (!error && data) {
-        setPlayers(data);
+      if (!active) return;
+      if (error) {
+        setFetchError(error.message);
+        setPlayers([]);
+        setTotalCount(0);
+      } else {
+        setFetchError(null);
+        setPlayers(data ?? []);
         setTotalCount(count ?? 0);
       }
       setIsFetching(false);
     };
 
     fetchPlayers();
+    return () => { active = false; };
   }, [user, isLoading, filterRegion, filterRole, filterRank, filterLangs, onlyOnline, page, pageSize]);
 
   return (
@@ -100,19 +110,17 @@ export default function ValorantDiscoveryPage() {
           {t("title")}
         </h2>
         <div className="flex flex-col lg:flex-row gap-8">
-          <DiscoverySidebar title="Valorant Filters" Icon={Filter} accentColor="red">
+          <DiscoverySidebar title={t("tabs.valorant")} Icon={Filter}>
             <FilterSelect
               label={tFilters("region.label")}
               value={filterRegion}
               onChange={setFilterRegion}
-              accentColor="red"
               options={VALORANT_DISCOVERY_REGIONS}
             />
             <FilterSelect
-              label="Agent Role"
+              label={tFilters("role.label")}
               value={filterRole}
               onChange={setFilterRole}
-              accentColor="red"
               options={[
                 { label: "All Roles", value: "ALL" },
                 { label: "DUELIST", value: "DUELIST" },
@@ -125,9 +133,8 @@ export default function ValorantDiscoveryPage() {
               label={tFilters("rank.label")}
               value={filterRank}
               onChange={setFilterRank}
-              accentColor="red"
               options={VALORANT_DISCOVERY_RANKS.map((r) => ({
-                label: r === "ALL" ? "All Ranks" : r.charAt(0) + r.slice(1).toLowerCase(),
+                label: r === "ALL" ? tFilters("rank.value") : r.charAt(0) + r.slice(1).toLowerCase(),
                 value: r,
               }))}
             />
@@ -138,19 +145,17 @@ export default function ValorantDiscoveryPage() {
                   prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
                 )
               }
-              accentColor="red"
             />
             <OnlineToggle
               onlyOnline={onlyOnline}
               onToggle={() => setOnlyOnline(!onlyOnline)}
-              accentColor="red"
             />
           </DiscoverySidebar>
 
           <div className="flex-1">
-            <DiscoveryGrid isFetching={isFetching} players={players} accentColor="red" emptyMessage="No agents found in this sector">
+            <DiscoveryGrid isFetching={isFetching} players={players} error={fetchError} emptyMessage="No agents found in this sector">
               {players.map((player) => (
-                <DiscoveryPlayerCard key={player.id} player={player} game="VALORANT" accentColor="red" />
+                <DiscoveryPlayerCard key={player.id} player={player} game="VALORANT" />
               ))}
             </DiscoveryGrid>
             <DiscoveryPagination

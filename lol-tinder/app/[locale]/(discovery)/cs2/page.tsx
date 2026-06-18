@@ -20,6 +20,7 @@ export default function CS2DiscoveryPage() {
   const { user, isLoading } = useSupabaseAuth();
   const [players, setPlayers] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterRegion, setFilterRegion] = useState<string>("EU");
   const [filterRank, setFilterRank] = useState<string>("ALL");
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
@@ -37,15 +38,17 @@ export default function CS2DiscoveryPage() {
   }, [filterRegion, filterRank, filterLangs, onlyOnline]);
 
   useEffect(() => {
+    let active = true;
     const fetchPlayers = async () => {
       if (isLoading) return;
       setIsFetching(true);
 
       let query = supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, language, last_seen, enabled_games, game_profiles", { count: "exact" })
+        .select("id, display_name, avatar_url, language, last_seen, visible_games, game_profiles", { count: "exact" })
         .eq("is_paused", false)
-        .ilike("enabled_games", "%CS2%")
+        // visible_games — opt-in «показувати в пошуку».
+        .ilike("visible_games", "%CS2%")
         .filter("game_profiles->cs2->>region", "eq", filterRegion);
 
       if (user) {
@@ -64,7 +67,9 @@ export default function CS2DiscoveryPage() {
       }
 
       if (filterRank !== "ALL") {
-        query = query.filter("game_profiles->cs2->>rank", "ilike", `%${filterRank}%`);
+        // Точний збіг: значення і збережений ранг — однакові рядки з CS2_RANKS,
+        // тож substring-матч (Silver I → Silver II/III) тут неправильний.
+        query = query.filter("game_profiles->cs2->>rank", "eq", filterRank);
       }
 
       if (filterLangs.length > 0) {
@@ -78,14 +83,21 @@ export default function CS2DiscoveryPage() {
       }
 
       const { data, error, count } = await query.range(rangeFrom, rangeTo);
-      if (!error && data) {
-        setPlayers(data);
+      if (!active) return;
+      if (error) {
+        setFetchError(error.message);
+        setPlayers([]);
+        setTotalCount(0);
+      } else {
+        setFetchError(null);
+        setPlayers(data ?? []);
         setTotalCount(count ?? 0);
       }
       setIsFetching(false);
     };
 
     fetchPlayers();
+    return () => { active = false; };
   }, [user, isLoading, filterRegion, filterRank, filterLangs, onlyOnline, page, pageSize]);
 
   return (
@@ -95,21 +107,19 @@ export default function CS2DiscoveryPage() {
           {t("title")}
         </h2>
         <div className="flex flex-col lg:flex-row gap-8">
-          <DiscoverySidebar title="CS2 Filters" Icon={Filter} accentColor="orange">
+          <DiscoverySidebar title={tFilters("title")} Icon={Filter}>
             <FilterSelect
-              label="Region"
+              label={tFilters("region.label")}
               value={filterRegion}
               onChange={setFilterRegion}
-              accentColor="orange"
               options={CS2_REGIONS}
             />
             <FilterSelect
               label={tFilters("rank.label")}
               value={filterRank}
               onChange={setFilterRank}
-              accentColor="orange"
               options={CS2_DISCOVERY_RANKS.map((r) => ({
-                label: r === "ALL" ? "All Ranks" : r,
+                label: r === "ALL" ? tFilters("rank.value") : r,
                 value: r,
               }))}
             />
@@ -120,19 +130,17 @@ export default function CS2DiscoveryPage() {
                   prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
                 )
               }
-              accentColor="orange"
             />
             <OnlineToggle
               onlyOnline={onlyOnline}
               onToggle={() => setOnlyOnline(!onlyOnline)}
-              accentColor="orange"
             />
           </DiscoverySidebar>
 
           <div className="flex-1">
-            <DiscoveryGrid isFetching={isFetching} players={players} accentColor="orange" emptyMessage="No players found in this sector">
+            <DiscoveryGrid isFetching={isFetching} players={players} error={fetchError} emptyMessage="No players found in this sector">
               {players.map((player) => (
-                <DiscoveryPlayerCard key={player.id} player={player} game="CS2" accentColor="orange" />
+                <DiscoveryPlayerCard key={player.id} player={player} game="CS2" />
               ))}
             </DiscoveryGrid>
             <DiscoveryPagination

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, FileText, UserCheck, Ban, AlertTriangle, Scale, RefreshCw, Mail } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 const Section = ({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) => (
   <section className="border-b border-white/5 pb-12 mb-12 last:border-0 last:pb-0 last:mb-0">
@@ -25,6 +25,7 @@ const Rule = ({ children }: { children: React.ReactNode }) => (
 
 export default function TermsPage() {
   const t = useTranslations('TermsPage');
+  const locale = useLocale();
   const lastUpdated = "April 26, 2026";
 
   return (
@@ -33,7 +34,7 @@ export default function TermsPage() {
       <div className="border-b border-white/5 bg-[rgb(var(--bg-secondary)/0.5)] backdrop-blur-lg">
         <div className="max-w-3xl mx-auto px-6 py-8">
           <Link
-            href="/"
+            href={`/${locale}`}
             className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-[rgb(var(--accent-color))] transition-colors mb-8 group"
           >
             <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
@@ -145,10 +146,10 @@ export default function TermsPage() {
             {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>
           <div className="flex gap-6">
-            <Link href="/privacy" className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-[rgb(var(--accent-color))] transition-colors">
+            <Link href={`/${locale}/privacy`} className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-[rgb(var(--accent-color))] transition-colors">
               {t('footer.privacy')}
             </Link>
-            <Link href="/" className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-[rgb(var(--accent-color))] transition-colors">
+            <Link href={`/${locale}`} className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-[rgb(var(--accent-color))] transition-colors">
               {t('footer.backToApp')}
             </Link>
           </div>

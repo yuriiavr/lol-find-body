@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lol-tinder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: lol-tinder/package-lock.json
+
+      # npm install (а не ci), бо в package.json додано vitest, а lock ще не
+      # перегенеровано локально. Після першого `npm install` залийте оновлений
+      # package-lock.json — тоді можна повернутись на `npm ci`.
+      - name: Install dependencies
+        run: npm install
+
+      # Lint поки не блокує (конфіг ESLint може потребувати донастройки).
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build (також виконує перевірку типів і ESLint Next.js)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-key
+          NEXT_PUBLIC_APP_URL: https://example.com

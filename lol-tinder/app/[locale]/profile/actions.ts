@@ -41,13 +41,15 @@ async function createCookieClient() {
 // ─── getRanksByPuuidAction ────────────────────────────────────────────────────
 export async function getRanksByPuuidAction(puuid: string, region: string) {
   const supabase = await createCookieClient()
+  const { data: { user } } = await supabase.auth.getUser()
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id')
     .filter('game_profiles->lol->>puuid', 'eq', puuid)
     .maybeSingle()
 
-  if (profiles?.id) {
+  // Записуємо (оновлюємо кеш) ТІЛЬКИ для власного профілю; чужі — лише читаємо.
+  if (profiles?.id && user && profiles.id === user.id) {
     const result = await refreshRankIfNeeded(supabase, profiles.id, 'lol')
     if (result) return result.data
   }
@@ -58,13 +60,15 @@ export async function getRanksByPuuidAction(puuid: string, region: string) {
 // ─── getRiotTFTStatsAction ────────────────────────────────────────────────────
 export async function getRiotTFTStatsAction(puuid: string, region: string) {
   const supabase = await createCookieClient()
+  const { data: { user } } = await supabase.auth.getUser()
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, game_profiles')
     .filter('game_profiles->tft->>puuid', 'eq', puuid)
     .maybeSingle()
 
-  if (profiles?.id) {
+  // Записуємо (оновлюємо кеш + auto-міграцію) ТІЛЬКИ для власного профілю.
+  if (profiles?.id && user && profiles.id === user.id) {
     const result = await refreshRankIfNeeded(supabase, profiles.id, 'tft')
     if (result) {
       // Auto-міграція: якщо ранг UNRANKED, а у нас є збережений Riot ID —
@@ -114,13 +118,15 @@ export async function getRiotTFTStatsAction(puuid: string, region: string) {
 // ─── getTopChampionsAction ────────────────────────────────────────────────────
 export async function getTopChampionsAction(puuid: string, region: string) {
   const supabase = await createCookieClient()
+  const { data: { user } } = await supabase.auth.getUser()
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id')
     .filter('game_profiles->lol->>puuid', 'eq', puuid)
     .maybeSingle()
 
-  if (profiles?.id) {
+  // Записуємо (оновлюємо кеш) ТІЛЬКИ для власного профілю; чужі — лише читаємо.
+  if (profiles?.id && user && profiles.id === user.id) {
     const result = await refreshRankIfNeeded(supabase, profiles.id, 'lol')
     if (result && result.data?.top_champions?.length > 0) return result.data.top_champions
   }
@@ -259,8 +265,12 @@ export async function updateProfile(
     .maybeSingle()
 
   const activeGame   = formData.get('activeGame') as string
+  const VALID_GAMES = ['LOL', 'TFT', 'VALORANT', 'CS2']
+  if (!activeGame || !VALID_GAMES.includes(activeGame)) {
+    return { error: 'Invalid or missing active game' }
+  }
   const activeKey    = activeGame.toLowerCase() as 'lol' | 'tft' | 'valorant' | 'cs2'
-  
+
   const display_name = (formData.get('display_name') as string)?.trim() || (currentProf as any)?.display_name || ''
 
   let gName = '', tLine = '', gRegion = 'EUW';

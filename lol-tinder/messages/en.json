@@ -305,6 +305,7 @@
     "kicked": "You have been kicked from the room",
     "banned": "You are banned from this room",
     "roomClosed": "This room has been closed",
+    "roomFull": "This room is full",
     "ban": "Ban",
     "kickedSuccess": "was kicked",
     "bannedSuccess": "was banned",

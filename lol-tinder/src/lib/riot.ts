@@ -189,19 +189,27 @@ export const getTopChampions = unstable_cache(
     if (!masteryRes.ok) return [];
 
     const masteries = await masteryRes.json();
+    if (!Array.isArray(masteries) || masteries.length === 0) return [];
 
+    // Data Dragon (версії + дані чемпіонів) можуть впасти/повернути не те —
+    // перевіряємо .ok, інакше рендер чемпіонів зламається на undefined.
     const versionRes = await fetch(
       'https://ddragon.leagueoflegends.com/api/versions.json',
       { next: { revalidate: 86400 } },
     );
+    if (!versionRes.ok) return [];
     const versions = await versionRes.json();
-    const latest = versions[0];
+    const latest = Array.isArray(versions) ? versions[0] : null;
+    if (!latest) return [];
 
     const champDataRes = await fetch(
       `https://ddragon.leagueoflegends.com/cdn/${latest}/data/en_US/champion.json`,
       { next: { revalidate: 86400 } },
     );
-    const { data: champs } = await champDataRes.json();
+    if (!champDataRes.ok) return [];
+    const champJson = await champDataRes.json();
+    const champs = champJson?.data;
+    if (!champs) return [];
 
     return masteries.map((m: any) => {
       const champ = Object.values(champs).find(
@@ -210,7 +218,9 @@ export const getTopChampions = unstable_cache(
       return {
         name:       champ?.name || 'Unknown',
         id:         m.championId,
-        icon:       `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${champ?.image?.full}`,
+        icon:       champ?.image?.full
+          ? `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${champ.image.full}`
+          : null,
         points:     m.championPoints,
         lastPlayed: m.lastPlayTime,
       };

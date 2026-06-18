@@ -20,6 +20,7 @@ export default function TFTDiscoveryPage() {
   const { user, isLoading } = useSupabaseAuth();
   const [players, setPlayers] = useState<any[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterRegion, setFilterRegion] = useState<string>("EUW");
   const [filterRank, setFilterRank] = useState<string>("ALL");
   const [filterLangs, setFilterLangs] = useState<string[]>([]);
@@ -38,15 +39,16 @@ export default function TFTDiscoveryPage() {
   }, [filterRegion, filterRank, filterLangs, filterQueue, onlyOnline]);
 
   useEffect(() => {
+    let active = true;
     const fetchPlayers = async () => {
       if (isLoading) return;
       setIsFetching(true);
 
       let query = supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, language, last_seen, enabled_games, game_profiles", { count: "exact" })
+        .select("id, display_name, avatar_url, language, last_seen, visible_games, game_profiles", { count: "exact" })
         .eq("is_paused", false)
-        .ilike("enabled_games", "%TFT%")
+        .ilike("visible_games", "%TFT%")
         .filter("game_profiles->tft->>region", "eq", filterRegion);
 
       if (user) {
@@ -65,7 +67,14 @@ export default function TFTDiscoveryPage() {
       }
 
       if (filterRank !== "ALL") {
-        query = query.filter("game_profiles->tft->>rank", "ilike", `%${filterRank}%`);
+        if (filterRank === "MASTER") {
+          // «Master+» = Master / Grandmaster / Challenger (apex-тіри без дивізіону).
+          query = query.or(
+            "game_profiles->tft->>rank.ilike.MASTER%,game_profiles->tft->>rank.ilike.GRANDMASTER%,game_profiles->tft->>rank.ilike.CHALLENGER%"
+          );
+        } else {
+          query = query.filter("game_profiles->tft->>rank", "ilike", `${filterRank}%`);
+        }
       }
 
       if (filterQueue !== "ALL") {
@@ -83,14 +92,21 @@ export default function TFTDiscoveryPage() {
       }
 
       const { data, error, count } = await query.range(rangeFrom, rangeTo);
-      if (!error && data) {
-        setPlayers(data);
+      if (!active) return;
+      if (error) {
+        setFetchError(error.message);
+        setPlayers([]);
+        setTotalCount(0);
+      } else {
+        setFetchError(null);
+        setPlayers(data ?? []);
         setTotalCount(count ?? 0);
       }
       setIsFetching(false);
     };
 
     fetchPlayers();
+    return () => { active = false; };
   }, [user, isLoading, filterRegion, filterRank, filterLangs, filterQueue, onlyOnline, page, pageSize]);
 
   return (
@@ -100,23 +116,21 @@ export default function TFTDiscoveryPage() {
           {t("title")}
         </h2>
         <div className="flex flex-col lg:flex-row gap-8">
-          <DiscoverySidebar title={t("tabs.tft")} Icon={Gamepad} accentColor="blue">
+          <DiscoverySidebar title={t("tabs.tft")} Icon={Gamepad}>
             <FilterSelect
               label={tFilters("region.label")}
               value={filterRegion}
               onChange={setFilterRegion}
-              accentColor="blue"
               options={LOL_DISCOVERY_REGIONS}
             />
             <FilterSelect
               label={tFilters("rank.label")}
               value={filterRank}
               onChange={setFilterRank}
-              accentColor="blue"
               options={[
                 { label: tFilters("rank.value"), value: "ALL" },
-                { label: "Diamond", value: "DIAMOND" },
                 { label: "Master+", value: "MASTER" },
+                { label: "Diamond", value: "DIAMOND" },
                 { label: "Platinum", value: "PLATINUM" },
                 { label: "Gold", value: "GOLD" },
               ]}
@@ -125,7 +139,6 @@ export default function TFTDiscoveryPage() {
               label={tFilters("queue.label")}
               value={filterQueue}
               onChange={setFilterQueue}
-              accentColor="blue"
               options={[
                 { label: tFilters("queue.value"), value: "ALL" },
                 ...AVAILABLE_QUEUES.map((q) => ({ label: q.toUpperCase(), value: q })),
@@ -138,19 +151,17 @@ export default function TFTDiscoveryPage() {
                   prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
                 )
               }
-              accentColor="blue"
             />
             <OnlineToggle
               onlyOnline={onlyOnline}
               onToggle={() => setOnlyOnline(!onlyOnline)}
-              accentColor="blue"
             />
           </DiscoverySidebar>
 
           <div className="flex-1">
-            <DiscoveryGrid isFetching={isFetching} players={players} accentColor="blue" emptyMessage="No tacticians found">
+            <DiscoveryGrid isFetching={isFetching} players={players} error={fetchError} emptyMessage="No tacticians found">
               {players.map((player) => (
-                <DiscoveryPlayerCard key={player.id} player={player} game="TFT" accentColor="blue" />
+                <DiscoveryPlayerCard key={player.id} player={player} game="TFT" />
               ))}
             </DiscoveryGrid>
             <DiscoveryPagination
