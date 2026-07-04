@@ -8,12 +8,9 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { GameThemeProvider } from "@/src/context/GameThemeContext";
+import { ThemeInitScript } from "@/src/components/ThemeInitScript";
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
-
-// Виставляє data-game-theme ще ДО першого малювання, щоб не було спалаху теми.
-// GameThemeProvider далі тримає атрибут синхронним зі станом.
-const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('site-game-theme')||'lol';if(t&&t!=='none'){document.documentElement.setAttribute('data-game-theme',t);}}catch(e){}`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -64,11 +61,12 @@ export default async function RootLayout({
     <html
       lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // Init-скрипт міняє data-game-theme на <html> до гідрації — без цього
+      // React лається на розбіжність атрибутів між сервером і клієнтом.
+      suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body className="min-h-full flex flex-col">
+        <ThemeInitScript />
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ToastProvider>
             <GameThemeProvider>
