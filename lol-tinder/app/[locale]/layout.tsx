@@ -11,10 +11,6 @@ import { GameThemeProvider } from "@/src/context/GameThemeContext";
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
-// Виставляє data-game-theme ще ДО першого малювання, щоб не було спалаху теми.
-// GameThemeProvider далі тримає атрибут синхронним зі станом.
-const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('site-game-theme')||'lol';if(t&&t!=='none'){document.documentElement.setAttribute('data-game-theme',t);}}catch(e){}`;
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -65,9 +61,6 @@ export default async function RootLayout({
       lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ToastProvider>
